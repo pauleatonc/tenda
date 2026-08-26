@@ -1,0 +1,8 @@
+# Copy outside the repository, replace both placeholders, and chmod 0600.
+[stream]
+    enabled = yes
+    destination = OPS_WIREGUARD_IP:19999
+    api key = NETDATA_STREAM_API_KEY
+    timeout seconds = 60
+    reconnect delay seconds = 5
+    buffer size bytes = 10485760

@@ -1,0 +1,90 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Protected GitHub environment
+        type: choice
+        options: [dev, production]
+        required: true
+      image_sha:
+        description: Full 40-character Git commit SHA already published to GHCR
+        type: string
+        required: true
+      skip_predeploy_backup:
+        description: Skip encrypted pre-deploy backup (Dev only)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Validate release input
+        env:
+          IMAGE_SHA: ${{ inputs.image_sha }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          SKIP_BACKUP: ${{ inputs.skip_predeploy_backup }}
+        run: |
+          [[ "${IMAGE_SHA}" =~ ^[a-f0-9]{40}$ ]]
+          if [[ "${TARGET_ENVIRONMENT}" == "production" && "${SKIP_BACKUP}" == "true" ]]; then
+            echo "Production deployments cannot skip the pre-deploy backup." >&2
+            exit 64
+          fi
+
+      - name: Configure pinned SSH host
+        env:
+          DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 0700 "${HOME}/.ssh"
+          printf '%s\n' "${DEPLOY_SSH_PRIVATE_KEY}" >"${HOME}/.ssh/id_ed25519"
+          printf '%s\n' "${DEPLOY_KNOWN_HOSTS}" >"${HOME}/.ssh/known_hosts"
+          chmod 0600 "${HOME}/.ssh/id_ed25519" "${HOME}/.ssh/known_hosts"
+
+      - name: Deploy exact release and verify readiness
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          TENDA_READY_URL: ${{ vars.TENDA_READY_URL }}
+          IMAGE_SHA: ${{ inputs.image_sha }}
+          SKIP_BACKUP: ${{ inputs.skip_predeploy_backup }}
+        run: |
+          ssh -i "${HOME}/.ssh/id_ed25519" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            bash -s -- \
+            "${DEPLOY_PATH}" \
+            "${IMAGE_SHA}" \
+            "${TENDA_READY_URL}" \
+            "${SKIP_BACKUP}" \
+            "ghcr.io/${GITHUB_REPOSITORY}" <<'REMOTE'
+          set -Eeuo pipefail
+          deploy_path="$1"
+          image_sha="$2"
+          ready_url="$3"
+          skip_backup="$4"
+          image_prefix="$5"
+
+          cd "${deploy_path}"
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "Deployment checkout has local changes; refusing to overwrite them." >&2
+            exit 65
+          fi
+          git fetch --quiet origin "${image_sha}"
+          git checkout --quiet --detach "${image_sha}"
+
+          export TENDA_BACKEND_IMAGE="${image_prefix}-backend:${image_sha}"
+          export TENDA_WEB_IMAGE="${image_prefix}-web:${image_sha}"
+          export TENDA_BACKUP_IMAGE="${image_prefix}-backup:${image_sha}"
+          export TENDA_READY_URL="${ready_url}"
+          export SKIP_PREDEPLOY_BACKUP="${skip_backup}"
+          exec ./infra/scripts/deploy.sh
+          REMOTE

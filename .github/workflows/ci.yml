@@ -1,0 +1,227 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17.5-bookworm
+        env:
+          POSTGRES_DB: tenda_test
+          POSTGRES_USER: tenda
+          POSTGRES_PASSWORD: tenda_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tenda -d tenda_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7.4.5-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      DJANGO_SETTINGS_MODULE: tenda.settings.local
+      DJANGO_SECRET_KEY: ci-only-not-a-production-secret
+      POSTGRES_DB: tenda_test
+      POSTGRES_USER: tenda
+      POSTGRES_PASSWORD: tenda_ci
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: '5432'
+      REDIS_URL: redis://localhost:6379/0
+      AGENT_FEATURE_STATUS: coming_soon
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan source, configuration, and secrets
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.34.5 --activate
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.11.29'
+          enable-cache: true
+
+      - name: Install locked dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          uv sync --project backend --frozen
+
+      - name: Audit production dependencies
+        run: |
+          pnpm audit --prod --audit-level moderate
+          uv export --project backend --frozen --no-dev --no-emit-project --format requirements-txt --output-file /tmp/backend-requirements.txt
+          uv run --project backend pip-audit --requirement /tmp/backend-requirements.txt
+
+      - name: Generate GraphQL client
+        run: pnpm codegen:check
+
+      - name: Backend quality
+        run: |
+          pnpm lint:backend
+          pnpm backend:check
+          pnpm backend:migrations:check
+          uv run --project backend pytest -c backend/pyproject.toml backend
+
+      - name: Production security check
+        env:
+          DJANGO_SETTINGS_MODULE: tenda.settings.prod
+          DJANGO_SECRET_KEY: ci-deploy-check-only-secret-key-with-more-than-fifty-characters
+          DJANGO_ALLOWED_HOSTS: example.com
+          DJANGO_CSRF_TRUSTED_ORIGINS: https://example.com
+          WEB_ORIGIN: https://app.example.com
+          OUTBOX_ENCRYPTION_KEY: ci-outbox-encryption-key
+          CREDENTIAL_ENCRYPTION_KEY: ci-credential-encryption-key
+          DJANGO_ADMIN_PATH: control-ci-check
+          DJANGO_ADMIN_ALLOWED_NETWORKS: 10.42.0.0/24
+          DJANGO_ADMIN_TRUST_X_FORWARDED_FOR: 'true'
+        run: uv run --project backend python backend/manage.py check --deploy
+
+      - name: Frontend quality
+        run: |
+          pnpm format:check
+          pnpm lint:frontend
+          pnpm typecheck
+          pnpm test:frontend
+          pnpm build
+
+      - name: Validate Compose
+        env:
+          DJANGO_ALLOWED_HOSTS: example.com
+          DJANGO_CSRF_TRUSTED_ORIGINS: https://example.com
+          PUBLIC_API_URL: https://api.example.com
+        run: |
+          pnpm compose:config
+          OPS_WIREGUARD_IP=10.42.0.1 \
+          NETDATA_PARENT_STREAM_CONFIG=/tmp/netdata-parent.conf \
+          docker compose -f infra/compose.ops.yaml config --quiet
+          APP_WIREGUARD_IP=10.42.0.2 \
+          NETDATA_CHILD_STREAM_CONFIG=/tmp/netdata-child.conf \
+          PORTAINER_AGENT_SECRET=compose-validation-only \
+          docker compose -f infra/compose.ops-agents.yaml config --quiet
+
+      - name: Validate operational scripts
+        run: |
+          docker run --rm -v "${PWD}:/mnt:ro" koalaman/shellcheck:v0.11.0 \
+            /mnt/infra/scripts/backup-postgres.sh \
+            /mnt/infra/scripts/restore-postgres.sh \
+            /mnt/infra/scripts/deploy.sh
+
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:17.5-bookworm
+        env:
+          POSTGRES_DB: tenda_test
+          POSTGRES_USER: tenda
+          POSTGRES_PASSWORD: tenda_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U tenda -d tenda_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7.4.5-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      DJANGO_SETTINGS_MODULE: tenda.settings.local
+      DJANGO_SECRET_KEY: ci-only-not-a-production-secret
+      POSTGRES_DB: tenda_test
+      POSTGRES_USER: tenda
+      POSTGRES_PASSWORD: tenda_ci
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: '5432'
+      REDIS_URL: redis://localhost:6379/0
+      AGENT_FEATURE_STATUS: coming_soon
+      WEB_ORIGIN: http://127.0.0.1:5173
+      PUBLIC_ORIGIN: http://127.0.0.1:5173
+      DJANGO_CSRF_TRUSTED_ORIGINS: http://127.0.0.1:5173
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1
+      VITE_API_URL: http://127.0.0.1:8000
+      TURNSTILE_FAKE_MODE: 'true'
+      OBJECT_STORAGE_PROVIDER: fake
+      EMAIL_PROVIDER: fake
+      PAYMENT_PROVIDER: fake
+      OUTBOX_EAGER: 'true'
+      CI: 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.34.5 --activate
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.11.29'
+          enable-cache: true
+
+      - name: Install locked dependencies
+        run: |
+          pnpm install --frozen-lockfile
+          uv sync --project backend --frozen
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @tenda/e2e-web exec playwright install --with-deps chromium
+
+      - name: Run web E2E and axe
+        run: pnpm test:e2e

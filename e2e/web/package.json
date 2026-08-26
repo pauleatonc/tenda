@@ -1,0 +1,16 @@
+{
+  "name": "@tenda/e2e-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.11.1",
+    "@playwright/test": "1.58.2",
+    "@types/node": "24.10.1",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+backend/.venv/
+backend/db.sqlite3
+backend/staticfiles/*
+!backend/staticfiles/.gitkeep
+
+# JavaScript
+node_modules/
+.pnpm-store/
+dist/
+.expo/
+frontend/mobile/.expo/
+*.tsbuildinfo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+
+# Runtime artifacts
+coverage/
+playwright-report/
+test-results/
+*.log
+
+# Generated local infrastructure
+infra/data/
+backups/

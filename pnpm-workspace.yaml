@@ -1,0 +1,11 @@
+packages:
+  - frontend/web
+  - frontend/mobile
+  - packages/api-client
+  - e2e/web
+
+onlyBuiltDependencies:
+  - '@parcel/watcher'
+  - esbuild
+  - sharp
+  - unrs-resolver

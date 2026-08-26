@@ -1,0 +1,57 @@
+name: tenda-ops
+
+services:
+  uptime_kuma:
+    image: louislam/uptime-kuma:2.5.3
+    restart: unless-stopped
+    ports:
+      - ${OPS_WIREGUARD_IP:?OPS_WIREGUARD_IP is required}:3001:3001
+    volumes:
+      - uptime_kuma_data:/app/data
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - ops
+
+  netdata_parent:
+    image: netdata/netdata:v2.11.0
+    restart: unless-stopped
+    hostname: tenda-ops
+    ports:
+      - ${OPS_WIREGUARD_IP:?OPS_WIREGUARD_IP is required}:19999:19999
+    volumes:
+      - netdata_parent_config:/etc/netdata
+      - netdata_parent_lib:/var/lib/netdata
+      - netdata_parent_cache:/var/cache/netdata
+      - ${NETDATA_PARENT_STREAM_CONFIG:?NETDATA_PARENT_STREAM_CONFIG is required}:/etc/netdata/stream.conf:ro
+      - /etc/os-release:/host/etc/os-release:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+    security_opt:
+      - no-new-privileges:true
+    cap_add:
+      - SYS_PTRACE
+    networks:
+      - ops
+
+  portainer:
+    image: portainer/portainer-ce:2.39.6
+    restart: unless-stopped
+    ports:
+      - ${OPS_WIREGUARD_IP:?OPS_WIREGUARD_IP is required}:9443:9443
+    volumes:
+      - portainer_data:/data
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - ops
+
+networks:
+  ops:
+
+volumes:
+  uptime_kuma_data:
+  netdata_parent_config:
+  netdata_parent_lib:
+  netdata_parent_cache:
+  portainer_data:

@@ -1,0 +1,20 @@
+appId: cl.tenda.app
+name: Smoke autenticado del MVP
+---
+- launchApp
+- assertVisible: 'Inicia sesión'
+- tapOn: 'Correo'
+- inputText: 'e2e.owner@tenda.test'
+- tapOn: 'Contraseña'
+- inputText: 'Correct-Horse-Battery-42'
+- tapOn: 'Iniciar sesión'
+- assertVisible: 'Inventario'
+- tapOn: 'Inventario'
+- assertVisible: 'Inventario'
+- tapOn: 'Ventas'
+- assertVisible: 'Ventas'
+- tapOn: 'Despachos'
+- assertVisible: 'Despachos'
+- tapOn: 'Más'
+- assertVisible: 'Asistente con foto'
+- assertVisible: 'Próximamente'

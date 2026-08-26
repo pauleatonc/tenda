@@ -1,0 +1,10 @@
+# Copy to /etc/wireguard/wg-tenda.conf and inject keys outside Git.
+[Interface]
+Address = 10.42.0.2/24
+PrivateKey = APP_PRIVATE_KEY
+
+[Peer]
+PublicKey = OPS_PUBLIC_KEY
+Endpoint = OPS_PUBLIC_IP:51820
+AllowedIPs = 10.42.0.1/32
+PersistentKeepalive = 25

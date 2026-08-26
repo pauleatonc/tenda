@@ -1,0 +1,106 @@
+query Viewer {
+  viewer {
+    id
+    email
+    emailVerified
+    profile {
+      id
+      fullName
+      phone
+      locale
+    }
+  }
+  organisation {
+    id
+    name
+    timezone
+    phone
+    businessEmail
+  }
+  activeInventory {
+    id
+    name
+  }
+  activeMembership {
+    id
+    role
+    permissions {
+      viewFinancials
+      manageMembers
+      manageSensitiveConfiguration
+      manageInventorySchema
+    }
+  }
+}
+
+query OrganisationMembers {
+  members {
+    id
+    email
+    fullName
+    role
+    permissions {
+      viewFinancials
+      manageMembers
+      manageSensitiveConfiguration
+      manageInventorySchema
+    }
+  }
+}
+
+mutation UpdateProfile($input: UpdateProfileInput!) {
+  updateProfile(input: $input) {
+    profile {
+      id
+      fullName
+      phone
+      locale
+    }
+  }
+}
+
+mutation UpdateOrganisation($input: UpdateOrganisationInput!) {
+  updateOrganisation(input: $input) {
+    organisation {
+      id
+      name
+      timezone
+      phone
+      businessEmail
+    }
+  }
+}
+
+mutation AddOrganisationMember($input: AddMemberInput!) {
+  addOrganisationMember(input: $input) {
+    member {
+      id
+      email
+      fullName
+      role
+    }
+  }
+}
+
+mutation UpdateOrganisationMember($input: UpdateMemberInput!) {
+  updateOrganisationMember(input: $input) {
+    member {
+      id
+      email
+      fullName
+      role
+      permissions {
+        viewFinancials
+        manageMembers
+        manageSensitiveConfiguration
+        manageInventorySchema
+      }
+    }
+  }
+}
+
+mutation RemoveOrganisationMember($memberId: ID!) {
+  removeOrganisationMember(memberId: $memberId) {
+    removedMemberId
+  }
+}

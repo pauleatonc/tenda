@@ -1,0 +1,47 @@
+name: tenda-ops-agents
+
+services:
+  netdata_child:
+    image: netdata/netdata:v2.11.0
+    restart: unless-stopped
+    hostname: tenda-app
+    ports:
+      - ${APP_WIREGUARD_IP:?APP_WIREGUARD_IP is required}:19999:19999
+    volumes:
+      - netdata_child_config:/etc/netdata
+      - netdata_child_lib:/var/lib/netdata
+      - netdata_child_cache:/var/cache/netdata
+      - ${NETDATA_CHILD_STREAM_CONFIG:?NETDATA_CHILD_STREAM_CONFIG is required}:/etc/netdata/stream.conf:ro
+      - /etc/os-release:/host/etc/os-release:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    security_opt:
+      - no-new-privileges:true
+    cap_add:
+      - SYS_PTRACE
+    networks:
+      - agents
+
+  portainer_agent:
+    image: portainer/agent:2.39.6
+    restart: unless-stopped
+    environment:
+      AGENT_SECRET: ${PORTAINER_AGENT_SECRET:?PORTAINER_AGENT_SECRET is required}
+    ports:
+      - ${APP_WIREGUARD_IP:?APP_WIREGUARD_IP is required}:9001:9001
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/volumes:/var/lib/docker/volumes
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - agents
+
+networks:
+  agents:
+
+volumes:
+  netdata_child_config:
+  netdata_child_lib:
+  netdata_child_cache:

@@ -1,0 +1,6 @@
+# Copy outside the repository, replace both placeholders, and chmod 0600.
+[NETDATA_STREAM_API_KEY]
+    enabled = yes
+    allow from = APP_WIREGUARD_IP
+    default memory mode = dbengine
+    health enabled by default = auto

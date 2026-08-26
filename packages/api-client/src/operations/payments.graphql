@@ -1,0 +1,38 @@
+query SellerPaymentConnection {
+  sellerPaymentConnection {
+    id
+    provider
+    status
+    providerAccountId
+    scopes
+    tokenExpiresAt
+    connectedAt
+    disconnectedAt
+  }
+  paymentCommissionConfiguration {
+    mode
+    rate
+    minimum
+    zeroFeeEnabled
+  }
+}
+
+mutation StartMercadoPagoConnection {
+  startMercadoPagoConnection {
+    connection {
+      authorizationUrl
+      expiresAt
+    }
+  }
+}
+
+mutation DisconnectMercadoPagoConnection {
+  disconnectMercadoPagoConnection {
+    connection {
+      id
+      provider
+      status
+      disconnectedAt
+    }
+  }
+}

@@ -1,0 +1,1267 @@
+type Query {
+  sellerPaymentConnection: SellerPaymentConnectionType
+  paymentCommissionConfiguration: PaymentCommissionConfigurationType!
+  salesDashboard: SalesDashboardType!
+  orders(
+    first: Int
+    after: String
+    status: String
+    search: String
+    filter: OrderFilterInput
+  ): OrderConnectionType!
+  order(id: ID!): OrderType
+  publicOrder(token: String!): PublicOrderType
+  publicOrderStatus(token: String!): PublicOrderStatusType
+  salesBalance(filter: SalesBalanceFilterInput): SalesBalanceType!
+  salesBalanceBreakdown(
+    filter: SalesBalanceFilterInput
+    first: Int
+    after: String
+  ): SalesBalanceBreakdownConnectionType!
+  reconciliationIssues(
+    status: String
+    first: Int
+    after: String
+  ): ReconciliationIssueConnectionType!
+  shippingDashboard: ShippingDashboardType!
+  shipments(
+    first: Int
+    after: String
+    filter: ShipmentFilterInput
+  ): ShipmentConnectionType!
+  shipment(id: ID!): ShipmentType
+  ticket(id: ID!): TicketType
+  shipmentTimeline(id: ID!): [ShipmentEventType!]!
+  publicShipment(token: String!): PublicShipmentType
+  inventorySchema(includeInactive: Boolean): InventorySchemaType!
+  inventoryDashboard: InventoryDashboardType!
+  products(
+    filter: ProductFilterInput
+    sort: String
+    descending: Boolean
+    first: Int
+    after: String
+  ): ProductConnectionType!
+  product(id: ID!): ProductType
+  productStockBreakdown(productId: ID!, first: Int, after: String): StockBreakdownType!
+  stockMovements(productId: ID!, first: Int, after: String): StockMovementConnectionType!
+  productOrders(productId: ID!, first: Int, after: String): ProductOrderConnectionType!
+  productShipments(
+    productId: ID!
+    first: Int
+    after: String
+  ): ProductShipmentConnectionType!
+  inventoryAlerts(limit: Int): [InventoryAlertType!]!
+  inventoryImport(id: ID!): InventoryImportType
+  inventoryImports: [InventoryImportType!]!
+  inventoryExport(id: ID!): InventoryExportType
+  inventoryExports: [InventoryExportType!]!
+  organisation: OrganisationType
+  activeInventory: InventoryContextType
+  activeMembership: MemberType
+  members: [MemberType!]!
+  viewer: ViewerType
+  health: String!
+}
+
+type SellerPaymentConnectionType {
+  id: ID!
+  provider: String!
+  status: String!
+  providerAccountId: String!
+  scopes: [String!]!
+  tokenExpiresAt: DateTime
+  connectedAt: DateTime
+  disconnectedAt: DateTime
+}
+
+"""
+The `DateTime` scalar type represents a DateTime
+value as specified by
+[iso8601](https://en.wikipedia.org/wiki/ISO_8601).
+"""
+scalar DateTime
+
+type PaymentCommissionConfigurationType {
+  mode: String!
+  rate: String!
+  minimum: Int!
+  zeroFeeEnabled: Boolean!
+}
+
+type SalesDashboardType {
+  totalOrders: Int!
+  activeOrders: Int!
+  awaitingBuyer: Int!
+  awaitingPayment: Int!
+  awaitingValidation: Int!
+  paidOrders: Int!
+  reconciliationRequired: Int!
+  confirmedGross: String!
+}
+
+type OrderConnectionType {
+  nodes: [OrderType!]!
+  pageInfo: PageInfoType!
+  totalCount: Int!
+}
+
+type OrderType {
+  id: ID!
+  number: String!
+  status: String!
+  statusLabel: String!
+  deliveryMode: String!
+  paymentMethod: String!
+  currency: String!
+  total: String!
+  lines: [OrderItemType!]!
+  buyer: BuyerSnapshotType
+  payment: PaymentType
+  timeline: [OrderEventType!]!
+  reservationExpiresAt: DateTime!
+  publicTokenExpiresAt: DateTime!
+  publicUrl: String!
+  publishedAt: DateTime
+  permissions: OrderPermissionsType!
+  allowedActions: [String!]!
+  nextAction: String!
+  reconciliationStatus: String!
+  reconciliationRequired: Boolean!
+  reconciliationIssues: [ReconciliationIssueType!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  paidAt: DateTime
+  refundedAt: DateTime
+}
+
+type OrderItemType {
+  id: ID!
+  lineNumber: Int!
+  productId: ID!
+  productName: String!
+  quantity: Int!
+  unitSalePrice: String!
+  unitCostSnapshot: String
+  lineTotal: String!
+  currency: String!
+}
+
+type BuyerSnapshotType {
+  name: String!
+  email: String!
+  phone: String!
+  recipientName: String!
+  addressLine: String!
+  municipality: String!
+  city: String!
+  deliveryNotes: String!
+  taxId: String!
+  taxName: String!
+  taxActivity: String!
+  taxAddress: String!
+  taxMunicipality: String!
+  taxCity: String!
+  taxEmail: String!
+  completedAt: DateTime
+}
+
+type PaymentType {
+  id: ID!
+  method: String!
+  status: String!
+  amount: String!
+  currency: String!
+  provider: String!
+  providerPreferenceId: String!
+  providerPaymentId: String!
+  providerStatus: String!
+  providerStatusDetail: String!
+  feeRequested: String!
+  feeReported: String
+  netReceived: String
+  refundedAmount: String!
+  paidAt: DateTime
+  refundedAt: DateTime
+  note: String!
+  proof: PaymentProofType
+}
+
+type PaymentProofType {
+  id: ID!
+  status: String!
+  fileName: String!
+  contentType: String!
+  signedUrl: String
+  uploadedAt: DateTime
+  reviewedAt: DateTime
+  rejectionReason: String!
+}
+
+type OrderEventType {
+  id: ID!
+  eventType: String!
+  fromStatus: String!
+  toStatus: String!
+  title: String!
+  detail: String!
+  metadata: JSONString!
+  createdAt: DateTime!
+}
+
+"""
+Allows use of a JSON String for input / output from the GraphQL schema.
+
+Use of this type is *not recommended* as you lose the benefits of having a defined, static
+schema (one of the key benefits of GraphQL).
+"""
+scalar JSONString
+
+type OrderPermissionsType {
+  canViewCosts: Boolean!
+  allowedActions: [String!]!
+}
+
+type ReconciliationIssueType {
+  id: ID!
+  kind: String!
+  status: String!
+  summary: String!
+  details: JSONString!
+  retryCount: Int!
+  lastAttemptAt: DateTime
+  createdAt: DateTime!
+  resolvedAt: DateTime
+  orderId: ID
+  orderNumber: String
+  providerReference: String
+  canRetry: Boolean!
+}
+
+type PageInfoType {
+  hasNextPage: Boolean!
+  endCursor: String!
+}
+
+input OrderFilterInput {
+  search: String
+  status: String
+  statuses: [String!]
+  paymentMethod: String
+  paymentMethods: [String!]
+  productId: ID
+  dateFrom: Date
+  dateTo: Date
+}
+
+"""
+The `Date` scalar type represents a Date
+value as specified by
+[iso8601](https://en.wikipedia.org/wiki/ISO_8601).
+"""
+scalar Date
+
+type PublicOrderType {
+  number: String!
+  status: String!
+  statusLabel: String!
+  deliveryMode: String!
+  paymentMethod: String!
+  currency: String!
+  total: String!
+  lines: [PublicOrderItemType!]!
+  buyer: BuyerSnapshotType
+  payment: PublicPaymentType
+  seller: PublicSellerType!
+  reservationExpiresAt: DateTime!
+  tokenExpiresAt: DateTime!
+  createdAt: DateTime!
+  isExpired: Boolean!
+  allowedActions: [String!]!
+  reconciliationStatus: String!
+  paymentStatus: String
+  feeAmount: String
+  availablePaymentMethods: [String!]!
+  bankTransferInstructions: String!
+  rejectionReason: String
+}
+
+type PublicOrderItemType {
+  id: ID!
+  lineNumber: Int!
+  productName: String!
+  quantity: Int!
+  unitSalePrice: String!
+  lineTotal: String!
+  currency: String!
+}
+
+type PublicPaymentType {
+  method: String!
+  status: String!
+  amount: String!
+  currency: String!
+  proofStatus: String
+}
+
+type PublicSellerType {
+  name: String!
+  phone: String!
+  businessEmail: String!
+}
+
+type PublicOrderStatusType {
+  number: String!
+  status: String!
+  statusLabel: String!
+  paymentStatus: String
+  reservationExpiresAt: DateTime!
+  isExpired: Boolean!
+  reconciliationStatus: String!
+  updatedAt: DateTime!
+  rejectionReason: String
+}
+
+type SalesBalanceType {
+  confirmedGross: String!
+  refunds: String!
+  netSales: String!
+  knownCogs: String!
+  grossMargin: String!
+  pendingAmount: String!
+  validationAmount: String!
+  operations: Int!
+  recognizedLines: Int!
+  knownCostLines: Int!
+  costCoverage: String!
+  costIncomplete: Boolean!
+  currency: String!
+  timezone: String!
+}
+
+input SalesBalanceFilterInput {
+  dateFrom: Date
+  dateTo: Date
+  productId: ID
+  paymentMethod: String
+  paymentMethods: [String!]
+  status: String
+  statuses: [String!]
+}
+
+type SalesBalanceBreakdownConnectionType {
+  nodes: [SalesBalanceBreakdownNodeType!]!
+  pageInfo: PageInfoType!
+  totalCount: Int!
+}
+
+type SalesBalanceBreakdownNodeType {
+  period: Date!
+  productId: ID!
+  productName: String!
+  paymentMethod: String!
+  status: String!
+  quantity: Int!
+  confirmedGross: String!
+  refunds: String!
+  netSales: String!
+  knownCogs: String!
+  grossMargin: String!
+  recognizedLines: Int!
+  knownCostLines: Int!
+  costIncomplete: Boolean!
+}
+
+type ReconciliationIssueConnectionType {
+  nodes: [ReconciliationIssueType!]!
+  pageInfo: PageInfoType!
+  totalCount: Int!
+}
+
+type ShippingDashboardType {
+  total: Int!
+  pending: Int!
+  preparing: Int!
+  dispatched: Int!
+  deliveryCheck: Int!
+  issue: Int!
+  attention: Int!
+}
+
+type ShipmentConnectionType {
+  nodes: [ShipmentType!]!
+  pageInfo: PageInfoType!
+  totalCount: Int!
+}
+
+type ShipmentType {
+  id: ID!
+  number: String!
+  status: String!
+  statusLabel: String!
+  deliveryMode: String!
+  recipientName: String!
+  addressLine: String!
+  municipality: String!
+  city: String!
+  deliveryNotes: String!
+  carrier: String!
+  trackingCode: String!
+  trackingUrl: String!
+  nextAction: String!
+  allowedActions: [String!]!
+  dispatchedAt: DateTime
+  deliveredAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  order: ShipmentOrderType!
+  timeline: [ShipmentEventType!]!
+  latestLabel: LabelDocumentType
+  publicUrl: String!
+  confirmation: DeliveryConfirmationType
+  activeTicket: TicketType
+  tickets: [TicketType!]!
+  followUps: [FollowUpType!]!
+  nextFollowUp: FollowUpType
+  returnCases: [ReturnCaseType!]!
+}
+
+type ShipmentOrderType {
+  id: ID!
+  number: String!
+  status: String!
+}
+
+type ShipmentEventType {
+  id: ID!
+  eventType: String!
+  fromStatus: String!
+  toStatus: String!
+  title: String!
+  detail: String!
+  isPublic: Boolean!
+  actorName: String!
+  createdAt: DateTime!
+}
+
+type LabelDocumentType {
+  id: ID!
+  downloadUrl: String
+  expiresAt: DateTime!
+  createdAt: DateTime!
+  fileName: String!
+}
+
+type DeliveryConfirmationType {
+  outcome: String!
+  comment: String!
+  createdAt: DateTime!
+}
+
+type TicketType {
+  id: ID!
+  number: String!
+  status: String!
+  statusLabel: String!
+  category: String!
+  categoryLabel: String!
+  contactName: String!
+  contactEmail: String!
+  contactPhone: String!
+  resolvedAt: DateTime
+  closedAt: DateTime
+  createdAt: DateTime!
+  messages: [TicketMessageType!]!
+  shipment: TicketShipmentRefType!
+}
+
+type TicketMessageType {
+  id: ID!
+  authorKind: String!
+  body: String!
+  createdAt: DateTime!
+}
+
+type TicketShipmentRefType {
+  id: ID!
+  number: String!
+  orderNumber: String!
+}
+
+type FollowUpType {
+  id: ID!
+  kind: String!
+  kindLabel: String!
+  status: String!
+  statusLabel: String!
+  dueAt: DateTime!
+  sentAt: DateTime
+  parameterKey: String!
+  parameterSource: String!
+  parameterSourceLabel: String!
+  parameterLabel: String!
+}
+
+type ReturnCaseType {
+  id: ID!
+  kind: String!
+  kindLabel: String!
+  notes: String!
+  stockConfirmedAt: DateTime
+  createdAt: DateTime!
+}
+
+input ShipmentFilterInput {
+  search: String
+  statuses: [String!]
+  attention: Boolean
+  deliveryMode: String
+}
+
+type PublicShipmentType {
+  number: String!
+  publicStatus: String!
+  publicStatusLabel: String!
+  orderNumber: String!
+  seller: PublicShipmentSellerType!
+  lines: [PublicShipmentLineType!]!
+  carrier: String!
+  trackingCode: String!
+  trackingUrl: String!
+  dispatchedAt: DateTime
+  timeline: [PublicShipmentEventType!]!
+  confirmation: DeliveryConfirmationType
+  ticket: TicketType
+  buyerContact: PublicBuyerContactType!
+  allowedActions: [String!]!
+  canConfirm: Boolean!
+  tokenExpiresAt: DateTime!
+}
+
+type PublicShipmentSellerType {
+  name: String!
+  phone: String!
+  businessEmail: String!
+}
+
+type PublicShipmentLineType {
+  productName: String!
+  quantity: Int!
+}
+
+type PublicShipmentEventType {
+  title: String!
+  detail: String!
+  createdAt: DateTime!
+}
+
+type PublicBuyerContactType {
+  name: String!
+  email: String!
+  phone: String!
+}
+
+type InventorySchemaType {
+  inventoryId: ID!
+  name: String!
+  lowStockThreshold: Int!
+  maxActiveFields: Int!
+  fields: [CustomFieldType!]!
+}
+
+type CustomFieldType {
+  id: ID!
+  key: String!
+  label: String!
+  fieldType: String!
+  options: [CustomFieldOptionType!]!
+  helpText: String!
+  isRequired: Boolean!
+  isVisible: Boolean!
+  isFilterable: Boolean!
+  isActive: Boolean!
+  position: Int!
+}
+
+type CustomFieldOptionType {
+  key: String!
+  label: String!
+}
+
+type InventoryDashboardType {
+  productCount: Int!
+  archivedCount: Int!
+  onHand: Int!
+  reserved: Int!
+  available: Int!
+  outOfStockCount: Int!
+  lowStockCount: Int!
+  alerts: [InventoryAlertType!]!
+  recentMovements: [StockMovementType!]!
+}
+
+type InventoryAlertType {
+  id: ID!
+  productId: ID!
+  productName: String!
+  alertType: String!
+  status: String!
+  threshold: Int!
+  availableQuantity: Int!
+  openedAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type StockMovementType {
+  id: ID!
+  productId: ID!
+  productName: String!
+  movementType: String!
+  quantity: Int!
+  balanceAfter: Int!
+  reason: String!
+  note: String!
+  actorName: String!
+  referenceType: String!
+  referenceId: String!
+  createdAt: DateTime!
+}
+
+type ProductConnectionType {
+  nodes: [ProductType!]!
+  pageInfo: PageInfoType!
+  totalCount: Int!
+}
+
+type ProductType {
+  id: ID!
+  name: String!
+  catalogStatus: String!
+  purchasePrice: String
+  salePrice: String
+  currency: String!
+  extraAttributes: JSONString!
+  stock: ProductStockType!
+  lowStockThreshold: Int
+  effectiveLowStockThreshold: Int!
+  media: [ProductMediaType!]!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  archivedAt: DateTime
+}
+
+type ProductStockType {
+  onHand: Int!
+  reserved: Int!
+  available: Int!
+  activeFulfilment: Int!
+}
+
+type ProductMediaType {
+  assetId: ID!
+  url: String!
+  contentType: String!
+  originalName: String!
+  isPrimary: Boolean!
+  position: Int!
+  createdAt: DateTime!
+}
+
+input ProductFilterInput {
+  search: String
+  catalogStatuses: [String!]
+  stockStates: [String!]
+  attributes: [ProductAttributeFilterInput!]
+  includeArchived: Boolean
+}
+
+input ProductAttributeFilterInput {
+  key: String!
+  value: String!
+}
+
+type StockBreakdownType {
+  productId: ID!
+  available: Int!
+  lines: [StockBreakdownLineType!]!
+  pageInfo: PageInfoType!
+  totalCount: Int!
+}
+
+"""
+One line of the expanded row. Available units are always aggregated.
+"""
+type StockBreakdownLineType {
+  kind: String!
+  label: String!
+  quantity: Int!
+  effectivePrice: String
+  buyerName: String
+  status: String
+  referenceId: ID
+}
+
+type StockMovementConnectionType {
+  nodes: [StockMovementType!]!
+  pageInfo: PageInfoType!
+  totalCount: Int!
+}
+
+type ProductOrderConnectionType {
+  nodes: [ProductOrderType!]!
+  pageInfo: PageInfoType!
+  totalCount: Int!
+  availableFromStage: String!
+}
+
+type ProductOrderType {
+  id: ID!
+  status: String!
+  quantity: Int!
+  unitSalePrice: String
+  buyerName: String
+  createdAt: DateTime!
+}
+
+type ProductShipmentConnectionType {
+  nodes: [ProductShipmentType!]!
+  pageInfo: PageInfoType!
+  totalCount: Int!
+  availableFromStage: String!
+}
+
+"""
+Populated in T3.
+"""
+type ProductShipmentType {
+  id: ID!
+  status: String!
+  quantity: Int!
+  createdAt: DateTime!
+}
+
+type InventoryImportType {
+  id: ID!
+  status: String!
+  progress: Int!
+  sourceFileName: String!
+  headers: JSONString!
+  previewRows: JSONString!
+  mapping: JSONString!
+  rowErrors: JSONString!
+  totalRows: Int!
+  processedRows: Int!
+  createdCount: Int!
+  errorCount: Int!
+  errorCode: String!
+  reportUrl: String
+  createdAt: DateTime!
+  completedAt: DateTime
+}
+
+type InventoryExportType {
+  id: ID!
+  status: String!
+  fileFormat: String!
+  progress: Int!
+  rowCount: Int!
+  errorCode: String!
+  downloadUrl: String
+  expiresAt: DateTime
+  createdAt: DateTime!
+  completedAt: DateTime
+}
+
+type OrganisationType {
+  id: ID!
+  name: String!
+  timezone: String!
+  phone: String!
+  businessEmail: String!
+}
+
+type InventoryContextType {
+  id: ID!
+  name: String!
+}
+
+type MemberType {
+  id: ID!
+  email: String!
+  fullName: String!
+  role: String!
+  permissions: MembershipPermissionsType!
+}
+
+type MembershipPermissionsType {
+  viewFinancials: Boolean!
+  manageMembers: Boolean!
+  manageSensitiveConfiguration: Boolean!
+  manageInventorySchema: Boolean!
+}
+
+type ViewerType {
+  id: ID!
+  email: String!
+  emailVerified: Boolean!
+  profile: ProfileType!
+}
+
+type ProfileType {
+  id: ID!
+  fullName: String!
+  phone: String!
+  locale: String!
+}
+
+type Mutation {
+  startMercadoPagoConnection: StartMercadoPagoConnection!
+  disconnectMercadoPagoConnection: DisconnectMercadoPagoConnection!
+  createOrder(idempotencyKey: String!, input: CreateOrderInput!): CreateOrder!
+  publishOrderLink(idempotencyKey: String!, orderId: ID!): PublishOrderLink!
+  setBuyerDetails(input: BuyerDetailsInput!, token: String!): SetBuyerDetails!
+  initiateMercadoPagoCheckout(
+    idempotencyKey: String!
+    token: String!
+  ): InitiateMercadoPagoCheckout!
+  reviewPaymentProof(
+    approved: Boolean!
+    idempotencyKey: String!
+    orderId: ID!
+    rejectionReason: String
+  ): ReviewPaymentProof!
+  confirmManualPayment(
+    amount: String!
+    idempotencyKey: String!
+    note: String
+    orderId: ID!
+    paidAt: DateTime!
+  ): ConfirmManualPayment!
+  cancelOrder(idempotencyKey: String!, orderId: ID!, reason: String!): CancelOrder!
+  refundPayment(idempotencyKey: String!, orderId: ID!, reason: String!): RefundPayment!
+  resendOrderLink(idempotencyKey: String!, orderId: ID!): ResendOrderLink!
+  retryReconciliation(idempotencyKey: String!, issueId: ID!): RetryReconciliation!
+  updateShipment(
+    idempotencyKey: String!
+    input: UpdateShipmentInput!
+    shipmentId: ID!
+  ): UpdateShipment!
+  markShipmentDispatched(
+    comment: String
+    idempotencyKey: String!
+    shipmentId: ID!
+  ): MarkShipmentDispatched!
+  generateShipmentLabel(idempotencyKey: String!, shipmentId: ID!): GenerateShipmentLabel!
+  openPublicTicket(
+    idempotencyKey: String!
+    input: OpenPublicTicketInput!
+    token: String!
+  ): OpenPublicTicket!
+  sendTicketMessage(
+    body: String!
+    idempotencyKey: String!
+    ticketId: ID!
+    token: String
+    turnstileToken: String
+  ): SendTicketMessage!
+  resolveTicket(comment: String, idempotencyKey: String!, ticketId: ID!): ResolveTicket!
+  rescheduleFollowUp(
+    dueAt: DateTime!
+    followUpId: ID!
+    idempotencyKey: String!
+    reason: String!
+  ): RescheduleFollowUp!
+  registerReturnCase(
+    idempotencyKey: String!
+    kind: String!
+    notes: String
+    shipmentId: ID!
+  ): RegisterReturnCase!
+  confirmReturnToStock(idempotencyKey: String!, returnCaseId: ID!): ConfirmReturnToStock!
+  createCustomField(input: CreateCustomFieldInput!): CreateCustomField!
+  updateCustomField(input: UpdateCustomFieldInput!): UpdateCustomField!
+  reorderCustomFields(fieldIds: [ID!]!): ReorderCustomFields!
+  createProduct(input: CreateProductInput!): CreateProduct!
+  updateProduct(input: UpdateProductInput!): UpdateProduct!
+  recordStockMovement(input: RecordStockMovementInput!): RecordStockMovement!
+  archiveProduct(productId: ID!): ArchiveProduct!
+  restoreProduct(productId: ID!): RestoreProduct!
+  attachProductMedia(
+    assetId: ID!
+    makePrimary: Boolean
+    productId: ID!
+  ): AttachProductMedia!
+  setPrimaryProductMedia(assetId: ID!, productId: ID!): SetPrimaryProductMedia!
+  removeProductMedia(assetId: ID!, productId: ID!): RemoveProductMedia!
+  startInventoryImport(assetId: ID!): StartInventoryImport!
+  previewInventoryImport(importId: ID!, mapping: JSONString!): PreviewInventoryImport!
+  confirmInventoryImport(idempotencyKey: String!, importId: ID!): ConfirmInventoryImport!
+  retryInventoryImport(importId: ID!): RetryInventoryImport!
+  startInventoryExport(
+    fileFormat: String!
+    filter: ProductFilterInput
+    idempotencyKey: String!
+  ): StartInventoryExport!
+  retryInventoryExport(exportId: ID!): RetryInventoryExport!
+  updateInventoryLowStockThreshold(threshold: Int!): UpdateInventoryLowStockThreshold!
+  updateProductLowStockThreshold(
+    clear: Boolean
+    productId: ID!
+    threshold: Int
+  ): UpdateProductLowStockThreshold!
+  updateOrganisation(input: UpdateOrganisationInput!): UpdateOrganisation!
+  addOrganisationMember(input: AddMemberInput!): AddOrganisationMember!
+  updateOrganisationMember(input: UpdateMemberInput!): UpdateOrganisationMember!
+  removeOrganisationMember(memberId: ID!): RemoveOrganisationMember!
+  updateProfile(input: UpdateProfileInput!): UpdateProfile!
+}
+
+type StartMercadoPagoConnection {
+  connection: PaymentConnectionStartType!
+}
+
+type PaymentConnectionStartType {
+  authorizationUrl: String!
+  expiresAt: DateTime!
+}
+
+type DisconnectMercadoPagoConnection {
+  connection: SellerPaymentConnectionType!
+}
+
+type CreateOrder {
+  order: OrderType!
+  replayed: Boolean!
+}
+
+input CreateOrderInput {
+  lines: [CreateOrderLineInput!]!
+  deliveryMode: String!
+  paymentMethod: String!
+}
+
+input CreateOrderLineInput {
+  productId: ID!
+  quantity: Int!
+  unitSalePrice: String!
+}
+
+type PublishOrderLink {
+  order: OrderType!
+  publicUrl: String!
+  replayed: Boolean!
+}
+
+type SetBuyerDetails {
+  order: PublicOrderType!
+}
+
+input BuyerDetailsInput {
+  name: String!
+  email: String
+  phone: String
+  recipientName: String
+  addressLine: String
+  municipality: String
+  city: String
+  deliveryNotes: String
+  taxId: String
+  taxName: String
+  taxActivity: String
+  taxAddress: String
+  taxMunicipality: String
+  taxCity: String
+  taxEmail: String
+  turnstileToken: String
+}
+
+type InitiateMercadoPagoCheckout {
+  order: PublicOrderType!
+  checkoutUrl: String!
+  replayed: Boolean!
+}
+
+type ReviewPaymentProof {
+  order: OrderType!
+  replayed: Boolean!
+}
+
+type ConfirmManualPayment {
+  order: OrderType!
+  replayed: Boolean!
+}
+
+type CancelOrder {
+  order: OrderType!
+  replayed: Boolean!
+}
+
+type RefundPayment {
+  order: OrderType!
+  replayed: Boolean!
+}
+
+type ResendOrderLink {
+  order: OrderType!
+  replayed: Boolean!
+}
+
+type RetryReconciliation {
+  issue: ReconciliationIssueType!
+  replayed: Boolean!
+}
+
+type UpdateShipment {
+  shipment: ShipmentType!
+  replayed: Boolean!
+}
+
+input UpdateShipmentInput {
+  carrier: String
+  trackingCode: String
+  trackingUrl: String
+  comment: String
+  internalNote: Boolean
+}
+
+type MarkShipmentDispatched {
+  shipment: ShipmentType!
+  replayed: Boolean!
+}
+
+type GenerateShipmentLabel {
+  label: LabelDocumentType!
+  shipment: ShipmentType!
+  replayed: Boolean!
+}
+
+type OpenPublicTicket {
+  ticket: TicketType!
+  replayed: Boolean!
+}
+
+input OpenPublicTicketInput {
+  category: String!
+  message: String!
+  contactName: String
+  contactEmail: String
+  contactPhone: String
+  turnstileToken: String
+}
+
+type SendTicketMessage {
+  ticket: TicketType!
+  replayed: Boolean!
+}
+
+type ResolveTicket {
+  ticket: TicketType!
+  replayed: Boolean!
+}
+
+type RescheduleFollowUp {
+  followUp: FollowUpType!
+  shipment: ShipmentType!
+  replayed: Boolean!
+}
+
+type RegisterReturnCase {
+  returnCase: ReturnCaseType!
+  shipment: ShipmentType!
+  replayed: Boolean!
+}
+
+type ConfirmReturnToStock {
+  returnCase: ReturnCaseType!
+  shipment: ShipmentType!
+  replayed: Boolean!
+}
+
+type CreateCustomField {
+  field: CustomFieldType!
+}
+
+input CreateCustomFieldInput {
+  label: String!
+  fieldType: String!
+  key: String
+  options: [CustomFieldOptionInput!]
+  helpText: String
+  isRequired: Boolean
+  isVisible: Boolean
+  isFilterable: Boolean
+  defaultValue: String
+}
+
+input CustomFieldOptionInput {
+  key: String
+  label: String!
+}
+
+type UpdateCustomField {
+  field: CustomFieldType!
+}
+
+input UpdateCustomFieldInput {
+  fieldId: ID!
+  label: String
+  options: [CustomFieldOptionInput!]
+  helpText: String
+  isRequired: Boolean
+  isVisible: Boolean
+  isFilterable: Boolean
+  isActive: Boolean
+  defaultValue: String
+}
+
+type ReorderCustomFields {
+  fields: [CustomFieldType!]!
+}
+
+type CreateProduct {
+  product: ProductType!
+  movement: StockMovementType
+  replayed: Boolean!
+}
+
+input CreateProductInput {
+  name: String!
+  catalogStatus: String
+  purchasePrice: String
+  salePrice: String
+  extraAttributes: JSONString
+  initialQuantity: Int
+  reason: String
+  note: String
+  idempotencyKey: String!
+}
+
+type UpdateProduct {
+  product: ProductType!
+}
+
+input UpdateProductInput {
+  productId: ID!
+  name: String
+  catalogStatus: String
+  purchasePrice: String
+  salePrice: String
+  clearPurchasePrice: Boolean
+  clearSalePrice: Boolean
+  extraAttributes: JSONString
+}
+
+type RecordStockMovement {
+  movement: StockMovementType!
+  product: ProductType!
+  replayed: Boolean!
+}
+
+input RecordStockMovementInput {
+  productId: ID!
+  movementType: String!
+  quantity: Int!
+  reason: String
+  note: String
+  correctsId: ID
+  idempotencyKey: String!
+}
+
+type ArchiveProduct {
+  product: ProductType!
+}
+
+type RestoreProduct {
+  product: ProductType!
+}
+
+type AttachProductMedia {
+  media: ProductMediaType!
+}
+
+type SetPrimaryProductMedia {
+  media: ProductMediaType!
+}
+
+type RemoveProductMedia {
+  product: ProductType!
+}
+
+type StartInventoryImport {
+  importJob: InventoryImportType!
+}
+
+type PreviewInventoryImport {
+  importJob: InventoryImportType!
+}
+
+type ConfirmInventoryImport {
+  importJob: InventoryImportType!
+  replayed: Boolean!
+}
+
+type RetryInventoryImport {
+  importJob: InventoryImportType!
+}
+
+type StartInventoryExport {
+  exportJob: InventoryExportType!
+  replayed: Boolean!
+}
+
+type RetryInventoryExport {
+  exportJob: InventoryExportType!
+}
+
+type UpdateInventoryLowStockThreshold {
+  threshold: Int!
+}
+
+type UpdateProductLowStockThreshold {
+  product: ProductType!
+}
+
+type UpdateOrganisation {
+  organisation: OrganisationType!
+}
+
+input UpdateOrganisationInput {
+  name: String!
+  phone: String!
+  businessEmail: String!
+  timezone: String!
+}
+
+type AddOrganisationMember {
+  member: MemberType!
+}
+
+input AddMemberInput {
+  email: String!
+  role: String = "operator"
+}
+
+type UpdateOrganisationMember {
+  member: MemberType!
+}
+
+input UpdateMemberInput {
+  memberId: ID!
+  role: String!
+  viewFinancials: Boolean!
+  manageMembers: Boolean!
+  manageSensitiveConfiguration: Boolean!
+}
+
+type RemoveOrganisationMember {
+  removedMemberId: ID!
+}
+
+type UpdateProfile {
+  profile: ProfileType!
+}
+
+input UpdateProfileInput {
+  fullName: String!
+  phone: String!
+}

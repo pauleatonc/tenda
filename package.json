@@ -1,0 +1,46 @@
+{
+  "name": "tenda",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Monorepo del MVP de Tenda",
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=20.19.4"
+  },
+  "scripts": {
+    "dev:web": "pnpm --filter @tenda/web dev",
+    "dev:mobile": "pnpm --filter @tenda/mobile start",
+    "dev:backend": "uv run --project backend python backend/manage.py runserver",
+    "format": "prettier --write . && uv run --project backend ruff format backend",
+    "format:check": "prettier --check . && uv run --project backend ruff format --check backend",
+    "lint": "pnpm run lint:frontend && pnpm run lint:backend",
+    "lint:frontend": "pnpm -r --if-present lint",
+    "lint:backend": "uv run --project backend ruff check backend",
+    "typecheck": "pnpm -r --if-present typecheck && uv --directory backend run mypy .",
+    "test": "pnpm run test:frontend && uv run --project backend pytest -c backend/pyproject.toml backend",
+    "test:frontend": "pnpm --filter @tenda/web --filter @tenda/mobile test",
+    "test:e2e": "pnpm --filter @tenda/e2e-web test",
+    "build": "pnpm -r --if-present build",
+    "schema:export": "uv run --project backend python backend/manage.py export_graphql_schema --output packages/api-client/schema.graphql && prettier --write packages/api-client/schema.graphql",
+    "codegen": "pnpm schema:export && pnpm --filter @tenda/api-client codegen",
+    "codegen:check": "pnpm codegen && git diff --exit-code -- packages/api-client/schema.graphql packages/api-client/src/generated",
+    "backend:check": "uv run --project backend python backend/manage.py check",
+    "backend:migrations:check": "uv run --project backend python backend/manage.py makemigrations --check --dry-run",
+    "compose:config": "docker compose -f infra/compose.yaml config --quiet && docker compose -f infra/compose.yaml -f infra/compose.dev.yaml config --quiet && docker compose -f infra/compose.yaml -f infra/compose.e2e.yaml config --quiet && DJANGO_SECRET_KEY=compose-validation-only POSTGRES_PASSWORD=compose-validation-only DJANGO_ALLOWED_HOSTS=example.com DJANGO_CSRF_TRUSTED_ORIGINS=https://example.com WEB_ORIGIN=https://app.example.com OUTBOX_ENCRYPTION_KEY=compose-outbox-key CREDENTIAL_ENCRYPTION_KEY=compose-credential-key DJANGO_ADMIN_PATH=control-compose-check DJANGO_ADMIN_ALLOWED_NETWORKS=10.42.0.0/24 PUBLIC_API_URL=https://api.example.com docker compose -f infra/compose.yaml -f infra/compose.prod.yaml config --quiet"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.9.1",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "eslint-plugin-react-refresh": "0.5.4",
+    "globals": "17.11.0",
+    "prettier": "3.9.6",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.68.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "xcode@*>uuid": "11.1.1"
+    }
+  }
+}

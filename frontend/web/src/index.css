@@ -1,0 +1,64 @@
+:root {
+  --paper: #f7f5ef;
+  --surface: #fff;
+  --ink: #17201d;
+  --ink-soft: #5e6763;
+  --ink-muted: #5e6763;
+  --green: #175c4d;
+  --green-pale: #e2efe9;
+  --clay: #edc8b7;
+  --clay-strong: #8a3f2c;
+  --gold-pale: #f4e5b7;
+  --line: #dedbd1;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  --font-display: 'Manrope', system-ui, sans-serif;
+
+  color: var(--ink);
+  background: var(--paper);
+  font-family: var(--font-body);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid #267e6b;
+  outline-offset: 3px;
+}
+
+::selection {
+  background: var(--clay);
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

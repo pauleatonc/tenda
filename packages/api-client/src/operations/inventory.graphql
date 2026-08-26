@@ -1,0 +1,450 @@
+fragment ProductRow on ProductType {
+  id
+  name
+  catalogStatus
+  purchasePrice
+  salePrice
+  currency
+  extraAttributes
+  lowStockThreshold
+  effectiveLowStockThreshold
+  archivedAt
+  stock {
+    onHand
+    reserved
+    available
+    activeFulfilment
+  }
+}
+
+fragment StockMovementRow on StockMovementType {
+  id
+  productId
+  productName
+  movementType
+  quantity
+  balanceAfter
+  reason
+  note
+  actorName
+  createdAt
+}
+
+fragment CustomFieldDefinition on CustomFieldType {
+  id
+  key
+  label
+  fieldType
+  helpText
+  isRequired
+  isVisible
+  isFilterable
+  isActive
+  position
+  options {
+    key
+    label
+  }
+}
+
+fragment ProductMedia on ProductMediaType {
+  assetId
+  url
+  contentType
+  originalName
+  isPrimary
+  position
+  createdAt
+}
+
+fragment InventoryAlert on InventoryAlertType {
+  id
+  productId
+  productName
+  alertType
+  status
+  threshold
+  availableQuantity
+  openedAt
+  updatedAt
+}
+
+fragment InventoryImportJob on InventoryImportType {
+  id
+  status
+  progress
+  sourceFileName
+  headers
+  previewRows
+  mapping
+  rowErrors
+  totalRows
+  processedRows
+  createdCount
+  errorCount
+  errorCode
+  reportUrl
+  createdAt
+  completedAt
+}
+
+fragment InventoryExportJob on InventoryExportType {
+  id
+  status
+  fileFormat
+  progress
+  rowCount
+  errorCode
+  downloadUrl
+  expiresAt
+  createdAt
+  completedAt
+}
+
+query InventorySchema($includeInactive: Boolean) {
+  inventorySchema(includeInactive: $includeInactive) {
+    inventoryId
+    name
+    lowStockThreshold
+    maxActiveFields
+    fields {
+      ...CustomFieldDefinition
+    }
+  }
+}
+
+query InventoryDashboard {
+  inventoryDashboard {
+    productCount
+    archivedCount
+    onHand
+    reserved
+    available
+    outOfStockCount
+    lowStockCount
+    alerts {
+      ...InventoryAlert
+    }
+    recentMovements {
+      ...StockMovementRow
+    }
+  }
+}
+
+query Products(
+  $filter: ProductFilterInput
+  $sort: String
+  $descending: Boolean
+  $first: Int
+  $after: String
+) {
+  products(
+    filter: $filter
+    sort: $sort
+    descending: $descending
+    first: $first
+    after: $after
+  ) {
+    totalCount
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      ...ProductRow
+    }
+  }
+}
+
+query ProductDetail($id: ID!) {
+  product(id: $id) {
+    ...ProductRow
+    createdAt
+    updatedAt
+    media {
+      ...ProductMedia
+    }
+  }
+  productStockBreakdown(productId: $id) {
+    available
+    totalCount
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    lines {
+      kind
+      label
+      quantity
+      effectivePrice
+      buyerName
+      status
+      referenceId
+    }
+  }
+  productOrders(productId: $id) {
+    totalCount
+    availableFromStage
+    nodes {
+      id
+      status
+      quantity
+      unitSalePrice
+      buyerName
+      createdAt
+    }
+  }
+  productShipments(productId: $id) {
+    totalCount
+    availableFromStage
+    nodes {
+      id
+      status
+      quantity
+      createdAt
+    }
+  }
+}
+
+query ProductBreakdown($productId: ID!, $first: Int, $after: String) {
+  productStockBreakdown(productId: $productId, first: $first, after: $after) {
+    available
+    totalCount
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    lines {
+      kind
+      label
+      quantity
+      effectivePrice
+      buyerName
+      status
+      referenceId
+    }
+  }
+}
+
+query ProductMovements($productId: ID!, $first: Int, $after: String) {
+  stockMovements(productId: $productId, first: $first, after: $after) {
+    totalCount
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      ...StockMovementRow
+    }
+  }
+}
+
+mutation CreateProduct($input: CreateProductInput!) {
+  createProduct(input: $input) {
+    replayed
+    product {
+      ...ProductRow
+    }
+    movement {
+      ...StockMovementRow
+    }
+  }
+}
+
+mutation UpdateProduct($input: UpdateProductInput!) {
+  updateProduct(input: $input) {
+    product {
+      ...ProductRow
+    }
+  }
+}
+
+mutation RecordStockMovement($input: RecordStockMovementInput!) {
+  recordStockMovement(input: $input) {
+    replayed
+    movement {
+      ...StockMovementRow
+    }
+    product {
+      ...ProductRow
+    }
+  }
+}
+
+mutation ArchiveProduct($productId: ID!) {
+  archiveProduct(productId: $productId) {
+    product {
+      ...ProductRow
+    }
+  }
+}
+
+mutation RestoreProduct($productId: ID!) {
+  restoreProduct(productId: $productId) {
+    product {
+      ...ProductRow
+    }
+  }
+}
+
+mutation CreateCustomField($input: CreateCustomFieldInput!) {
+  createCustomField(input: $input) {
+    field {
+      ...CustomFieldDefinition
+    }
+  }
+}
+
+mutation UpdateCustomField($input: UpdateCustomFieldInput!) {
+  updateCustomField(input: $input) {
+    field {
+      ...CustomFieldDefinition
+    }
+  }
+}
+
+mutation ReorderCustomFields($fieldIds: [ID!]!) {
+  reorderCustomFields(fieldIds: $fieldIds) {
+    fields {
+      ...CustomFieldDefinition
+    }
+  }
+}
+
+query InventoryAlerts($limit: Int) {
+  inventoryAlerts(limit: $limit) {
+    ...InventoryAlert
+  }
+}
+
+query InventoryImport($id: ID!) {
+  inventoryImport(id: $id) {
+    ...InventoryImportJob
+  }
+}
+
+query InventoryImports {
+  inventoryImports {
+    ...InventoryImportJob
+  }
+}
+
+query InventoryExport($id: ID!) {
+  inventoryExport(id: $id) {
+    ...InventoryExportJob
+  }
+}
+
+query InventoryExports {
+  inventoryExports {
+    ...InventoryExportJob
+  }
+}
+
+mutation AttachProductMedia($productId: ID!, $assetId: ID!, $makePrimary: Boolean) {
+  attachProductMedia(
+    productId: $productId
+    assetId: $assetId
+    makePrimary: $makePrimary
+  ) {
+    media {
+      ...ProductMedia
+    }
+  }
+}
+
+mutation SetPrimaryProductMedia($productId: ID!, $assetId: ID!) {
+  setPrimaryProductMedia(productId: $productId, assetId: $assetId) {
+    media {
+      ...ProductMedia
+    }
+  }
+}
+
+mutation RemoveProductMedia($productId: ID!, $assetId: ID!) {
+  removeProductMedia(productId: $productId, assetId: $assetId) {
+    product {
+      ...ProductRow
+    }
+  }
+}
+
+mutation StartInventoryImport($assetId: ID!) {
+  startInventoryImport(assetId: $assetId) {
+    importJob {
+      ...InventoryImportJob
+    }
+  }
+}
+
+mutation PreviewInventoryImport($importId: ID!, $mapping: JSONString!) {
+  previewInventoryImport(importId: $importId, mapping: $mapping) {
+    importJob {
+      ...InventoryImportJob
+    }
+  }
+}
+
+mutation ConfirmInventoryImport($importId: ID!, $idempotencyKey: String!) {
+  confirmInventoryImport(importId: $importId, idempotencyKey: $idempotencyKey) {
+    replayed
+    importJob {
+      ...InventoryImportJob
+    }
+  }
+}
+
+mutation RetryInventoryImport($importId: ID!) {
+  retryInventoryImport(importId: $importId) {
+    importJob {
+      ...InventoryImportJob
+    }
+  }
+}
+
+mutation StartInventoryExport(
+  $fileFormat: String!
+  $filter: ProductFilterInput
+  $idempotencyKey: String!
+) {
+  startInventoryExport(
+    fileFormat: $fileFormat
+    filter: $filter
+    idempotencyKey: $idempotencyKey
+  ) {
+    replayed
+    exportJob {
+      ...InventoryExportJob
+    }
+  }
+}
+
+mutation RetryInventoryExport($exportId: ID!) {
+  retryInventoryExport(exportId: $exportId) {
+    exportJob {
+      ...InventoryExportJob
+    }
+  }
+}
+
+mutation UpdateInventoryLowStockThreshold($threshold: Int!) {
+  updateInventoryLowStockThreshold(threshold: $threshold) {
+    threshold
+  }
+}
+
+mutation UpdateProductLowStockThreshold(
+  $productId: ID!
+  $threshold: Int
+  $clear: Boolean
+) {
+  updateProductLowStockThreshold(
+    productId: $productId
+    threshold: $threshold
+    clear: $clear
+  ) {
+    product {
+      ...ProductRow
+    }
+  }
+}

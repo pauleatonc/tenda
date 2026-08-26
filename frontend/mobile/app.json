@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Tenda",
+    "slug": "tenda",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "tenda",
+    "plugins": ["expo-router", "expo-secure-store"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "cl.tenda.app"
+    },
+    "android": {
+      "package": "cl.tenda.app",
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

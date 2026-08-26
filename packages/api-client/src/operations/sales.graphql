@@ -1,0 +1,394 @@
+fragment OrderLine on OrderItemType {
+  id
+  productId
+  productName
+  quantity
+  unitSalePrice
+  unitCostSnapshot
+  currency
+  lineTotal
+}
+
+fragment BuyerSnapshot on BuyerSnapshotType {
+  name
+  email
+  phone
+  recipientName
+  addressLine
+  municipality
+  city
+  deliveryNotes
+  taxId
+  taxName
+  taxActivity
+  taxAddress
+  taxMunicipality
+  taxCity
+  taxEmail
+}
+
+fragment PaymentProof on PaymentProofType {
+  id
+  fileName
+  contentType
+  signedUrl
+  uploadedAt
+  rejectionReason
+  status
+}
+
+fragment Payment on PaymentType {
+  id
+  method
+  status
+  amount
+  currency
+  feeRequested
+  feeReported
+  refundedAmount
+  provider
+  providerPaymentId
+  paidAt
+  note
+  proof {
+    ...PaymentProof
+  }
+}
+
+fragment OrderTimeline on OrderEventType {
+  id
+  eventType
+  title
+  detail
+  createdAt
+}
+
+fragment ReconciliationIssue on ReconciliationIssueType {
+  id
+  kind
+  status
+  summary
+  details
+  retryCount
+  lastAttemptAt
+  createdAt
+  resolvedAt
+  orderId
+  orderNumber
+  providerReference
+  canRetry
+}
+
+fragment SellerOrderSummary on OrderType {
+  id
+  number
+  status
+  statusLabel
+  currency
+  total
+  paymentMethod
+  nextAction
+  reconciliationRequired
+  reconciliationStatus
+  reservationExpiresAt
+  paidAt
+  createdAt
+  buyer {
+    name
+  }
+}
+
+fragment SellerOrder on OrderType {
+  ...SellerOrderSummary
+  deliveryMode
+  publicUrl
+  publishedAt
+  updatedAt
+  publicTokenExpiresAt
+  permissions {
+    canViewCosts
+    allowedActions
+  }
+  allowedActions
+  lines {
+    ...OrderLine
+  }
+  buyer {
+    ...BuyerSnapshot
+  }
+  payment {
+    ...Payment
+  }
+  timeline {
+    ...OrderTimeline
+  }
+  reconciliationIssues {
+    ...ReconciliationIssue
+  }
+}
+
+fragment PublicSeller on PublicSellerType {
+  name
+  phone
+  businessEmail
+}
+
+fragment PublicOrderLine on PublicOrderItemType {
+  id
+  productName
+  quantity
+  unitSalePrice
+  currency
+  lineTotal
+}
+
+fragment PublicOrder on PublicOrderType {
+  number
+  status
+  statusLabel
+  paymentStatus
+  currency
+  feeAmount
+  total
+  deliveryMode
+  paymentMethod
+  availablePaymentMethods
+  bankTransferInstructions
+  reservationExpiresAt
+  createdAt
+  rejectionReason
+  isExpired
+  allowedActions
+  seller {
+    ...PublicSeller
+  }
+  buyer {
+    ...BuyerSnapshot
+  }
+  lines {
+    ...PublicOrderLine
+  }
+}
+
+query SalesDashboard {
+  salesDashboard {
+    totalOrders
+    activeOrders
+    awaitingBuyer
+    awaitingPayment
+    awaitingValidation
+    paidOrders
+    reconciliationRequired
+    confirmedGross
+  }
+}
+
+query Orders($filter: OrderFilterInput, $first: Int, $after: String) {
+  orders(filter: $filter, first: $first, after: $after) {
+    totalCount
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      ...SellerOrderSummary
+    }
+  }
+}
+
+query Order($id: ID!) {
+  order(id: $id) {
+    ...SellerOrder
+  }
+}
+
+query PublicOrder($token: String!) {
+  publicOrder(token: $token) {
+    ...PublicOrder
+  }
+}
+
+query PublicOrderStatus($token: String!) {
+  publicOrderStatus(token: $token) {
+    number
+    status
+    statusLabel
+    paymentStatus
+    reservationExpiresAt
+    updatedAt
+    rejectionReason
+    isExpired
+  }
+}
+
+query SalesBalance($filter: SalesBalanceFilterInput) {
+  salesBalance(filter: $filter) {
+    currency
+    timezone
+    confirmedGross
+    refunds
+    netSales
+    knownCogs
+    grossMargin
+    pendingAmount
+    validationAmount
+    operations
+    recognizedLines
+    knownCostLines
+    costCoverage
+    costIncomplete
+  }
+}
+
+query SalesBalanceBreakdown(
+  $filter: SalesBalanceFilterInput
+  $first: Int
+  $after: String
+) {
+  salesBalanceBreakdown(filter: $filter, first: $first, after: $after) {
+    totalCount
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      period
+      productId
+      productName
+      paymentMethod
+      status
+      quantity
+      confirmedGross
+      refunds
+      netSales
+      knownCogs
+      grossMargin
+      recognizedLines
+      knownCostLines
+      costIncomplete
+    }
+  }
+}
+
+query ReconciliationIssues($status: String, $first: Int, $after: String) {
+  reconciliationIssues(status: $status, first: $first, after: $after) {
+    totalCount
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      ...ReconciliationIssue
+    }
+  }
+}
+
+mutation CreateOrder($input: CreateOrderInput!, $idempotencyKey: String!) {
+  createOrder(input: $input, idempotencyKey: $idempotencyKey) {
+    replayed
+    order {
+      ...SellerOrder
+    }
+  }
+}
+
+mutation PublishOrderLink($orderId: ID!, $idempotencyKey: String!) {
+  publishOrderLink(orderId: $orderId, idempotencyKey: $idempotencyKey) {
+    replayed
+    publicUrl
+    order {
+      ...SellerOrder
+    }
+  }
+}
+
+mutation SetBuyerDetails($token: String!, $input: BuyerDetailsInput!) {
+  setBuyerDetails(token: $token, input: $input) {
+    order {
+      ...PublicOrder
+    }
+  }
+}
+
+mutation InitiateMercadoPagoCheckout($token: String!, $idempotencyKey: String!) {
+  initiateMercadoPagoCheckout(token: $token, idempotencyKey: $idempotencyKey) {
+    checkoutUrl
+    replayed
+  }
+}
+
+mutation ReviewPaymentProof(
+  $orderId: ID!
+  $approved: Boolean!
+  $rejectionReason: String
+  $idempotencyKey: String!
+) {
+  reviewPaymentProof(
+    orderId: $orderId
+    approved: $approved
+    rejectionReason: $rejectionReason
+    idempotencyKey: $idempotencyKey
+  ) {
+    replayed
+    order {
+      ...SellerOrder
+    }
+  }
+}
+
+mutation ConfirmManualPayment(
+  $orderId: ID!
+  $amount: String!
+  $paidAt: DateTime!
+  $note: String
+  $idempotencyKey: String!
+) {
+  confirmManualPayment(
+    orderId: $orderId
+    amount: $amount
+    paidAt: $paidAt
+    note: $note
+    idempotencyKey: $idempotencyKey
+  ) {
+    replayed
+    order {
+      ...SellerOrder
+    }
+  }
+}
+
+mutation CancelOrder($orderId: ID!, $reason: String!, $idempotencyKey: String!) {
+  cancelOrder(orderId: $orderId, reason: $reason, idempotencyKey: $idempotencyKey) {
+    replayed
+    order {
+      ...SellerOrder
+    }
+  }
+}
+
+mutation RefundPayment($orderId: ID!, $reason: String!, $idempotencyKey: String!) {
+  refundPayment(orderId: $orderId, reason: $reason, idempotencyKey: $idempotencyKey) {
+    replayed
+    order {
+      ...SellerOrder
+    }
+  }
+}
+
+mutation ResendOrderLink($orderId: ID!, $idempotencyKey: String!) {
+  resendOrderLink(orderId: $orderId, idempotencyKey: $idempotencyKey) {
+    replayed
+    order {
+      ...SellerOrder
+    }
+  }
+}
+
+mutation RetryReconciliation($issueId: ID!, $idempotencyKey: String!) {
+  retryReconciliation(issueId: $issueId, idempotencyKey: $idempotencyKey) {
+    replayed
+    issue {
+      ...ReconciliationIssue
+    }
+  }
+}

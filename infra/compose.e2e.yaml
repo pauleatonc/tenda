@@ -1,0 +1,12 @@
+# Publica Postgres y Redis para pytest/Playwright ejecutados en el host.
+# No se usa en Dev/Prod: esos overlays mantienen los datos en la red privada.
+
+name: tenda-e2e
+
+services:
+  postgres:
+    ports:
+      - '${TENDA_E2E_POSTGRES_PORT:-5432}:5432'
+  redis:
+    ports:
+      - '${TENDA_E2E_REDIS_PORT:-6379}:6379'
