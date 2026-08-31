@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-from pathlib import Path
 from typing import Any
 
 from django.contrib import admin
 from django.db import models
 from django.http import HttpRequest
 
+from apps.media_assets.keys import build_object_key
 from tenda.crypto import encrypt_credential
 
 SECRET_FIELD_NAMES = frozenset(
@@ -89,10 +89,12 @@ def provision_generated_fields(obj: models.Model) -> None:
         organisation = getattr(obj, "organisation", None)
         purpose = getattr(obj, "purpose", "file")
         original_name = str(getattr(obj, "original_name", "file") or "file")
-        extension = Path(original_name).suffix.lower()[:12]
         org_part = getattr(organisation, "public_id", "unscoped")
-        obj.object_key = (  # type: ignore[attr-defined]
-            f"organisations/{org_part}/{purpose}/{public_id}{extension}"
+        obj.object_key = build_object_key(  # type: ignore[attr-defined]
+            organisation_id=org_part,
+            purpose=str(purpose),
+            public_id=public_id or "file",
+            original_name=original_name,
         )
 
 

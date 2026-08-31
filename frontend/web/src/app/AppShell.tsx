@@ -119,7 +119,7 @@ export function ApplicationShell() {
       <div className="app-workspace">
         <header className="app-header">
           <div>
-            <small>Organización</small>
+            <small>Tienda</small>
             <strong>{data.organisation.name}</strong>
           </div>
           <div className="app-header__actions">
@@ -276,7 +276,7 @@ export function MorePage() {
         <div>
           <p className="eyebrow">Cuenta y negocio</p>
           <h1>Más</h1>
-          <p>Administra tu perfil, organización y preferencias.</p>
+          <p>Administra tu perfil, Tienda y preferencias.</p>
         </div>
       </header>
       <div className="settings-list">

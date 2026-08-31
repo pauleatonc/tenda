@@ -22,15 +22,16 @@ La Etapa 4 no se despliega. `AGENT_FEATURE_STATUS` permanece en `coming_soon`.
 
 ## Matriz de configuración de Producción
 
-Los valores de desarrollo (Turnstile fake, R2 fake, Brevo fake, Mercado Pago
-fake, cadencias seed) **no** son una aprobación de Producción.
+Los valores de desarrollo (Turnstile fake solo en local/E2E, R2 fake, Brevo
+fake, Mercado Pago fake, cadencias seed) **no** son una aprobación de
+Producción. Dev y Prod usan Turnstile real.
 
 | Dependencia          | Sin credencial (Dev/E2E)            | Requerido para Producción                        | Go-live   |
 | -------------------- | ----------------------------------- | ------------------------------------------------ | --------- |
 | Dominios / TLS       | `localhost`                         | Dominio, certificados, `WEB_ORIGIN` HTTPS        | Bloqueado |
 | Cloudflare R2        | `OBJECT_STORAGE_PROVIDER=fake`      | Bucket/prefijo, CORS, lifecycle, claves mínimas  | Bloqueado |
 | Backup R2 + age      | No corre off-site                   | Recipient, bucket privado, retención aprobada    | Bloqueado |
-| Brevo                | Outbox fake                         | Dominio autenticado, templates, webhook bounce   | Bloqueado |
+| Brevo                | Outbox fake                         | Dominio autenticado, webhook bounce              | Bloqueado |
 | Google OIDC          | Adapter fake                        | Client ID/secret y callback Prod                 | Opcional  |
 | LinkedIn OIDC        | Flag off                            | Solo si producto OIDC está habilitado            | Fuera     |
 | Mercado Pago Chile   | Fake; transferencia/efectivo operan | OAuth, pago, refund, webhook, fee, desconexión   | Bloqueado |

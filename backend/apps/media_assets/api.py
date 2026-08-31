@@ -6,9 +6,9 @@ import json
 import uuid
 from typing import Any
 
-from django.conf import settings
 from django.http import HttpRequest, HttpResponse
 
+from apps.media_assets.storage import uses_in_process_upload
 from apps.organisations.selectors import TenantContext
 from apps.users.api import endpoint, success
 from apps.users.middleware import get_tenant_context
@@ -62,7 +62,7 @@ def prepare_upload_view(request: HttpRequest) -> HttpResponse:
         size=size,
     )
     upload_url = prepared.upload.url
-    if str(getattr(settings, "OBJECT_STORAGE_PROVIDER", "fake")) == "fake":
+    if uses_in_process_upload():
         upload_url = request.build_absolute_uri(
             f"/api/v1/media/uploads/fake/{prepared.asset.public_id}"
         )

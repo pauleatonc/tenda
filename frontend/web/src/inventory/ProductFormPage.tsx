@@ -204,7 +204,7 @@ export function ProductFormPage({ mode }: { mode: 'create' | 'edit' }) {
         <header className="page-heading">
           <div>
             <h1>Producto no encontrado</h1>
-            <p>El producto no existe o pertenece a otra organización.</p>
+            <p>El producto no existe o pertenece a otra Tienda.</p>
           </div>
         </header>
         <Link className="button button--secondary" to="/app/inventario">

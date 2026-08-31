@@ -14,6 +14,7 @@ from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.utils.html import escape
 from django.views.decorators.csrf import csrf_exempt
 
+from apps.media_assets.storage import uses_in_process_upload
 from apps.users.api import endpoint, success
 from apps.users.middleware import get_correlation_id
 from tenda.errors import DomainError
@@ -227,7 +228,7 @@ def prepare_public_receipt(request: HttpRequest, token: str) -> HttpResponse:
         size=_body_size(payload),
     )
     upload_url = prepared.upload.url
-    if str(getattr(settings, "OBJECT_STORAGE_PROVIDER", "fake")) == "fake":
+    if uses_in_process_upload():
         upload_url = request.build_absolute_uri(
             f"/api/v1/public/orders/{token}/payment-proof/uploads/fake/{prepared.asset.public_id}"
         )

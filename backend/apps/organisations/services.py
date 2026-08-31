@@ -153,7 +153,7 @@ def _require_another_owner(membership: Membership) -> None:
     if not has_other_owner:
         raise DomainError(
             "LAST_OWNER_REQUIRED",
-            "La organización debe conservar al menos una persona Owner.",
+            "La Tienda debe conservar al menos una persona Owner.",
             status=409,
         )
 

@@ -9,6 +9,8 @@ import {
   StatusMessage,
   styles,
 } from '../../components/auth-ui'
+import { GoogleSignInButton } from '../../components/google-sign-in-button'
+import { MobileTurnstile, mobileTurnstileEnabled } from '../../components/turnstile'
 import { MobileApiError, mobileGoogleLogin, mobileLogin } from '../../lib/auth-api'
 
 export default function LoginScreen() {
@@ -18,6 +20,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState<MobileApiError | null>(null)
+  const [turnstileToken, setTurnstileToken] = useState('')
   const [validation, setValidation] = useState<{ email?: string; password?: string }>({})
 
   const submit = async () => {
@@ -27,10 +30,21 @@ export default function LoginScreen() {
     }
     setValidation(nextValidation)
     if (nextValidation.email || nextValidation.password) return
+    if (mobileTurnstileEnabled() && !turnstileToken) {
+      setError(
+        new MobileApiError({
+          code: 'ANTIBOT_FAILED',
+          message: 'Completa la validación anti-bot para continuar.',
+          fieldErrors: {},
+          correlationId: '',
+        }),
+      )
+      return
+    }
     setError(null)
     setLoading(true)
     try {
-      await mobileLogin(email, password)
+      await mobileLogin(email, password, turnstileToken || 'local-development')
       router.replace('/(app)')
     } catch (caught) {
       setError(
@@ -54,8 +68,7 @@ export default function LoginScreen() {
       title="Inicia sesión"
       description="Vuelve a tu negocio y continúa donde quedaste."
     >
-      <PrimaryButton
-        label="Continuar con Google"
+      <GoogleSignInButton
         loading={googleLoading}
         onPress={async () => {
           setError(null)
@@ -69,7 +82,6 @@ export default function LoginScreen() {
             setGoogleLoading(false)
           }
         }}
-        variant="secondary"
       />
       <Text style={styles.divider}>o usa tu correo</Text>
       {error ? <StatusMessage message={error.message} /> : null}
@@ -94,6 +106,7 @@ export default function LoginScreen() {
         secureTextEntry={!showPassword}
         value={password}
       />
+      <MobileTurnstile onToken={setTurnstileToken} />
       <Pressable
         accessibilityRole="button"
         onPress={() => setShowPassword((current) => !current)}

@@ -1,3 +1,4 @@
+# Stack local: `docker compose -f infra/compose.yaml up --build`
 name: tenda
 
 x-backend: &backend
@@ -13,6 +14,8 @@ x-backend: &backend
     DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local-insecure-compose-key}
     DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
     DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-http://localhost:5173}
+    WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:5173}
+    CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
     POSTGRES_DB: ${POSTGRES_DB:-tenda}
     POSTGRES_USER: ${POSTGRES_USER:-tenda}
     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tenda-local}
@@ -21,6 +24,7 @@ x-backend: &backend
     REDIS_URL: redis://redis:6379/0
     AGENT_FEATURE_STATUS: coming_soon
     SALES_RESERVATION_TTL_SECONDS: ${SALES_RESERVATION_TTL_SECONDS:-28800}
+    TURNSTILE_FAKE_MODE: ${TURNSTILE_FAKE_MODE:-true}
   depends_on:
     postgres:
       condition: service_healthy
@@ -29,6 +33,34 @@ x-backend: &backend
   restart: unless-stopped
   networks:
     - private
+  volumes:
+    - ../backend/apps:/app/apps
+    - ../backend/tenda:/app/tenda
+    - ../backend/manage.py:/app/manage.py
+    - ../backend/media:/app/media
+
+x-frontend: &frontend
+  image: ${TENDA_FRONTEND_DEV_IMAGE:-tenda-frontend:local}
+  build:
+    context: ..
+    dockerfile: frontend/Dockerfile.dev
+  env_file:
+    - path: ../.env
+      required: false
+  restart: unless-stopped
+  networks:
+    - private
+  volumes:
+    - ../package.json:/repo/package.json
+    - ../pnpm-workspace.yaml:/repo/pnpm-workspace.yaml
+    - ../pnpm-lock.yaml:/repo/pnpm-lock.yaml
+    - ../frontend/web:/repo/frontend/web
+    - ../frontend/mobile:/repo/frontend/mobile
+    - ../packages/api-client:/repo/packages/api-client
+    - frontend_node_modules:/repo/node_modules
+    - web_node_modules:/repo/frontend/web/node_modules
+    - mobile_node_modules:/repo/frontend/mobile/node_modules
+    - api_client_node_modules:/repo/packages/api-client/node_modules
 
 services:
   postgres:
@@ -71,6 +103,29 @@ services:
 
   backend:
     <<: *backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command:
+      [
+        'uvicorn',
+        'tenda.asgi:application',
+        '--host',
+        '0.0.0.0',
+        '--port',
+        '8000',
+        '--reload',
+        '--reload-dir',
+        'apps',
+        '--reload-dir',
+        'tenda',
+      ]
+    ports:
+      - '${TENDA_API_PORT:-8000}:8000'
     healthcheck:
       test:
         [
@@ -90,12 +145,12 @@ services:
         condition: service_healthy
     command:
       [
-        'celery',
-        '-A',
-        'tenda',
-        'worker',
-        '--loglevel=INFO',
-        '--queues=default,email,imports,payments',
+        'watchfiles',
+        '--filter',
+        'python',
+        'celery -A tenda worker --loglevel=INFO --queues=default,email,imports,payments',
+        '/app/apps',
+        '/app/tenda',
       ]
 
   celery_beat:
@@ -103,13 +158,23 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-    command: ['celery', '-A', 'tenda', 'beat', '--loglevel=INFO']
+      migrate:
+        condition: service_completed_successfully
+    command:
+      [
+        'celery',
+        '-A',
+        'tenda',
+        'beat',
+        '--loglevel=INFO',
+        '--scheduler',
+        'django_celery_beat.schedulers:DatabaseScheduler',
+      ]
 
   migrate:
     <<: *backend
     command: ['python', 'manage.py', 'migrate', '--noinput']
     restart: 'no'
-    profiles: [operations]
 
   backup:
     image: ${TENDA_BACKUP_IMAGE:-tenda-backup:local}
@@ -148,38 +213,57 @@ services:
     profiles: [restore]
 
   web:
-    image: ${TENDA_WEB_IMAGE:-tenda-web:local}
-    build:
-      context: ..
-      dockerfile: frontend/web/Dockerfile
-      args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    <<: *frontend
+    command:
+      ['pnpm', '--filter', '@tenda/web', 'dev', '--host', '0.0.0.0', '--port', '5173']
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+      VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-}
+    ports:
+      - '${TENDA_HTTP_PORT:-5173}:5173'
     healthcheck:
-      test: ['CMD', 'wget', '-q', '-O', '-', 'http://127.0.0.1/health']
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:5173').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
       interval: 10s
       timeout: 5s
-      retries: 10
-    restart: unless-stopped
-    networks:
-      - private
+      retries: 20
 
-  nginx:
-    image: nginx:1.27.5-alpine
-    depends_on:
-      backend:
-        condition: service_healthy
-      web:
-        condition: service_healthy
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    restart: unless-stopped
-    networks:
-      - public
-      - private
+  mobile:
+    <<: *frontend
+    command:
+      [
+        'pnpm',
+        '--filter',
+        '@tenda/mobile',
+        'start',
+        '--',
+        '--lan',
+        '--port',
+        '8081',
+      ]
+    environment:
+      EXPO_PUBLIC_API_URL: ${EXPO_PUBLIC_API_URL:-http://localhost:8000}
+      EXPO_PUBLIC_TURNSTILE_SITE_KEY: ${EXPO_PUBLIC_TURNSTILE_SITE_KEY:-}
+      REACT_NATIVE_PACKAGER_HOSTNAME: ${REACT_NATIVE_PACKAGER_HOSTNAME:-127.0.0.1}
+      EXPO_DEVTOOLS_LISTEN_ADDRESS: 0.0.0.0
+    ports:
+      - '${TENDA_METRO_PORT:-8081}:8081'
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    stdin_open: true
+    tty: true
 
 networks:
-  public:
   private:
 
 volumes:
   postgres_data:
+  frontend_node_modules:
+  web_node_modules:
+  mobile_node_modules:
+  api_client_node_modules:

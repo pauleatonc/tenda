@@ -136,6 +136,8 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT", str(BASE_DIR / "media")))
+MEDIA_URL = "media/"
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
@@ -260,11 +262,19 @@ WEB_ORIGIN = os.getenv("WEB_ORIGIN", "http://localhost:5173").rstrip("/")
 PUBLIC_ORIGIN = os.getenv("PUBLIC_ORIGIN", WEB_ORIGIN).rstrip("/")
 SALES_RESERVATION_TTL_SECONDS = int(os.getenv("SALES_RESERVATION_TTL_SECONDS", str(8 * 60 * 60)))
 SHIPPING_PUBLIC_TOKEN_TTL_DAYS = int(os.getenv("SHIPPING_PUBLIC_TOKEN_TTL_DAYS", "90"))
-GOOGLE_OIDC_PROVIDER = os.getenv("GOOGLE_OIDC_PROVIDER", "fake")
+GOOGLE_OIDC_CLIENT_ID = os.getenv("GOOGLE_OIDC_CLIENT_ID", "").strip()
+GOOGLE_OIDC_CLIENT_SECRET = os.getenv("GOOGLE_OIDC_CLIENT_SECRET", "").strip()
 GOOGLE_OIDC_CALLBACK_URL = os.getenv(
     "GOOGLE_OIDC_CALLBACK_URL",
     "http://localhost:8000/api/v1/auth/social/google/callback",
 )
+_google_oidc_mode = os.getenv("GOOGLE_OIDC_PROVIDER", "").strip().lower()
+if _google_oidc_mode:
+    GOOGLE_OIDC_PROVIDER = _google_oidc_mode
+elif GOOGLE_OIDC_CLIENT_ID and GOOGLE_OIDC_CLIENT_SECRET:
+    GOOGLE_OIDC_PROVIDER = "google"
+else:
+    GOOGLE_OIDC_PROVIDER = "fake"
 LINKEDIN_OIDC_ENABLED = env_bool("LINKEDIN_OIDC_ENABLED", False)
 LINKEDIN_OIDC_CALLBACK_URL = os.getenv(
     "LINKEDIN_OIDC_CALLBACK_URL",
@@ -276,19 +286,23 @@ EMAIL_PROVIDER = os.getenv("EMAIL_PROVIDER", "fake")
 BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
 BREVO_SENDER_EMAIL = os.getenv("BREVO_SENDER_EMAIL", "")
 BREVO_SENDER_NAME = os.getenv("BREVO_SENDER_NAME", "Tenda")
-BREVO_TEMPLATE_IDS = {
-    key: int(value)
-    for key, value in {
-        "verify_email": os.getenv("BREVO_TEMPLATE_VERIFY_EMAIL_ID", ""),
-        "reset_password": os.getenv("BREVO_TEMPLATE_RESET_PASSWORD_ID", ""),
-    }.items()
-    if value.isdigit()
-}
 OBJECT_STORAGE_PROVIDER = os.getenv("OBJECT_STORAGE_PROVIDER", "fake")
 R2_ENDPOINT_URL = os.getenv("R2_ENDPOINT_URL", "")
 R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID", "")
 R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY", "")
 R2_BUCKET_NAME = os.getenv("R2_BUCKET_NAME", os.getenv("R2_BUCKET", ""))
+_r2_prefix = os.getenv("R2_PREFIX", "").strip().strip("/")
+_r2_env_prefixes = {
+    "local": "local",
+    "dev": "dev",
+    "development": "dev",
+    "prod": "prod",
+    "production": "prod",
+}
+R2_PREFIX = _r2_prefix or _r2_env_prefixes.get(
+    os.getenv("TENDA_ENV", "local").strip().lower(),
+    "local",
+)
 PAYMENT_PROVIDER = os.getenv("PAYMENT_PROVIDER", "fake")
 MERCADO_PAGO_ACCESS_TOKEN = os.getenv("MERCADO_PAGO_ACCESS_TOKEN", "")
 MERCADO_PAGO_ENVIRONMENT = os.getenv(

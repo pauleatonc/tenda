@@ -6,6 +6,20 @@ import type { ReactNode } from 'react'
 
 // SecureStore and randomUUID are native modules: the tests only care that the
 // screens ask for them, never about the device implementation.
+jest.mock('react-native-webview', () => {
+  const { View } = require('react-native') as typeof import('react-native')
+  return { WebView: View }
+})
+
+jest.mock('expo-web-browser', () => ({
+  openAuthSessionAsync: jest.fn(async () => ({ type: 'cancel' })),
+  maybeCompleteAuthSession: jest.fn(),
+}))
+
+jest.mock('expo-linking', () => ({
+  createURL: jest.fn((path: string) => `tenda://${path}`),
+}))
+
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(async () => 'test-token'),
   setItemAsync: jest.fn(async () => undefined),

@@ -37,21 +37,31 @@ desactivados con el estado “Próximamente”.
 cp .env.example .env
 corepack pnpm install --frozen-lockfile
 uv sync --project backend --frozen
-docker compose -f infra/compose.yaml -f infra/compose.dev.yaml up --build
+docker compose -f infra/compose.yaml up --build
 ```
 
-Servicios:
+Servicios locales (`tenda.settings.local`). El código del host se monta en
+el contenedor: el backend recarga con uvicorn, la web con Vite y mobile con
+Metro. No hay Nginx de borde. El navegador llama a la API en
+`http://localhost:8000`.
 
 - Web: <http://localhost:5173>
+- Mobile (Metro): <http://localhost:8081>
 - API GraphQL: <http://localhost:8000/graphql/>
 - Django Admin: <http://localhost:8000/admin/>
 - Live: <http://localhost:8000/health/live/>
 - Ready: <http://localhost:8000/health/ready/>
 
+Ambiente Dev (Django `tenda.settings.dev`):
+
+```bash
+docker compose -f infra/compose.dev.yaml up --build
+```
+
 Para ejecutar sin contenedores de aplicación (Postgres y Redis sí en Docker):
 
 ```bash
-docker compose -f infra/compose.yaml -f infra/compose.e2e.yaml up -d postgres redis
+docker compose -f infra/compose.e2e.yaml up -d
 export POSTGRES_HOST=localhost POSTGRES_PASSWORD=tenda-local
 uv run --project backend python backend/manage.py migrate
 uv run --project backend python backend/manage.py runserver

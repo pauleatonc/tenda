@@ -22,6 +22,7 @@ from django.middleware.csrf import get_token
 from apps.audit.models import AuditEvent
 from apps.audit.services import record_audit_event
 from apps.organisations.selectors import TenantContext, resolve_tenant_context
+from tenda.antibot import require_turnstile
 from tenda.errors import (
     AuthenticationRequired,
     DomainError,
@@ -47,7 +48,7 @@ from .services import (
     enforce_auth_rate_limit,
     issue_mobile_session,
     membership_summary,
-    oidc_state_client,
+    mobile_oidc_app_redirect,
     register,
     request_email_verification,
     request_password_reset,
@@ -59,6 +60,10 @@ from .services import (
 )
 
 Endpoint = Callable[..., HttpResponse]
+
+
+class MobileAppRedirect(HttpResponseRedirect):
+    allowed_schemes = ["http", "https", "tenda", "exp"]
 
 
 def success(payload: dict[str, object], *, status: int = 200) -> JsonResponse:
@@ -222,10 +227,15 @@ def csrf_token(request: HttpRequest) -> HttpResponse:
 def register_view(request: HttpRequest) -> HttpResponse:
     payload = _body(request)
     email = _string(payload, "email")
+    ip_address = _client_ip(request)
+    require_turnstile(
+        token=_string(payload, "turnstileToken"),
+        remote_ip=ip_address,
+    )
     enforce_auth_rate_limit(
         action="register",
         identity=canonical_email(email),
-        ip_address=_client_ip(request),
+        ip_address=ip_address,
     )
     if payload.get("acceptedTerms") is not True:
         raise DomainError(
@@ -264,6 +274,10 @@ def login_view(request: HttpRequest) -> HttpResponse:
     payload = _body(request)
     email = _string(payload, "email")
     ip_address = _client_ip(request)
+    require_turnstile(
+        token=_string(payload, "turnstileToken"),
+        remote_ip=ip_address,
+    )
     enforce_auth_rate_limit(
         action="login",
         identity=canonical_email(email),
@@ -472,19 +486,26 @@ def social_start_view(request: HttpRequest, provider: str) -> HttpResponse:
 def social_callback_view(request: HttpRequest, provider: str) -> HttpResponse:
     raw_state = request.GET.get("state", "")
     code = request.GET.get("code", "")
-    client = oidc_state_client(raw_state=raw_state, provider_name=provider)
     enforce_auth_rate_limit(
         action="oidc_callback",
         identity=provider,
         ip_address=_client_ip(request),
     )
-    identity = complete_oidc(
+    completion = complete_oidc(
         provider_name=provider,
         raw_state=raw_state,
         code=code,
     )
-    if client == OIDCLoginState.Client.MOBILE:
+    identity = completion.identity
+    if completion.client == OIDCLoginState.Client.MOBILE:
         issued = issue_mobile_session(identity=identity, device_name="Google OIDC")
+        redirect = mobile_oidc_app_redirect(
+            return_to=completion.return_to,
+            raw_token=issued.raw_token,
+            expires_at=issued.session.expires_at,
+        )
+        if redirect is not None:
+            return MobileAppRedirect(redirect)
         return success(
             {
                 **_viewer_payload(identity.context),

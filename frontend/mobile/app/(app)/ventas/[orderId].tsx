@@ -226,7 +226,7 @@ export default function SaleDetailScreen() {
         <View style={styles.state}>
           <MobileEmptyState
             title="Venta no encontrada"
-            description="No existe o pertenece a otra organización."
+            description="No existe o pertenece a otra Tienda."
             action={<PrimaryButton label="Volver" onPress={() => router.back()} />}
           />
         </View>

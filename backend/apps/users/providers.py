@@ -9,6 +9,7 @@ from threading import Lock
 from typing import Protocol
 from urllib.parse import quote, urlencode
 
+import httpx
 from django.conf import settings
 
 from apps.notifications.providers import EmailRequest, get_email_provider
@@ -87,7 +88,7 @@ class OIDCIdentity:
 class OIDCProvider(Protocol):
     def authorization_url(self, *, state: str, callback_url: str) -> str: ...
 
-    def exchange(self, *, code: str) -> OIDCIdentity: ...
+    def exchange(self, *, code: str, callback_url: str) -> OIDCIdentity: ...
 
 
 class FakeGoogleOIDCProvider:
@@ -98,7 +99,7 @@ class FakeGoogleOIDCProvider:
     def authorization_url(self, *, state: str, callback_url: str) -> str:
         return f"{callback_url}?{urlencode({'state': state, 'code': self.expected_code})}"
 
-    def exchange(self, *, code: str) -> OIDCIdentity:
+    def exchange(self, *, code: str, callback_url: str) -> OIDCIdentity:
         if code != self.expected_code:
             raise DomainError(
                 "OIDC_INVALID_RESPONSE",
@@ -110,6 +111,87 @@ class FakeGoogleOIDCProvider:
             email="google.user@example.test",
             email_verified=True,
             full_name="Usuario Google",
+        )
+
+
+class GoogleOIDCProvider:
+    authorization_endpoint = "https://accounts.google.com/o/oauth2/v2/auth"
+    token_endpoint = "https://oauth2.googleapis.com/token"
+    userinfo_endpoint = "https://openidconnect.googleapis.com/v1/userinfo"
+
+    def authorization_url(self, *, state: str, callback_url: str) -> str:
+        client_id = str(getattr(settings, "GOOGLE_OIDC_CLIENT_ID", "")).strip()
+        if not client_id:
+            raise DomainError(
+                "PROVIDER_UNAVAILABLE",
+                "Google no está configurado en este ambiente.",
+                status=503,
+            )
+        query = urlencode(
+            {
+                "client_id": client_id,
+                "redirect_uri": callback_url,
+                "response_type": "code",
+                "scope": "openid email profile",
+                "state": state,
+                "access_type": "online",
+                "prompt": "select_account",
+            }
+        )
+        return f"{self.authorization_endpoint}?{query}"
+
+    def exchange(self, *, code: str, callback_url: str) -> OIDCIdentity:
+        client_id = str(getattr(settings, "GOOGLE_OIDC_CLIENT_ID", "")).strip()
+        client_secret = str(getattr(settings, "GOOGLE_OIDC_CLIENT_SECRET", "")).strip()
+        if not client_id or not client_secret or not code.strip():
+            raise DomainError(
+                "OIDC_INVALID_RESPONSE",
+                "No fue posible completar el acceso con Google.",
+                status=400,
+            )
+        try:
+            token_response = httpx.post(
+                self.token_endpoint,
+                data={
+                    "code": code,
+                    "client_id": client_id,
+                    "client_secret": client_secret,
+                    "redirect_uri": callback_url,
+                    "grant_type": "authorization_code",
+                },
+                headers={"Accept": "application/json"},
+                timeout=8,
+            )
+            token_response.raise_for_status()
+            token_payload = token_response.json()
+            access_token = token_payload["access_token"]
+            userinfo_response = httpx.get(
+                self.userinfo_endpoint,
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=8,
+            )
+            userinfo_response.raise_for_status()
+            profile = userinfo_response.json()
+            subject = str(profile["sub"])
+            email = str(profile["email"])
+        except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+            raise DomainError(
+                "OIDC_INVALID_RESPONSE",
+                "No fue posible completar el acceso con Google.",
+                status=400,
+            ) from exc
+        if not subject or not email:
+            raise DomainError(
+                "OIDC_INVALID_RESPONSE",
+                "No fue posible completar el acceso con Google.",
+                status=400,
+            )
+        verified = profile.get("email_verified")
+        return OIDCIdentity(
+            subject=subject,
+            email=email,
+            email_verified=verified is True or verified == "true",
+            full_name=str(profile.get("name") or ""),
         )
 
 
@@ -132,10 +214,13 @@ def get_oidc_provider(provider: str) -> OIDCProvider:
             "Este método de acceso no está disponible.",
             status=404,
         )
-    if str(getattr(settings, "GOOGLE_OIDC_PROVIDER", "fake")) != "fake":
-        raise DomainError(
-            "PROVIDER_UNAVAILABLE",
-            "Google no está configurado en este ambiente.",
-            status=503,
-        )
-    return FakeGoogleOIDCProvider()
+    mode = str(getattr(settings, "GOOGLE_OIDC_PROVIDER", "fake")).strip().lower()
+    if mode == "fake":
+        return FakeGoogleOIDCProvider()
+    if mode in {"google", "real"}:
+        return GoogleOIDCProvider()
+    raise DomainError(
+        "PROVIDER_UNAVAILABLE",
+        "Google no está configurado en este ambiente.",
+        status=503,
+    )

@@ -10,6 +10,7 @@ import {
   colors,
   styles,
 } from '../../components/auth-ui'
+import { MobileTurnstile, mobileTurnstileEnabled } from '../../components/turnstile'
 import { MobileApiError, mobileRegister } from '../../lib/auth-api'
 
 export default function RegisterScreen() {
@@ -19,6 +20,7 @@ export default function RegisterScreen() {
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<MobileApiError | null>(null)
+  const [turnstileToken, setTurnstileToken] = useState('')
   const [validation, setValidation] = useState<Record<string, string>>({})
 
   const submit = async () => {
@@ -29,10 +31,27 @@ export default function RegisterScreen() {
     if (!acceptedTerms) nextValidation.terms = 'Debes aceptar los términos.'
     setValidation(nextValidation)
     if (Object.keys(nextValidation).length) return
+    if (mobileTurnstileEnabled() && !turnstileToken) {
+      setError(
+        new MobileApiError({
+          code: 'ANTIBOT_FAILED',
+          message: 'Completa la validación anti-bot para continuar.',
+          fieldErrors: {},
+          correlationId: '',
+        }),
+      )
+      return
+    }
     setError(null)
     setLoading(true)
     try {
-      await mobileRegister({ fullName, email, password, acceptedTerms })
+      await mobileRegister({
+        fullName,
+        email,
+        password,
+        acceptedTerms,
+        turnstileToken: turnstileToken || 'local-development',
+      })
       router.replace({ pathname: '/(auth)/verificar', params: { email } })
     } catch (caught) {
       setError(caught instanceof MobileApiError ? caught : null)
@@ -45,7 +64,7 @@ export default function RegisterScreen() {
     <AuthScaffold
       eyebrow="Comienza hoy"
       title="Crea tu cuenta"
-      description="Tu organización y tu inventario principal se crean en el mismo paso."
+      description="Tu Tienda y tu inventario principal se crean en el mismo paso."
     >
       {error ? <StatusMessage message={error.message} /> : null}
       <FormField
@@ -95,6 +114,7 @@ export default function RegisterScreen() {
       {validation.terms ? (
         <Text style={localStyles.error}>{validation.terms}</Text>
       ) : null}
+      <MobileTurnstile onToken={setTurnstileToken} />
       <PrimaryButton label="Crear cuenta" loading={loading} onPress={submit} />
       <Link href="/(auth)/login" style={styles.link}>
         Ya tengo una cuenta

@@ -321,7 +321,7 @@ export default function ShipmentDetailScreen() {
         <View style={styles.state}>
           <MobileEmptyState
             title="Despacho no encontrado"
-            description="No existe o pertenece a otra organización."
+            description="No existe o pertenece a otra Tienda."
             action={<PrimaryButton label="Volver" onPress={() => router.back()} />}
           />
         </View>

@@ -13,10 +13,15 @@ COPY frontend/mobile/package.json frontend/mobile/package.json
 COPY packages/api-client/package.json packages/api-client/package.json
 RUN pnpm install --frozen-lockfile --filter @tenda/web...
 
+COPY packages/api-client packages/api-client
+RUN pnpm --filter @tenda/api-client build
+
 COPY frontend/web frontend/web
 
 ARG VITE_API_URL=http://localhost:8000
+ARG VITE_TURNSTILE_SITE_KEY=
 ENV VITE_API_URL=${VITE_API_URL}
+ENV VITE_TURNSTILE_SITE_KEY=${VITE_TURNSTILE_SITE_KEY}
 
 RUN pnpm --filter @tenda/web build
 

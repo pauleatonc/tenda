@@ -6,12 +6,12 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-from django.conf import settings
 from django.db import transaction
 
+from apps.media_assets.keys import build_object_key
 from apps.media_assets.models import MediaAsset
 from apps.media_assets.services import _validate_upload
-from apps.media_assets.storage import PresignedUpload, get_object_storage
+from apps.media_assets.storage import PresignedUpload, get_object_storage, uses_in_process_upload
 from tenda.errors import DomainError, ResourceNotFound
 
 from .models import Order, Payment, PaymentProof
@@ -81,10 +81,12 @@ def prepare_receipt_upload(
         )
 
     public_id = uuid.uuid4()
-    extension = Path(original_name).suffix.lower()[:12]
-    object_key = (
-        f"organisations/{order.organisation.public_id}/payment_receipt/"
-        f"{order.public_id}/{public_id}{extension}"
+    object_key = build_object_key(
+        organisation_id=order.organisation.public_id,
+        purpose=MediaAsset.Purpose.PAYMENT_RECEIPT,
+        public_id=public_id,
+        original_name=original_name,
+        extra=str(order.public_id),
     )
     asset = MediaAsset.objects.create(
         public_id=public_id,
@@ -141,7 +143,7 @@ def accept_fake_receipt_upload(
     content: bytes,
     content_type: str,
 ) -> MediaAsset:
-    if str(getattr(settings, "OBJECT_STORAGE_PROVIDER", "fake")) != "fake":
+    if not uses_in_process_upload():
         raise ResourceNotFound()
     order, proof, asset = _scoped_asset(token=token, asset_id=asset_id)
     del order, proof

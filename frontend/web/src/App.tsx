@@ -179,7 +179,7 @@ function ConfigurationPage() {
   return (
     <SectionPlaceholder
       title="Perfil y negocio"
-      description="Información personal, organización y miembros."
+      description="Información personal, Tienda y miembros."
       stage="Configuración"
     />
   )

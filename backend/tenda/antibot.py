@@ -13,6 +13,19 @@ from tenda.errors import DomainError
 TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 
 
+def require_turnstile(*, token: str, remote_ip: str) -> None:
+    """Skip the challenge in local fake mode; verify with Cloudflare otherwise."""
+    if bool(getattr(settings, "TURNSTILE_FAKE_MODE", False)):
+        return
+    if not token.strip():
+        raise DomainError(
+            "ANTIBOT_FAILED",
+            "No pudimos validar el formulario. Recarga la página e inténtalo nuevamente.",
+            status=400,
+        )
+    verify_turnstile(token=token, remote_ip=remote_ip)
+
+
 def verify_turnstile(*, token: str, remote_ip: str) -> None:
     secret = str(getattr(settings, "TURNSTILE_SECRET_KEY", ""))
     if not secret:

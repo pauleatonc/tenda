@@ -102,7 +102,7 @@ export function ShipmentTicketPage() {
     return (
       <EmptyState
         title="Consulta no encontrada"
-        description="El ticket no existe o no pertenece a tu organización."
+        description="El ticket no existe o no pertenece a tu Tienda."
         action={
           <Link className="button button--secondary" to={`/app/despachos/${id}`}>
             Volver al despacho

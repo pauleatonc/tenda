@@ -5,7 +5,6 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 compose=(
   docker compose
   --project-name tenda-prod
-  --file "${root}/infra/compose.yaml"
   --file "${root}/infra/compose.prod.yaml"
 )
 state_dir="${TENDA_DEPLOY_STATE_DIR:-/var/lib/tenda-deploy}"
@@ -73,7 +72,7 @@ if [[ "${SKIP_PREDEPLOY_BACKUP:-false}" != "true" ]]; then
   "${compose[@]}" --profile operations run --rm backup
 fi
 
-"${compose[@]}" --profile operations run --rm migrate
+"${compose[@]}" run --rm migrate
 "${compose[@]}" up \
   --detach \
   --no-build \

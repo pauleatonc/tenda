@@ -47,7 +47,7 @@ Graphene, React/Vite y Expo; la Etapa 4 no se implementa y solo se anuncia como
 
 ## Invariantes
 
-- Toda entidad de negocio privada se aísla por organización e inventario.
+- Toda entidad de negocio privada se aísla por Tienda e inventario.
 - Los movimientos de stock son inmutables y actualizan el balance en una
   transacción con lock.
 - `available = on_hand - reserved` y nunca puede ser negativo.
@@ -105,11 +105,11 @@ Decisiones/deuda:
 
 ### T0.2 — Identidad, organizaciones y permisos
 
-- Usuario por email, perfil, organización, membresía, inventario activo y
+- Usuario por email, perfil, Tienda, membresía, inventario activo y
   sesiones mobile revocables implementados con identificadores públicos UUID.
 - Roles `owner`, `operator` y `support_admin`; permisos explícitos para finanzas,
   miembros y configuración sensible.
-- Registro transaccional crea Owner, organización e inventario principal.
+- Registro transaccional crea Owner, Tienda e inventario principal.
 - Login web con cookie HttpOnly/CSRF y mobile con bearer token hasheado en base
   de datos; recuperación revoca sesiones anteriores.
 - Verificación de email y recuperación usan tokens hasheados, de un uso y con
@@ -117,8 +117,8 @@ Decisiones/deuda:
 - Rate limiting de autenticación durable en PostgreSQL.
 - Google OIDC dispone de adapter fake determinista; LinkedIn permanece detrás
   de flag. No se almacenan ni registran tokens sin hash.
-- Selectores tenant-safe ocultan IDs de otra organización.
-- REST versionado, contrato GraphQL de identidad/organización, cliente generado,
+- Selectores tenant-safe ocultan IDs de otra Tienda.
+- REST versionado, contrato GraphQL de identidad/Tienda, cliente generado,
   Django Admin, pantallas web y flujos Expo implementados.
 
 Validación ejecutada:
@@ -146,7 +146,7 @@ Decisiones/deuda:
   correlation ID.
 - El schema Django es canónico; `pnpm codegen` lo exporta y regenera los tipos.
   CI falla si schema o cliente presentan drift.
-- `IdempotencyKey` queda aislada por organización, scope y clave; conserva hash
+- `IdempotencyKey` queda aislada por Tienda, scope y clave; conserva hash
   de request y respuesta estable, rechaza reutilización con payload distinto y
   evita ejecutar dos veces el comando.
 - La migración, Admin de solo lectura y wrapper transaccional común quedaron
@@ -189,7 +189,7 @@ Próximo paquete habilitado: T0.5, auditoría, outbox y jobs durables.
 
 ### T0.5 — Auditoría, outbox y jobs
 
-- `AuditEvent` append-only con actor, organización, objeto, outcome, metadata
+- `AuditEvent` append-only con actor, Tienda, objeto, outcome, metadata
   minimizada y correlation ID. Campos sensibles se redactan.
 - `OutboxEvent` transaccional con deduplicación, lock, retry exponencial acotado,
   máximo de intentos y dead-letter auditable.
@@ -200,7 +200,7 @@ Próximo paquete habilitado: T0.5, auditoría, outbox y jobs durables.
 - Celery usa colas `default`, `email` e `imports`; Beat usa agenda durable en
   PostgreSQL mediante `django-celery-beat`.
 - Parámetros operacionales y feature flags soportan defaults globales y override
-  por organización.
+  por Tienda.
 - Worker y Beat esperan que backend termine migraciones antes de iniciar.
 
 Validación ejecutada:
@@ -218,11 +218,12 @@ Próximo paquete habilitado: T0.6, integraciones externas y adapters fake.
 ### T0.6 — Integraciones externas y fakes
 
 - Storage privado con contrato R2/S3, URLs firmadas de carga/descarga, TTL,
-  claves aisladas por organización y fake determinista.
+  claves aisladas por Tienda y fake determinista.
 - Ciclo durable `prepare → upload → complete`; formato, tamaño y metadata se
   validan antes de marcar un archivo `ready`. No se persisten URLs públicas.
-- Email usa boundary genérico, fake idempotente y adapter Brevo con templates.
-  La outbox de identidad selecciona fake o Brevo por configuración.
+- Email usa boundary genérico, fake idempotente y adapter Brevo como transporte.
+  Las plantillas viven en la app (`email_templates.py`). La outbox selecciona
+  fake o Brevo por configuración.
 - Pagos usan contrato Decimal-safe, fake determinista y adapter Mercado Pago
   para preferences, consulta y verificación HMAC de webhooks.
 - Inbox de webhooks conserva cuerpo raw, headers seguros y payload normalizado,
@@ -249,7 +250,7 @@ iniciado antes se consolidó dentro de T0.8.
 
 ### T0.7 — Pagos y conexión comercial
 
-- `SellerPaymentConnection` es única por organización y proveedor, con estados
+- `SellerPaymentConnection` es única por Tienda y proveedor, con estados
   `pending`, `connected`, `disconnected` y `error`.
 - El flujo OAuth vive en servicios: iniciar, completar y desconectar. El
   callback REST es un adaptador delgado que redirige a configuración con un
@@ -263,7 +264,7 @@ iniciado antes se consolidó dentro de T0.8.
   Operator recibe permiso denegado. Tenda nunca solicita credenciales del
   vendedor.
 - `commission_mode`, `commission_rate` y `commission_minimum` son parámetros
-  operacionales con override por organización; el flag de comisión cero queda
+  operacionales con override por Tienda; el flag de comisión cero queda
   apagado hasta validarse con dinero real.
 - El adapter agrega URL de autorización e intercambio de código; el fake es
   determinista y no requiere credenciales. El checkout de negocio corresponde
@@ -343,7 +344,7 @@ Decisiones/deuda:
   las migraciones son repetibles y sin drift.
 - Registro, login, verificación, recuperación y Google fake funcionan;
   LinkedIn permanece detrás de flag.
-- Aislamiento por organización y matriz de permisos verificados
+- Aislamiento por Tienda y matriz de permisos verificados
   automáticamente.
 - GraphQL y REST comparten envelope de error, idempotencia y correlation ID; el
   cliente generado no presenta drift.
@@ -405,7 +406,7 @@ Próxima etapa habilitada: Etapa 1, inventario, comenzando por T1.1.
 - `productOrders` y `productShipments` existen vacíos y rotulados con la etapa
   que los habilita, para no inventar ceros engañosos en la interfaz.
 - Los montos viajan como texto para evitar el desbordamiento de `Int` en CLP.
-- Consultar un producto de otra organización responde no encontrado.
+- Consultar un producto de otra Tienda responde no encontrado.
 
 ### T1.4 — Inventario web
 
@@ -624,7 +625,7 @@ Validación ejecutada:
 - GraphQL seller: `shippingDashboard`, `shipments`, `shipment`,
   `shipmentTimeline`, `updateShipment` y `markShipmentDispatched`. Las mutations
   llevan clave de idempotencia. El listado y el dashboard aíslan por
-  organización e inventario.
+  Tienda e inventario.
 - Transportista y tracking se editan solo en `pending` o `preparing`. El primer
   guardado pasa a preparación. Despachar desde pendiente prepara y despacha en
   el mismo comando. Después de `dispatched` el tracking queda de solo lectura.

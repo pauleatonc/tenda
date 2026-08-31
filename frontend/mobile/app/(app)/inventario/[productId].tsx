@@ -100,7 +100,7 @@ export default function ProductDetailScreen() {
             description={
               detail.error instanceof MobileApiError
                 ? detail.error.message
-                : 'El producto no existe o pertenece a otra organización.'
+                : 'El producto no existe o pertenece a otra Tienda.'
             }
             action={
               <PrimaryButton

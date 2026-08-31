@@ -235,7 +235,7 @@ export default function ProductFormScreen() {
             Producto no encontrado
           </Text>
           <Text style={styles.muted}>
-            El producto no existe o pertenece a otra organización.
+            El producto no existe o pertenece a otra Tienda.
           </Text>
           <PrimaryButton label="Volver al inventario" onPress={() => router.back()} />
         </View>

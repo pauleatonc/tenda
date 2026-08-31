@@ -197,7 +197,7 @@ export function SaleDetailPage() {
     return (
       <EmptyState
         title="Venta no encontrada"
-        description="La venta no existe o no pertenece a tu organización."
+        description="La venta no existe o no pertenece a tu Tienda."
         action={
           <Link className="button button--secondary" to="/app/ventas">
             Volver a ventas

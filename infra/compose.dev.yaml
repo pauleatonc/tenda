@@ -1,27 +1,220 @@
+# Ambiente Dev: `docker compose -f infra/compose.dev.yaml up --build`
 name: tenda-dev
 
+x-backend: &backend
+  image: ${TENDA_BACKEND_IMAGE:-tenda-backend:local}
+  build:
+    context: ..
+    dockerfile: backend/Dockerfile
+  env_file:
+    - path: ../.env
+      required: false
+  environment:
+    DJANGO_SETTINGS_MODULE: tenda.settings.dev
+    DJANGO_DEBUG: 'true'
+    DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local-insecure-compose-key}
+    DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+    DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-http://localhost:5173}
+    POSTGRES_DB: ${POSTGRES_DB:-tenda}
+    POSTGRES_USER: ${POSTGRES_USER:-tenda}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tenda-local}
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: '5432'
+    REDIS_URL: redis://redis:6379/0
+    AGENT_FEATURE_STATUS: coming_soon
+    SALES_RESERVATION_TTL_SECONDS: ${SALES_RESERVATION_TTL_SECONDS:-28800}
+    TURNSTILE_FAKE_MODE: ${TURNSTILE_FAKE_MODE:-false}
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  restart: unless-stopped
+  networks:
+    - private
+
 services:
-  backend:
+  postgres:
+    image: postgres:17.5-bookworm
     environment:
-      DJANGO_SETTINGS_MODULE: tenda.settings.dev
-      DJANGO_DEBUG: 'true'
+      POSTGRES_DB: ${POSTGRES_DB:-tenda}
+      POSTGRES_USER: ${POSTGRES_USER:-tenda}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tenda-local}
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - private
+
+  redis:
+    image: redis:7.4.5-alpine
     command:
       [
-        'sh',
-        '-c',
-        'python manage.py migrate && uvicorn tenda.asgi:application --host 0.0.0.0 --port 8000 --reload',
+        'redis-server',
+        '--appendonly',
+        'no',
+        '--maxmemory',
+        '256mb',
+        '--maxmemory-policy',
+        'allkeys-lru',
+      ]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - private
+
+  backend:
+    <<: *backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command:
+      [
+        'uvicorn',
+        'tenda.asgi:application',
+        '--host',
+        '0.0.0.0',
+        '--port',
+        '8000',
+        '--reload',
       ]
     ports:
       - '${TENDA_API_PORT:-8000}:8000'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live/', timeout=2)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
   celery_worker:
-    environment:
-      DJANGO_SETTINGS_MODULE: tenda.settings.dev
+    <<: *backend
+    depends_on:
+      backend:
+        condition: service_healthy
+    command:
+      [
+        'celery',
+        '-A',
+        'tenda',
+        'worker',
+        '--loglevel=INFO',
+        '--queues=default,email,imports,payments',
+      ]
 
   celery_beat:
+    <<: *backend
+    depends_on:
+      backend:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    command:
+      [
+        'celery',
+        '-A',
+        'tenda',
+        'beat',
+        '--loglevel=INFO',
+        '--scheduler',
+        'django_celery_beat.schedulers:DatabaseScheduler',
+      ]
+
+  migrate:
+    <<: *backend
+    command: ['python', 'manage.py', 'migrate', '--noinput']
+    restart: 'no'
+
+  backup:
+    image: ${TENDA_BACKUP_IMAGE:-tenda-backup:local}
+    build:
+      context: ..
+      dockerfile: infra/backup/Dockerfile
+    env_file:
+      - path: ../.env
+        required: false
     environment:
-      DJANGO_SETTINGS_MODULE: tenda.settings.dev
+      POSTGRES_DB: ${POSTGRES_DB:-tenda}
+      POSTGRES_USER: ${POSTGRES_USER:-tenda}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tenda-local}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: '5432'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ['backup-postgres']
+    read_only: true
+    tmpfs:
+      - /work
+      - /tmp
+    restart: 'no'
+    profiles: [operations]
+    networks:
+      - private
+
+  restore:
+    extends: backup
+    entrypoint: ['restore-postgres']
+    volumes:
+      - ${BACKUP_AGE_IDENTITY_PATH:-./secrets/backup-age.key}:/run/secrets/backup_age_identity:ro
+    environment:
+      BACKUP_AGE_IDENTITY_FILE: /run/secrets/backup_age_identity
+    profiles: [restore]
+
+  web:
+    image: ${TENDA_WEB_IMAGE:-tenda-web:local}
+    build:
+      context: ..
+      dockerfile: frontend/web/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-${TURNSTILE_SITE_KEY:-}}
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '-', 'http://127.0.0.1/health']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - private
 
   nginx:
+    image: nginx:1.27.5-alpine
+    depends_on:
+      backend:
+        condition: service_healthy
+      web:
+        condition: service_healthy
     ports:
       - '${TENDA_HTTP_PORT:-5173}:80'
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    restart: unless-stopped
+    networks:
+      - public
+      - private
+
+networks:
+  public:
+  private:
+
+volumes:
+  postgres_data:

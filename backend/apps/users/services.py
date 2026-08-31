@@ -8,6 +8,7 @@ import secrets
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from urllib.parse import urlencode, urlparse
 
 from django.conf import settings
 from django.contrib.auth import authenticate
@@ -59,6 +60,13 @@ class AuthenticatedIdentity:
     user: User
     context: TenantContext
     created: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class OIDCCompletion:
+    identity: AuthenticatedIdentity
+    client: str
+    return_to: str
 
 
 def canonical_email(value: str) -> str:
@@ -459,13 +467,43 @@ def _user_for_oidc_identity(
     return user, created
 
 
+def is_safe_mobile_oidc_return_to(return_to: str) -> bool:
+    parsed = urlparse(return_to)
+    if parsed.scheme == "tenda":
+        return True
+    if parsed.scheme == "exp":
+        return True
+    return parsed.scheme in {"http", "https"} and parsed.hostname in {
+        "localhost",
+        "127.0.0.1",
+    }
+
+
+def mobile_oidc_app_redirect(
+    *,
+    return_to: str,
+    raw_token: str,
+    expires_at: datetime,
+) -> str | None:
+    if not is_safe_mobile_oidc_return_to(return_to):
+        return None
+    fragment = urlencode(
+        {
+            "accessToken": raw_token,
+            "tokenType": "Bearer",
+            "expiresAt": expires_at.isoformat(),
+        }
+    )
+    return f"{return_to}#{fragment}"
+
+
 @transaction.atomic
 def complete_oidc(
     *,
     provider_name: str,
     raw_state: str,
     code: str,
-) -> AuthenticatedIdentity:
+) -> OIDCCompletion:
     state = (
         OIDCLoginState.objects.select_for_update()
         .filter(state_digest=_token_digest(raw_state), provider=provider_name)
@@ -479,7 +517,15 @@ def complete_oidc(
         )
     state.consumed_at = timezone.now()
     state.save(update_fields=("consumed_at",))
-    identity = get_oidc_provider(provider_name).exchange(code=code)
+    callback_url = (
+        str(settings.GOOGLE_OIDC_CALLBACK_URL)
+        if provider_name == "google"
+        else str(settings.LINKEDIN_OIDC_CALLBACK_URL)
+    )
+    identity = get_oidc_provider(provider_name).exchange(
+        code=code,
+        callback_url=callback_url,
+    )
     if not identity.email_verified:
         raise DomainError(
             "OIDC_EMAIL_UNVERIFIED",
@@ -490,10 +536,14 @@ def complete_oidc(
         provider_name=provider_name,
         identity=identity,
     )
-    return AuthenticatedIdentity(
-        user=user,
-        context=resolve_tenant_context(user),
-        created=created,
+    return OIDCCompletion(
+        identity=AuthenticatedIdentity(
+            user=user,
+            context=resolve_tenant_context(user),
+            created=created,
+        ),
+        client=state.client,
+        return_to=state.return_to,
     )
 
 

@@ -98,7 +98,6 @@ Backup manual:
 
 ```bash
 docker compose \
-  -f infra/compose.yaml \
   -f infra/compose.prod.yaml \
   --profile operations run --rm backup
 ```
@@ -112,7 +111,7 @@ El restore es destructivo y requiere dos confirmaciones. Se ensaya contra una
 base descartable, no contra Producción:
 
 ```bash
-docker compose -f infra/compose.yaml exec postgres \
+docker compose -f infra/compose.prod.yaml exec postgres \
   createdb -U tenda tenda_restore_drill
 
 POSTGRES_DB=tenda_restore_drill \
@@ -121,14 +120,13 @@ BACKUP_AGE_IDENTITY_PATH='/ruta/segura/backup-age.key' \
 RESTORE_ALLOW_OVERWRITE=true \
 RESTORE_CONFIRM_DATABASE=tenda_restore_drill \
 docker compose \
-  -f infra/compose.yaml \
   -f infra/compose.prod.yaml \
   --profile restore run --rm restore
 
 POSTGRES_DB=tenda_restore_drill \
 docker compose \
-  -f infra/compose.yaml \
-  --profile operations run --rm migrate
+  -f infra/compose.prod.yaml \
+  run --rm migrate
 ```
 
 Después ejecutar checks y un smoke de login/tenant contra la base restaurada,

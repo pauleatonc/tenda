@@ -6,11 +6,11 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-from django.conf import settings
 from django.db import transaction
 
+from apps.media_assets.keys import build_object_key
 from apps.media_assets.models import MediaAsset
-from apps.media_assets.storage import PresignedUpload, get_object_storage
+from apps.media_assets.storage import PresignedUpload, get_object_storage, uses_in_process_upload
 from apps.organisations.selectors import TenantContext
 from tenda.errors import DomainError
 
@@ -72,8 +72,12 @@ def prepare_upload(
 ) -> PreparedUpload:
     _validate_upload(purpose=purpose, content_type=content_type, size=size)
     public_id = uuid.uuid4()
-    extension = Path(original_name).suffix.lower()[:12]
-    object_key = f"organisations/{context.organisation.public_id}/{purpose}/{public_id}{extension}"
+    object_key = build_object_key(
+        organisation_id=context.organisation.public_id,
+        purpose=purpose,
+        public_id=public_id,
+        original_name=original_name,
+    )
     asset = MediaAsset.objects.create(
         public_id=public_id,
         organisation=context.organisation,
@@ -147,7 +151,7 @@ def accept_fake_upload(
     a second upload mechanism in production.
     """
 
-    if str(getattr(settings, "OBJECT_STORAGE_PROVIDER", "fake")) != "fake":
+    if not uses_in_process_upload():
         raise DomainError("NOT_FOUND", "No encontramos el recurso solicitado.", status=404)
     asset = (
         MediaAsset.objects.select_for_update()
@@ -194,8 +198,12 @@ def create_generated_asset(
     }:
         raise DomainError("INVALID_UPLOAD_PURPOSE", "El tipo de archivo no es válido.")
     public_id = uuid.uuid4()
-    extension = Path(original_name).suffix.lower()[:12]
-    object_key = f"organisations/{context.organisation.public_id}/{purpose}/{public_id}{extension}"
+    object_key = build_object_key(
+        organisation_id=context.organisation.public_id,
+        purpose=purpose,
+        public_id=public_id,
+        original_name=original_name,
+    )
     stored = get_object_storage().write_bytes(
         key=object_key,
         content=content,

@@ -34,7 +34,7 @@ KIND_PARAMETERS: dict[str, tuple[str, str, int]] = {
 }
 
 SOURCE_LABELS: dict[str, str] = {
-    "organisation": "Parámetro de la organización",
+    "organisation": "Parámetro de la Tienda",
     "global": "Parámetro global",
     "default": "Valor por defecto",
 }

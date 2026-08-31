@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useForm, type UseFormRegisterReturn } from 'react-hook-form'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { z } from 'zod'
+import { GoogleSignInButton } from '../components/GoogleSignInButton'
+import { TurnstileField, turnstileSiteKey } from '../components/TurnstileField'
 import {
   TendaApiError,
   confirmPasswordReset,
@@ -13,7 +15,6 @@ import {
   registerAccount,
   requestPasswordReset,
   resendVerification,
-  startGoogleLogin,
   verifyEmail,
 } from './api'
 
@@ -99,29 +100,6 @@ function ErrorSummary({ error }: { error: unknown }) {
   )
 }
 
-function GoogleButton({ onError }: { onError: (error: unknown) => void }) {
-  const [loading, setLoading] = useState(false)
-  return (
-    <button
-      className="social-button"
-      disabled={loading}
-      type="button"
-      onClick={() => {
-        setLoading(true)
-        startGoogleLogin().catch((error: unknown) => {
-          setLoading(false)
-          onError(error)
-        })
-      }}
-    >
-      <span aria-hidden="true" className="social-button__mark">
-        G
-      </span>
-      {loading ? 'Conectando con Google…' : 'Continuar con Google'}
-    </button>
-  )
-}
-
 function PasswordInput({
   id,
   label,
@@ -165,6 +143,7 @@ export function LoginPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [serverError, setServerError] = useState<unknown>(null)
+  const [turnstileToken, setTurnstileToken] = useState('')
   const {
     register,
     handleSubmit,
@@ -177,7 +156,7 @@ export function LoginPage() {
       title="Inicia sesión"
       description="Vuelve a tu negocio y continúa donde quedaste."
     >
-      <GoogleButton onError={setServerError} />
+      <GoogleSignInButton onError={setServerError} />
       <div className="auth-divider">
         <span>o usa tu correo</span>
       </div>
@@ -187,8 +166,25 @@ export function LoginPage() {
         noValidate
         onSubmit={handleSubmit(async (values) => {
           setServerError(null)
+          if (turnstileSiteKey() && !turnstileToken) {
+            setServerError(
+              new TendaApiError(
+                {
+                  code: 'ANTIBOT_FAILED',
+                  message: 'Completa la validación anti-bot para continuar.',
+                  fieldErrors: {},
+                  correlationId: '',
+                },
+                400,
+              ),
+            )
+            return
+          }
           try {
-            const viewer = await login(values)
+            const viewer = await login({
+              ...values,
+              turnstileToken: turnstileToken || 'local-development',
+            })
             queryClient.setQueryData(['viewer'], viewer)
             navigate('/app', { replace: true })
           } catch (error) {
@@ -220,6 +216,7 @@ export function LoginPage() {
           label="Contraseña"
           registration={register('password')}
         />
+        <TurnstileField onToken={setTurnstileToken} />
         <div className="form-row">
           <Link to="/recuperar">¿Olvidaste tu contraseña?</Link>
           {serverError instanceof TendaApiError &&
@@ -241,6 +238,7 @@ export function LoginPage() {
 export function RegisterPage() {
   const navigate = useNavigate()
   const [serverError, setServerError] = useState<unknown>(null)
+  const [turnstileToken, setTurnstileToken] = useState('')
   const {
     register,
     handleSubmit,
@@ -254,9 +252,9 @@ export function RegisterPage() {
     <AuthShell
       eyebrow="Comienza hoy"
       title="Crea tu cuenta"
-      description="Solo necesitamos lo esencial. Tu organización e inventario se crean contigo."
+      description="Solo necesitamos lo esencial. Tu Tienda e inventario se crean contigo."
     >
-      <GoogleButton onError={setServerError} />
+      <GoogleSignInButton onError={setServerError} />
       <div className="auth-divider">
         <span>o regístrate con correo</span>
       </div>
@@ -266,8 +264,25 @@ export function RegisterPage() {
         noValidate
         onSubmit={handleSubmit(async (values) => {
           setServerError(null)
+          if (turnstileSiteKey() && !turnstileToken) {
+            setServerError(
+              new TendaApiError(
+                {
+                  code: 'ANTIBOT_FAILED',
+                  message: 'Completa la validación anti-bot para continuar.',
+                  fieldErrors: {},
+                  correlationId: '',
+                },
+                400,
+              ),
+            )
+            return
+          }
           try {
-            await registerAccount(values)
+            await registerAccount({
+              ...values,
+              turnstileToken: turnstileToken || 'local-development',
+            })
             navigate('/verificar-email', {
               replace: true,
               state: { email: values.email },
@@ -323,6 +338,7 @@ export function RegisterPage() {
         {errors.acceptedTerms ? (
           <span className="field__error">{errors.acceptedTerms.message}</span>
         ) : null}
+        <TurnstileField onToken={setTurnstileToken} />
         <button className="button button--primary button--wide" disabled={isSubmitting}>
           {isSubmitting ? 'Creando cuenta…' : 'Crear cuenta'}
         </button>
@@ -381,7 +397,7 @@ export function VerificationPage() {
       {status === 'success' ? (
         <div className="form-message form-message--success" role="status">
           <strong>Tu cuenta está lista.</strong>
-          <span>Ya puedes entrar a tu organización.</span>
+          <span>Ya puedes entrar a tu Tienda.</span>
           <button
             className="button button--primary button--wide"
             onClick={() => navigate('/app')}
@@ -570,7 +586,7 @@ export function AppHomePage() {
     return (
       <main className="app-loading" aria-live="polite">
         <span className="wordmark">tenda</span>
-        <p>Cargando tu organización…</p>
+        <p>Cargando tu Tienda…</p>
       </main>
     )
   }

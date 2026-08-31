@@ -217,7 +217,7 @@ export function ShipmentDetailPage() {
     return (
       <EmptyState
         title="Despacho no encontrado"
-        description="El envío no existe o no pertenece a tu organización."
+        description="El envío no existe o no pertenece a tu Tienda."
         action={
           <Link className="button button--secondary" to="/app/despachos">
             Volver a despachos

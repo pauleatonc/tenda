@@ -106,7 +106,7 @@ export function ProductDetailPage() {
     return (
       <EmptyState
         title="Producto no encontrado"
-        description="El producto no existe o pertenece a otra organización."
+        description="El producto no existe o pertenece a otra Tienda."
         action={
           <Link className="button button--secondary" to="/app/inventario">
             Volver al inventario

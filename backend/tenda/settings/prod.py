@@ -32,6 +32,10 @@ if not ADMIN_URL_PATH.startswith("control-"):
     raise ImproperlyConfigured(
         "DJANGO_ADMIN_PATH must use a private control-* prefix in production"
     )
+if TURNSTILE_FAKE_MODE:
+    raise ImproperlyConfigured("TURNSTILE_FAKE_MODE must be disabled in production")
+if not TURNSTILE_SECRET_KEY:
+    raise ImproperlyConfigured("TURNSTILE_SECRET_KEY is required in production")
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", True)
@@ -43,3 +47,5 @@ SECURE_HSTS_PRELOAD = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 TENDA_ENV = "production"
+if not os.getenv("R2_PREFIX", "").strip():
+    R2_PREFIX = "prod"

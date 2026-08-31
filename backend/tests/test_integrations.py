@@ -4,19 +4,26 @@ import hashlib
 import hmac
 import json
 from decimal import Decimal
+from unittest.mock import MagicMock, patch
 
 import pytest
 from django.test import Client, override_settings
 from django.utils import timezone
 
+from apps.media_assets.keys import build_object_key, r2_object_key
 from apps.media_assets.models import MediaAsset
 from apps.media_assets.services import (
     complete_upload,
     prepare_upload,
     private_download_url,
 )
-from apps.media_assets.storage import fake_object_storage
-from apps.notifications.providers import EmailRequest, fake_email_provider
+from apps.media_assets.storage import LocalFileObjectStorage, fake_object_storage
+from apps.notifications.email_templates import render_email
+from apps.notifications.providers import (
+    BrevoEmailProvider,
+    EmailRequest,
+    fake_email_provider,
+)
 from apps.organisations.selectors import resolve_tenant_context
 from apps.organisations.services import create_organisation_for_owner
 from apps.sales.models import PaymentWebhookEvent
@@ -56,6 +63,7 @@ def test_private_storage_fake_is_tenant_scoped_and_expiring() -> None:
     )
 
     assert str(owner.organisation.public_id) in prepared.asset.object_key
+    assert "/media/product_image/" in prepared.asset.object_key
     assert prepared.asset.object_key.endswith(".webp")
     assert completed.status == MediaAsset.Status.READY
     assert "expires=300" in download_url
@@ -65,6 +73,45 @@ def test_private_storage_fake_is_tenant_scoped_and_expiring() -> None:
             context=foreign,
             public_id=prepared.asset.public_id,
         )
+
+
+def test_local_file_storage_writes_under_media_root(tmp_path) -> None:
+    storage = LocalFileObjectStorage(root=tmp_path)
+    key = "organisations/org-1/media/product_image/asset.webp"
+    storage.write_bytes(key=key, content=b"webp-bytes", content_type="image/webp")
+
+    assert (tmp_path / key).read_bytes() == b"webp-bytes"
+    stored = storage.head(key=key)
+    assert stored.content_type == "image/webp"
+    assert stored.size == 10
+
+
+def test_object_keys_group_media_and_documents() -> None:
+    media = build_object_key(
+        organisation_id="org-1",
+        purpose=MediaAsset.Purpose.PRODUCT_IMAGE,
+        public_id="asset-1",
+        original_name="foto.webp",
+    )
+    receipt = build_object_key(
+        organisation_id="org-1",
+        purpose=MediaAsset.Purpose.PAYMENT_RECEIPT,
+        public_id="asset-2",
+        original_name="boleta.pdf",
+        extra="order-9",
+    )
+
+    assert media == "organisations/org-1/media/product_image/asset-1.webp"
+    assert receipt == (
+        "organisations/org-1/documents/payment_receipt/order-9/asset-2.pdf"
+    )
+
+
+@override_settings(R2_PREFIX="dev")
+def test_r2_prefix_is_environment_folder() -> None:
+    assert r2_object_key("organisations/org/media/product_image/a.webp") == (
+        "dev/organisations/org/media/product_image/a.webp"
+    )
 
 
 def test_fake_email_and_payment_providers_are_deterministic() -> None:
@@ -101,6 +148,59 @@ def test_fake_email_and_payment_providers_are_deterministic() -> None:
     assert len(fake_email_provider.messages()) == 1
     assert first_payment == second_payment
     assert first_payment.checkout_url.startswith("https://payments.invalid/")
+
+
+def test_app_email_templates_render_verify_and_reset_links() -> None:
+    verify = render_email(
+        "verify_email",
+        {
+            "actionUrl": "https://app.test/verificar-email?token=abc",
+            "expiresAt": "2026-08-31T12:00:00+00:00",
+        },
+    )
+    reset = render_email(
+        "reset_password",
+        {"actionUrl": "https://app.test/recuperar?token=xyz"},
+    )
+
+    assert "Verifica tu correo" in verify.subject
+    assert "https://app.test/verificar-email?token=abc" in verify.html
+    assert "https://app.test/recuperar?token=xyz" in reset.html
+    assert "templateId" not in verify.html
+
+
+@override_settings(
+    BREVO_API_KEY="test-key",
+    BREVO_SENDER_EMAIL="hola@tenda.test",
+    BREVO_SENDER_NAME="Tenda",
+)
+def test_brevo_sends_app_html_without_template_id() -> None:
+    captured: dict = {}
+
+    def fake_post(url: str, **kwargs):
+        captured["url"] = url
+        captured.update(kwargs)
+        response = MagicMock()
+        response.raise_for_status = lambda: None
+        response.json.return_value = {"messageId": "msg-1"}
+        return response
+
+    with patch("apps.notifications.providers.httpx.post", side_effect=fake_post):
+        result = BrevoEmailProvider().send(
+            EmailRequest(
+                recipient="user@example.com",
+                template="verify_email",
+                parameters={"actionUrl": "https://app.test/verificar-email?token=abc"},
+                idempotency_key="verify-1",
+            )
+        )
+
+    body = captured["json"]
+    assert result.message_id == "msg-1"
+    assert "templateId" not in body
+    assert body["subject"] == "Verifica tu correo en Tenda"
+    assert "https://app.test/verificar-email?token=abc" in body["htmlContent"]
+    assert "https://app.test/verificar-email?token=abc" in body["textContent"]
 
 
 def test_fake_payment_webhook_is_signed_durable_and_idempotent() -> None:

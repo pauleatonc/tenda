@@ -267,6 +267,31 @@ def test_auth_rate_limit_is_persisted_in_database() -> None:
     assert second.json()["error"]["code"] == "AUTH_RATE_LIMITED"
 
 
+@override_settings(TURNSTILE_FAKE_MODE=False, TURNSTILE_SECRET_KEY="")
+def test_login_and_register_require_turnstile_when_enabled() -> None:
+    client = Client()
+    login = post_json(
+        client,
+        "/api/v1/auth/login",
+        {"email": "owner@example.com", "password": "Correct-Horse-Battery-42"},
+    )
+    register = post_json(
+        client,
+        "/api/v1/auth/register",
+        {
+            "email": "nueva@example.com",
+            "password": "Correct-Horse-Battery-42",
+            "fullName": "Ana",
+            "acceptedTerms": True,
+        },
+    )
+
+    assert login.status_code == register.status_code == 400
+    assert login.json()["error"]["code"] == "ANTIBOT_FAILED"
+    assert register.json()["error"]["code"] == "ANTIBOT_FAILED"
+
+
+@override_settings(GOOGLE_OIDC_PROVIDER="fake")
 def test_fake_google_oidc_is_deterministic_and_linkedin_is_off() -> None:
     client = Client()
     start = client.get("/api/v1/auth/social/google/start")
@@ -283,6 +308,97 @@ def test_fake_google_oidc_is_deterministic_and_linkedin_is_off() -> None:
     assert viewer.json()["data"]["viewer"]["email"] == "google.user@example.test"
     assert linkedin.status_code == 404
     assert linkedin.json()["error"]["code"] == "PROVIDER_UNAVAILABLE"
+
+
+@override_settings(GOOGLE_OIDC_PROVIDER="fake")
+def test_fake_google_oidc_mobile_redirects_to_safe_return_to() -> None:
+    client = Client()
+    start = client.get(
+        "/api/v1/auth/social/google/start",
+        {"client": "mobile", "returnTo": "tenda://auth/google"},
+    )
+    authorization_url = start.json()["data"]["authorizationUrl"]
+    parsed = urlparse(authorization_url)
+    callback = client.get(f"{parsed.path}?{parsed.query}")
+    location = urlparse(callback["Location"])
+    fragment = parse_qs(location.fragment)
+
+    assert callback.status_code == 302
+    assert location.scheme == "tenda"
+    assert fragment["accessToken"][0].startswith("tenda_")
+    assert fragment["tokenType"] == ["Bearer"]
+
+
+@override_settings(
+    GOOGLE_OIDC_PROVIDER="google",
+    GOOGLE_OIDC_CLIENT_ID="test-client.apps.googleusercontent.com",
+    GOOGLE_OIDC_CLIENT_SECRET="test-secret",
+    GOOGLE_OIDC_CALLBACK_URL="http://localhost:8000/api/v1/auth/social/google/callback",
+)
+def test_google_oidc_start_points_to_google_accounts() -> None:
+    start = Client().get("/api/v1/auth/social/google/start")
+    authorization_url = start.json()["data"]["authorizationUrl"]
+    parsed = urlparse(authorization_url)
+    query = parse_qs(parsed.query)
+
+    assert parsed.netloc == "accounts.google.com"
+    assert parsed.path == "/o/oauth2/v2/auth"
+    assert query["client_id"] == ["test-client.apps.googleusercontent.com"]
+    assert query["response_type"] == ["code"]
+    assert query["redirect_uri"] == [
+        "http://localhost:8000/api/v1/auth/social/google/callback"
+    ]
+    assert "openid" in query["scope"][0]
+    assert "email" in query["scope"][0]
+
+
+@override_settings(
+    GOOGLE_OIDC_PROVIDER="google",
+    GOOGLE_OIDC_CLIENT_ID="test-client.apps.googleusercontent.com",
+    GOOGLE_OIDC_CLIENT_SECRET="test-secret",
+    GOOGLE_OIDC_CALLBACK_URL="http://localhost:8000/api/v1/auth/social/google/callback",
+)
+def test_google_oidc_callback_exchanges_code_with_google(monkeypatch: pytest.MonkeyPatch) -> None:
+    class TokenResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, str]:
+            return {"access_token": "ya29.test-token"}
+
+    class UserInfoResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return {
+                "sub": "google-subject-99",
+                "email": "ada@example.com",
+                "email_verified": True,
+                "name": "Ada Lovelace",
+            }
+
+    monkeypatch.setattr(
+        "apps.users.providers.httpx.post",
+        lambda *args, **kwargs: TokenResponse(),
+    )
+    monkeypatch.setattr(
+        "apps.users.providers.httpx.get",
+        lambda *args, **kwargs: UserInfoResponse(),
+    )
+
+    client = Client()
+    start = client.get("/api/v1/auth/social/google/start")
+    state = parse_qs(urlparse(start.json()["data"]["authorizationUrl"]).query)["state"][0]
+    callback = client.get(
+        "/api/v1/auth/social/google/callback",
+        {"state": state, "code": "4/real-google-code"},
+    )
+    viewer = client.get("/api/v1/auth/viewer")
+
+    assert callback.status_code == 302
+    assert callback["Location"].endswith("/app")
+    assert viewer.json()["data"]["viewer"]["email"] == "ada@example.com"
 
 
 def test_tenant_selectors_hide_foreign_ids_and_operator_defaults_are_safe() -> None:

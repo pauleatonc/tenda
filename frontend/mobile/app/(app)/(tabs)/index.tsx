@@ -206,7 +206,7 @@ export default function DashboardScreen() {
 
       <View style={styles.contextRow}>
         <View style={styles.contextCard}>
-          <Text style={styles.cardLabel}>Organización</Text>
+          <Text style={styles.cardLabel}>Tienda</Text>
           <Text style={styles.contextValue}>{data.organisation.name}</Text>
         </View>
         <View style={styles.contextCard}>

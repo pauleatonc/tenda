@@ -12,7 +12,7 @@ import {
 import { ticketCategoryLabels, translated } from '../shipping/model'
 import { TicketThread } from '../shipping/TicketThread'
 import { PublicPage, PublicShipmentUnavailable } from './PublicOrderComponents'
-import { TurnstileField } from './PublicShipmentConfirmPage'
+import { TurnstileField } from '../components/TurnstileField'
 
 const CATEGORIES = ['not_received', 'damaged', 'wrong_item', 'other'] as const
 

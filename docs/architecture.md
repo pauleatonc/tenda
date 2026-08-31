@@ -34,7 +34,7 @@ app/
 │   │   ├── organisations/   Tenant, membresías, permisos
 │   │   ├── configuration/   Feature flags y OperationalParameter
 │   │   ├── audit/           AuditEvent y export del schema GraphQL
-│   │   ├── media_assets/    Uploads validados, R2 o adapter fake
+│   │   ├── media_assets/    Uploads validados; R2: {env}/organisations/…
 │   │   ├── notifications/   Outbox de email (Brevo o fake)
 │   │   ├── inventory/       Catálogo, stock inmutable, import/export
 │   │   ├── sales/           Pedidos, pagos, balance comercial
@@ -60,10 +60,10 @@ app/
 ├── packages/api-client/     schema.graphql + tipos/operaciones generadas
 ├── e2e/web/                 Playwright del journey + axe WCAG
 ├── infra/
-│   ├── compose.yaml         Stack base (red privada, sin Postgres público)
-│   ├── compose.dev.yaml     Puertos 8000/5173 para desarrollo
-│   ├── compose.prod.yaml    Secrets obligatorios, read-only, AGENT off
-│   ├── compose.e2e.yaml     Publica Postgres/Redis para E2E en el host
+│   ├── compose.yaml         Local (reload: API 8000, Vite 5173, Metro 8081)
+│   ├── compose.dev.yaml     Dev (tenda.settings.dev)
+│   ├── compose.prod.yaml    Prod (secrets, read-only, AGENT off)
+│   ├── compose.e2e.yaml     Solo Postgres/Redis publicados para el host
 │   ├── compose.ops.yaml     Uptime Kuma, Netdata Parent, Portainer (VPS Ops)
 │   ├── compose.ops-agents.yaml  Netdata Child y Portainer Agent (VPS App)
 │   ├── nginx/               TLS/headers hacia backend y web
@@ -89,7 +89,7 @@ identificadores públicos son UUID; las PK internas no salen por la API.
 | App             | Responsabilidad principal                                           |
 | --------------- | ------------------------------------------------------------------- |
 | `users`         | Email, verificación, OIDC fake, CSRF, rate limit durable            |
-| `organisations` | Organización, inventario activo, roles y permisos                   |
+| `organisations` | Tienda, inventario activo, roles y permisos                   |
 | `configuration` | Parámetros versionados (cadencias, comisiones)                      |
 | `audit`         | Trazas de operaciones críticas                                      |
 | `media_assets`  | Presign/complete, propósito, tenant y tipo/tamaño                   |
@@ -101,7 +101,7 @@ identificadores públicos son UUID; las PK internas no salen por la API.
 Settings:
 
 - `tenda.settings.local` — desarrollo en host o Compose local.
-- `tenda.settings.dev` — overlay Dev (debug, Turnstile fake).
+- `tenda.settings.dev` — Compose Dev (debug, Turnstile real).
 - `tenda.settings.prod` — HTTPS, cookies secure, Admin acotado a WireGuard.
 
 ## Frontend
@@ -126,15 +126,21 @@ Nginx publica HTTP/HTTPS. Postgres, Redis y paneles no salen a Internet.
 cp .env.example .env
 corepack pnpm install --frozen-lockfile
 uv sync --project backend --frozen
-docker compose -f infra/compose.yaml -f infra/compose.dev.yaml up --build
+docker compose -f infra/compose.yaml up --build
 ```
 
-Web en <http://localhost:5173>, API en <http://localhost:8000>.
+Web (Vite) en <http://localhost:5173>, Metro en <http://localhost:8081>, API en
+<http://localhost:8000>. El código del host se monta y recarga solo. Django usa
+`tenda.settings.local`. El proxy Nginx solo está en Dev/Prod. Para Dev:
+
+```bash
+docker compose -f infra/compose.dev.yaml up --build
+```
 
 Sin contenedores de aplicación, con Postgres/Redis publicados para el host:
 
 ```bash
-docker compose -f infra/compose.yaml -f infra/compose.e2e.yaml up -d postgres redis
+docker compose -f infra/compose.e2e.yaml up -d
 uv run --project backend python backend/manage.py migrate
 uv run --project backend python backend/manage.py runserver
 corepack pnpm dev:web

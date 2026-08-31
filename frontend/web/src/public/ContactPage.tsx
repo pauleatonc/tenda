@@ -1,28 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link } from 'react-router-dom'
 import { z } from 'zod'
 
 import { submitContact, TendaApiError } from '../auth/api'
+import { TurnstileField } from '../components/TurnstileField'
 import { FormErrorSummary } from '../components/ui'
-
-declare global {
-  interface Window {
-    turnstile?: {
-      render: (
-        element: HTMLElement,
-        options: {
-          sitekey: string
-          callback: (token: string) => void
-          'expired-callback': () => void
-          theme: 'light'
-        },
-      ) => string
-      remove: (widgetId: string) => void
-    }
-  }
-}
 
 const schema = z.object({
   name: z.string().trim().min(2, 'Ingresa tu nombre.').max(160),
@@ -35,51 +19,6 @@ const schema = z.object({
 })
 
 type ContactForm = z.infer<typeof schema>
-
-function TurnstileField({ onToken }: { onToken: (token: string) => void }) {
-  const container = useRef<HTMLDivElement>(null)
-  const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined
-
-  useEffect(() => {
-    if (!siteKey) {
-      if (import.meta.env.DEV) onToken('local-development')
-      return
-    }
-    let widgetId = ''
-    const render = () => {
-      if (!container.current || !window.turnstile) return
-      widgetId = window.turnstile.render(container.current, {
-        sitekey: siteKey,
-        callback: onToken,
-        'expired-callback': () => onToken(''),
-        theme: 'light',
-      })
-    }
-    const existing = document.querySelector<HTMLScriptElement>(
-      'script[data-tenda-turnstile]',
-    )
-    if (window.turnstile) {
-      render()
-    } else if (existing) {
-      existing.addEventListener('load', render, { once: true })
-    } else {
-      const script = document.createElement('script')
-      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
-      script.async = true
-      script.defer = true
-      script.dataset.tendaTurnstile = 'true'
-      script.addEventListener('load', render, { once: true })
-      document.head.appendChild(script)
-    }
-    return () => {
-      if (widgetId && window.turnstile) window.turnstile.remove(widgetId)
-      existing?.removeEventListener('load', render)
-    }
-  }, [onToken, siteKey])
-
-  if (!siteKey && import.meta.env.DEV) return null
-  return <div ref={container} aria-label="Validación anti-bot" />
-}
 
 export function ContactPage() {
   const [turnstileToken, setTurnstileToken] = useState('')

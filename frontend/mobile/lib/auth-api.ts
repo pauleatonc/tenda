@@ -1,4 +1,6 @@
+import * as Linking from 'expo-linking'
 import * as SecureStore from 'expo-secure-store'
+import * as WebBrowser from 'expo-web-browser'
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000'
 const TOKEN_KEY = 'tenda.mobile.access-token'
@@ -106,10 +108,14 @@ export function authenticatedRequest<T>(path: string, options: RequestInit = {})
   return request<T>(path, options, true)
 }
 
-export async function mobileLogin(email: string, password: string) {
+export async function mobileLogin(
+  email: string,
+  password: string,
+  turnstileToken = 'local-development',
+) {
   const response = await request<AuthResponse>('/api/v1/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, turnstileToken }),
   })
   return saveAuth(response)
 }
@@ -119,10 +125,17 @@ export function mobileRegister(input: {
   email: string
   password: string
   acceptedTerms: boolean
+  turnstileToken?: string
 }) {
   return request<{ message: string; verificationRequired: boolean }>(
     '/api/v1/auth/register',
-    { method: 'POST', body: JSON.stringify(input) },
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        ...input,
+        turnstileToken: input.turnstileToken || 'local-development',
+      }),
+    },
   )
 }
 
@@ -171,10 +184,44 @@ export async function mobileLogout() {
   }
 }
 
+function parseGoogleRedirect(url: string): string {
+  const fragment = url.split('#')[1] ?? ''
+  const accessToken = new URLSearchParams(fragment).get('accessToken') ?? ''
+  if (!accessToken) {
+    throw new MobileApiError({
+      code: 'OIDC_INVALID_RESPONSE',
+      message: 'No pudimos completar el acceso con Google.',
+      fieldErrors: {},
+      correlationId: '',
+    })
+  }
+  return accessToken
+}
+
 export async function mobileGoogleLogin() {
+  const returnTo = Linking.createURL('auth/google')
   const start = await request<{ authorizationUrl: string }>(
-    '/api/v1/auth/social/google/start?client=mobile',
+    `/api/v1/auth/social/google/start?client=mobile&returnTo=${encodeURIComponent(returnTo)}`,
   )
-  const response = await request<AuthResponse>(start.authorizationUrl)
-  return saveAuth(response)
+  const result = await WebBrowser.openAuthSessionAsync(start.authorizationUrl, returnTo)
+  if (result.type === 'cancel' || result.type === 'dismiss') {
+    throw new MobileApiError({
+      code: 'OIDC_CANCELLED',
+      message: 'Cancelaste el acceso con Google.',
+      fieldErrors: {},
+      correlationId: '',
+    })
+  }
+  if (result.type !== 'success' || !result.url) {
+    throw new MobileApiError({
+      code: 'OIDC_INVALID_RESPONSE',
+      message: 'No pudimos completar el acceso con Google.',
+      fieldErrors: {},
+      correlationId: '',
+    })
+  }
+  await SecureStore.setItemAsync(TOKEN_KEY, parseGoogleRedirect(result.url), {
+    keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+  })
+  return getMobileViewer()
 }

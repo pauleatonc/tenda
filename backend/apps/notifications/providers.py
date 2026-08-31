@@ -11,6 +11,8 @@ from django.conf import settings
 
 from tenda.errors import DomainError
 
+from .email_templates import render_email
+
 
 @dataclass(frozen=True, slots=True)
 class EmailRequest:
@@ -58,15 +60,14 @@ class BrevoEmailProvider:
         api_key = str(getattr(settings, "BREVO_API_KEY", ""))
         sender_email = str(getattr(settings, "BREVO_SENDER_EMAIL", ""))
         sender_name = str(getattr(settings, "BREVO_SENDER_NAME", "Tenda"))
-        template_ids = dict(getattr(settings, "BREVO_TEMPLATE_IDS", {}))
-        template_id = template_ids.get(request.template)
-        if not api_key or not sender_email or template_id is None:
+        if not api_key or not sender_email:
             raise DomainError(
                 "EMAIL_NOT_CONFIGURED",
                 "El proveedor de correo no está configurado.",
                 status=503,
                 retryable=True,
             )
+        rendered = render_email(request.template, request.parameters)
         try:
             response = httpx.post(
                 self.endpoint,
@@ -79,8 +80,9 @@ class BrevoEmailProvider:
                 json={
                     "sender": {"name": sender_name, "email": sender_email},
                     "to": [{"email": request.recipient}],
-                    "templateId": int(template_id),
-                    "params": request.parameters,
+                    "subject": rendered.subject,
+                    "htmlContent": rendered.html,
+                    "textContent": rendered.text,
                 },
                 timeout=5,
             )
