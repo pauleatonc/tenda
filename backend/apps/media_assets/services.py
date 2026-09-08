@@ -2,20 +2,36 @@
 
 from __future__ import annotations
 
+import hashlib
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
+from django.conf import settings
 from django.db import transaction
 
-from apps.media_assets.keys import build_object_key
+from apps.media_assets.images import (
+    is_display_image_purpose,
+    render_image_variants,
+    variant_content_type,
+)
+from apps.media_assets.keys import build_object_key, build_variant_key
 from apps.media_assets.models import MediaAsset
 from apps.media_assets.storage import PresignedUpload, get_object_storage, uses_in_process_upload
 from apps.organisations.selectors import TenantContext
+from apps.users.models import User
 from tenda.errors import DomainError
 
 _PURPOSE_RULES: dict[str, tuple[set[str], int]] = {
     MediaAsset.Purpose.PRODUCT_IMAGE: (
+        {"image/jpeg", "image/png", "image/webp"},
+        10 * 1024 * 1024,
+    ),
+    MediaAsset.Purpose.PROFILE_PHOTO: (
+        {"image/jpeg", "image/png", "image/webp"},
+        10 * 1024 * 1024,
+    ),
+    MediaAsset.Purpose.ORGANISATION_LOGO: (
         {"image/jpeg", "image/png", "image/webp"},
         10 * 1024 * 1024,
     ),
@@ -35,6 +51,8 @@ _PURPOSE_RULES: dict[str, tuple[set[str], int]] = {
         25 * 1024 * 1024,
     ),
 }
+
+MAX_PURPOSE_UPLOAD_BYTES = max(size for _types, size in _PURPOSE_RULES.values())
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,42 +115,57 @@ def prepare_upload(
     return PreparedUpload(asset=asset, upload=upload)
 
 
-@transaction.atomic
 def complete_upload(*, context: TenantContext, public_id: uuid.UUID) -> MediaAsset:
-    asset = (
-        MediaAsset.objects.select_for_update()
-        .filter(
-            public_id=public_id,
-            organisation=context.organisation,
-            created_by=context.user,
+    failure: DomainError | None = None
+    with transaction.atomic():
+        asset = (
+            MediaAsset.objects.select_for_update()
+            .filter(
+                public_id=public_id,
+                organisation=context.organisation,
+                created_by=context.user,
+            )
+            .first()
         )
-        .first()
-    )
-    if asset is None:
-        raise DomainError("NOT_FOUND", "No encontramos el recurso solicitado.", status=404)
-    if asset.status == MediaAsset.Status.READY:
-        return asset
-    stored = get_object_storage().head(key=asset.object_key)
-    if stored.size != asset.expected_size or stored.content_type != asset.content_type:
-        asset.status = MediaAsset.Status.REJECTED
-        asset.actual_size = stored.size
-        asset.save(update_fields=("status", "actual_size", "updated_at"))
-        get_object_storage().delete(key=asset.object_key)
-        raise DomainError(
-            "UPLOAD_MISMATCH",
-            "El archivo recibido no coincide con la carga solicitada.",
-        )
-    asset.actual_size = stored.size
-    asset.checksum_sha256 = stored.checksum_sha256
-    asset.status = MediaAsset.Status.READY
-    asset.save(
-        update_fields=(
-            "actual_size",
-            "checksum_sha256",
-            "status",
-            "updated_at",
-        )
-    )
+        if asset is None:
+            failure = DomainError("NOT_FOUND", "No encontramos el recurso solicitado.", status=404)
+        elif asset.status == MediaAsset.Status.READY:
+            return asset
+        else:
+            original_key = asset.object_key
+            stored = get_object_storage().head(key=original_key)
+            try:
+                if stored.size != asset.expected_size or stored.content_type != asset.content_type:
+                    raise DomainError(
+                        "UPLOAD_MISMATCH",
+                        "El archivo recibido no coincide con la carga solicitada.",
+                    )
+                if is_display_image_purpose(asset.purpose):
+                    _replace_original_with_variants(asset)
+                else:
+                    asset.actual_size = stored.size
+                    asset.checksum_sha256 = stored.checksum_sha256
+                asset.status = MediaAsset.Status.READY
+                asset.save(
+                    update_fields=(
+                        "object_key",
+                        "content_type",
+                        "actual_size",
+                        "checksum_sha256",
+                        "variants",
+                        "status",
+                        "updated_at",
+                    )
+                )
+            except DomainError as exc:
+                get_object_storage().delete(key=original_key)
+                asset.status = MediaAsset.Status.REJECTED
+                asset.actual_size = stored.size
+                asset.save(update_fields=("status", "actual_size", "updated_at"))
+                failure = exc
+    if failure is not None:
+        raise failure
+    assert asset is not None
     return asset
 
 
@@ -228,6 +261,7 @@ def private_download_url(
     *,
     context: TenantContext,
     public_id: uuid.UUID,
+    variant: str | None = None,
 ) -> str:
     asset = MediaAsset.objects.filter(
         public_id=public_id,
@@ -237,6 +271,109 @@ def private_download_url(
     if asset is None:
         raise DomainError("NOT_FOUND", "No encontramos el recurso solicitado.", status=404)
     return get_object_storage().presign_download(
-        key=asset.object_key,
+        key=_object_key_for_variant(asset, variant),
         expires_in_seconds=300,
     )
+
+
+def ready_asset(
+    *,
+    context: TenantContext,
+    public_id: uuid.UUID,
+    purpose: str | None = None,
+    created_by: User | None = None,
+) -> MediaAsset:
+    query = MediaAsset.objects.filter(
+        public_id=public_id,
+        organisation=context.organisation,
+        status=MediaAsset.Status.READY,
+    )
+    if purpose:
+        query = query.filter(purpose=purpose)
+    if created_by is not None:
+        query = query.filter(created_by=created_by)
+    asset = query.first()
+    if asset is None:
+        raise DomainError("NOT_FOUND", "No encontramos el recurso solicitado.", status=404)
+    return asset
+
+
+def asset_content_url(asset: MediaAsset | None, *, variant: str | None = None) -> str | None:
+    if asset is None:
+        return None
+    origin = str(getattr(settings, "PUBLIC_API_URL", "") or "").rstrip("/")
+    if not origin:
+        origin = "http://localhost:8000"
+    url = f"{origin}/api/v1/media/{asset.public_id}/content"
+    if variant:
+        return f"{url}?variant={variant}"
+    return url
+
+
+def read_ready_asset(
+    *,
+    context: TenantContext,
+    public_id: uuid.UUID,
+    variant: str | None = None,
+) -> tuple[MediaAsset, bytes]:
+    asset = ready_asset(context=context, public_id=public_id)
+    content = get_object_storage().read_bytes(key=_object_key_for_variant(asset, variant))
+    return asset, content
+
+
+def stored_object_keys(asset: MediaAsset) -> list[str]:
+    keys = [asset.object_key]
+    for key in dict(asset.variants or {}).values():
+        if key and key not in keys:
+            keys.append(str(key))
+    return keys
+
+
+def delete_stored_objects(keys: list[str]) -> None:
+    storage = get_object_storage()
+    for key in keys:
+        storage.delete(key=key)
+
+
+def _object_key_for_variant(asset: MediaAsset, variant: str | None) -> str:
+    allowed = tuple(getattr(settings, "IMAGE_VARIANT_NAMES", ("thumbnail", "medium", "large")))
+    if variant and variant not in allowed:
+        raise DomainError(
+            "INVALID_IMAGE_VARIANT",
+            "La versión de la imagen no es válida.",
+            field_errors={"variant": ["Usa thumbnail, medium o large."]},
+        )
+    variants = dict(asset.variants or {})
+    if variant and variant in variants:
+        return str(variants[variant])
+    return asset.object_key
+
+
+def _replace_original_with_variants(asset: MediaAsset) -> None:
+    storage = get_object_storage()
+    original_key = asset.object_key
+    rendered = render_image_variants(storage.read_bytes(key=original_key))
+    variants: dict[str, str] = {}
+    large_stored = None
+    content_type = variant_content_type()
+    for name, payload in rendered.items():
+        digest = hashlib.sha256(payload).hexdigest()
+        key = build_variant_key(
+            organisation_id=asset.organisation.public_id,
+            purpose=asset.purpose,
+            public_id=asset.public_id,
+            variant=name,
+            content_hash=digest,
+        )
+        stored = storage.write_bytes(key=key, content=payload, content_type=content_type)
+        variants[name] = key
+        if name == "large":
+            large_stored = stored
+    storage.delete(key=original_key)
+    if large_stored is None:
+        raise DomainError("INVALID_IMAGE", "No pudimos generar las versiones de la imagen.")
+    asset.object_key = variants["large"]
+    asset.variants = variants
+    asset.content_type = content_type
+    asset.actual_size = large_stored.size
+    asset.checksum_sha256 = large_stored.checksum_sha256

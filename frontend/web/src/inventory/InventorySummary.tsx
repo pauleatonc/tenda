@@ -43,8 +43,8 @@ export function InventorySummary() {
     <section className="inventory-summary" aria-label="Resumen de inventario">
       <header>
         <h2>Inventario</h2>
-        <Link className="button button--primary" to="/app/inventario/nuevo">
-          Agregar producto
+        <Link className="button button--secondary" to="/app/inventario">
+          Ir a inventario
         </Link>
       </header>
 

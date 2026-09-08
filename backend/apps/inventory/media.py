@@ -9,7 +9,7 @@ from django.db.models import Max, QuerySet
 
 from apps.audit.services import record_audit_event
 from apps.media_assets.models import MediaAsset
-from apps.media_assets.storage import get_object_storage
+from apps.media_assets.services import delete_stored_objects, stored_object_keys
 from apps.organisations.selectors import TenantContext
 from tenda.errors import DomainError, ResourceNotFound
 
@@ -172,9 +172,9 @@ def remove_product_media(
         product.primary_image = replacement.asset if replacement else None
         product.save(update_fields=("primary_image", "updated_at"))
     attachment.delete()
-    object_key = asset.object_key
+    keys = stored_object_keys(asset)
     asset.delete()
-    transaction.on_commit(lambda: get_object_storage().delete(key=object_key))
+    transaction.on_commit(lambda: delete_stored_objects(keys))
     record_audit_event(
         action="inventory.product_media_removed",
         organisation=context.organisation,

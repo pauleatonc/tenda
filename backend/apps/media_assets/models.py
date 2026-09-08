@@ -11,6 +11,8 @@ from django.db import models
 class MediaAsset(models.Model):
     class Purpose(models.TextChoices):
         PRODUCT_IMAGE = "product_image", "Product image"
+        PROFILE_PHOTO = "profile_photo", "Profile photo"
+        ORGANISATION_LOGO = "organisation_logo", "Organisation logo"
         PAYMENT_RECEIPT = "payment_receipt", "Payment receipt"
         SHIPPING_EVIDENCE = "shipping_evidence", "Shipping evidence"
         IMPORT_FILE = "import_file", "Import file"
@@ -42,6 +44,7 @@ class MediaAsset(models.Model):
     expected_size = models.PositiveBigIntegerField()
     actual_size = models.PositiveBigIntegerField(null=True, blank=True)
     checksum_sha256 = models.CharField(max_length=64, blank=True)
+    variants = models.JSONField(default=dict, blank=True)
     status = models.CharField(
         max_length=16,
         choices=Status.choices,

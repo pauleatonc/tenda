@@ -9,6 +9,9 @@ import graphene
 from graphql import GraphQLResolveInfo
 
 from apps.inventory.models import Inventory
+from apps.media_assets.models import MediaAsset
+from apps.media_assets.services import asset_content_url
+from apps.organisations.labels import role_label
 from tenda.errors import DomainError, ResourceNotFound
 from tenda.graphql import context_from_info, graphql_error
 
@@ -29,10 +32,24 @@ class OrganisationType(graphene.ObjectType):  # type: ignore[misc]
     timezone = graphene.String(required=True)
     phone = graphene.String(required=True)
     business_email = graphene.String(required=True)
+    address = graphene.String(required=True)
+    description = graphene.String(required=True)
+    logo_url = graphene.String()
 
     @staticmethod
     def resolve_id(root: Organisation, _info: GraphQLResolveInfo) -> str:
         return str(root.public_id)
+
+    @staticmethod
+    def resolve_logo_url(root: Organisation, _info: GraphQLResolveInfo) -> str | None:
+        if root.logo_asset_id is None:
+            return None
+        asset = MediaAsset.objects.filter(
+            public_id=root.logo_asset_id,
+            organisation_id=root.pk,
+            status=MediaAsset.Status.READY,
+        ).first()
+        return asset_content_url(asset, variant="thumbnail")
 
 
 class InventoryContextType(graphene.ObjectType):  # type: ignore[misc]
@@ -81,6 +98,7 @@ class MemberType(graphene.ObjectType):  # type: ignore[misc]
     email = graphene.String(required=True)
     full_name = graphene.String(required=True)
     role = graphene.String(required=True)
+    role_label = graphene.String(required=True)
     permissions = graphene.Field(MembershipPermissionsType, required=True)
 
     @staticmethod
@@ -96,6 +114,10 @@ class MemberType(graphene.ObjectType):  # type: ignore[misc]
         return root.user.profile.full_name
 
     @staticmethod
+    def resolve_role_label(root: Membership, _info: GraphQLResolveInfo) -> str:
+        return role_label(root.role)
+
+    @staticmethod
     def resolve_permissions(
         root: Membership,
         _info: GraphQLResolveInfo,
@@ -108,6 +130,9 @@ class UpdateOrganisationInput(graphene.InputObjectType):  # type: ignore[misc]
     phone = graphene.String(required=True)
     business_email = graphene.String(required=True)
     timezone = graphene.String(required=True)
+    address = graphene.String()
+    description = graphene.String()
+    logo_asset_id = graphene.ID()
 
 
 class UpdateOrganisation(graphene.Mutation):  # type: ignore[misc]
@@ -123,12 +148,16 @@ class UpdateOrganisation(graphene.Mutation):  # type: ignore[misc]
         input: dict[str, Any],
     ) -> UpdateOrganisation:
         try:
+            logo_raw = input.get("logo_asset_id")
             organisation = update_organisation(
                 context=context_from_info(info),
                 name=str(input.get("name", "")),
                 phone=str(input.get("phone", "")),
                 business_email=str(input.get("business_email", "")),
                 timezone_name=str(input.get("timezone", "")),
+                address=str(input.get("address") or ""),
+                description=str(input.get("description") or ""),
+                logo_asset_id=_uuid_or_not_found(logo_raw) if logo_raw else None,
             )
         except DomainError as exc:
             raise graphql_error(info, exc) from exc

@@ -37,7 +37,7 @@ function viewer(viewFinancials: boolean): ViewerPayload {
       id: 'user-1',
       email: 'ana@example.cl',
       emailVerified: true,
-      profile: { id: 'profile-1', fullName: 'Ana', phone: '', locale: 'es-CL' },
+      profile: { id: 'profile-1', fullName: 'Ana', phone: '', locale: 'es-CL', photoUrl: null },
     },
     organisation: {
       id: 'org-1',
@@ -45,11 +45,15 @@ function viewer(viewFinancials: boolean): ViewerPayload {
       timezone: 'America/Santiago',
       phone: '',
       businessEmail: '',
+      address: '',
+      description: '',
+      logoUrl: null,
     },
     inventory: { id: 'inventory-1', name: 'Principal' },
     membership: {
       id: 'membership-1',
       role: viewFinancials ? 'owner' : 'operator',
+      roleLabel: viewFinancials ? 'titular' : 'equipo',
       permissions: {
         viewFinancials,
         manageMembers: false,

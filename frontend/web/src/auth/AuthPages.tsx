@@ -637,7 +637,7 @@ export function AppHomePage() {
       <section className="context-grid" aria-label="Contexto de la cuenta">
         <article>
           <span>Rol</span>
-          <strong>{data.membership.role}</strong>
+          <strong className="profile-role">{data.membership.roleLabel}</strong>
         </article>
         <article>
           <span>Finanzas</span>

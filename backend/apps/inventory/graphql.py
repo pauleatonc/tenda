@@ -14,7 +14,7 @@ import graphene
 from django.db.models import Q
 from graphql import GraphQLResolveInfo
 
-from apps.media_assets.services import private_download_url
+from apps.media_assets.services import asset_content_url
 from tenda.errors import DomainError, ResourceNotFound
 from tenda.graphql import context_from_info, graphql_error
 from tenda.pagination import Page, paginate
@@ -196,6 +196,9 @@ class ProductStockType(graphene.ObjectType):  # type: ignore[misc]
 class ProductMediaType(graphene.ObjectType):  # type: ignore[misc]
     asset_id = graphene.ID(required=True)
     url = graphene.String(required=True)
+    thumbnail_url = graphene.String(required=True)
+    medium_url = graphene.String(required=True)
+    large_url = graphene.String(required=True)
     content_type = graphene.String(required=True)
     original_name = graphene.String(required=True)
     is_primary = graphene.Boolean(required=True)
@@ -207,11 +210,20 @@ class ProductMediaType(graphene.ObjectType):  # type: ignore[misc]
         return str(root.asset.public_id)
 
     @staticmethod
-    def resolve_url(root: ProductMediaAttachment, info: GraphQLResolveInfo) -> str:
-        return private_download_url(
-            context=context_from_info(info),
-            public_id=root.asset.public_id,
-        )
+    def resolve_url(root: ProductMediaAttachment, _info: GraphQLResolveInfo) -> str:
+        return asset_content_url(root.asset, variant="medium") or ""
+
+    @staticmethod
+    def resolve_thumbnail_url(root: ProductMediaAttachment, _info: GraphQLResolveInfo) -> str:
+        return asset_content_url(root.asset, variant="thumbnail") or ""
+
+    @staticmethod
+    def resolve_medium_url(root: ProductMediaAttachment, _info: GraphQLResolveInfo) -> str:
+        return asset_content_url(root.asset, variant="medium") or ""
+
+    @staticmethod
+    def resolve_large_url(root: ProductMediaAttachment, _info: GraphQLResolveInfo) -> str:
+        return asset_content_url(root.asset, variant="large") or ""
 
     @staticmethod
     def resolve_content_type(

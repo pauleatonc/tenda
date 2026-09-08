@@ -29,7 +29,7 @@ class MembershipInline(admin.TabularInline):  # type: ignore[type-arg]
 class OrganisationAdmin(MaintainerModelAdmin):
     list_display = ("name", "public_id", "timezone", "is_active", "created_at")
     list_filter = ("is_active", "timezone")
-    search_fields = ("name", "public_id", "business_email")
+    search_fields = ("name", "public_id", "business_email", "address")
     inlines = (MembershipInline,)
 
 

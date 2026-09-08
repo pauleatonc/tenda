@@ -40,6 +40,9 @@ describe('Fotos de producto en mobile', () => {
     mockedApi.attachProductMedia.mockResolvedValue({
       assetId: 'asset-1',
       url: 'https://files.invalid/asset-1',
+      thumbnailUrl: 'https://files.invalid/asset-1-thumb',
+      mediumUrl: 'https://files.invalid/asset-1',
+      largeUrl: 'https://files.invalid/asset-1-large',
       contentType: 'image/webp',
       originalName: 'vela.webp',
       isPrimary: true,

@@ -138,6 +138,20 @@ STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_ROOT = Path(os.getenv("MEDIA_ROOT", str(BASE_DIR / "media")))
 MEDIA_URL = "media/"
+# Local/fake PUT reads request.body. Django's default is 2.5 MB; purposes go up to 25 MB.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MEMORY_SIZE
+# Longest-edge sizes for display images (contain, no upscale), aligned with
+# common e-commerce breakpoints: nav/cart chip, product card, PDP/zoom.
+IMAGE_VARIANT_MAX_EDGE = {
+    "thumbnail": int(os.getenv("IMAGE_VARIANT_THUMBNAIL_EDGE", "256")),
+    "medium": int(os.getenv("IMAGE_VARIANT_MEDIUM_EDGE", "800")),
+    "large": int(os.getenv("IMAGE_VARIANT_LARGE_EDGE", "1600")),
+}
+IMAGE_VARIANT_FORMAT = "WEBP"
+IMAGE_VARIANT_CONTENT_TYPE = "image/webp"
+IMAGE_VARIANT_QUALITY = int(os.getenv("IMAGE_VARIANT_QUALITY", "82"))
+IMAGE_VARIANT_NAMES = ("thumbnail", "medium", "large")
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
@@ -260,6 +274,7 @@ ADMIN_ALLOWED_NETWORKS = env_list("DJANGO_ADMIN_ALLOWED_NETWORKS")
 ADMIN_TRUST_X_FORWARDED_FOR = env_bool("DJANGO_ADMIN_TRUST_X_FORWARDED_FOR", False)
 WEB_ORIGIN = os.getenv("WEB_ORIGIN", "http://localhost:5173").rstrip("/")
 PUBLIC_ORIGIN = os.getenv("PUBLIC_ORIGIN", WEB_ORIGIN).rstrip("/")
+PUBLIC_API_URL = os.getenv("PUBLIC_API_URL", "http://localhost:8000").rstrip("/")
 SALES_RESERVATION_TTL_SECONDS = int(os.getenv("SALES_RESERVATION_TTL_SECONDS", str(8 * 60 * 60)))
 SHIPPING_PUBLIC_TOKEN_TTL_DAYS = int(os.getenv("SHIPPING_PUBLIC_TOKEN_TTL_DAYS", "90"))
 GOOGLE_OIDC_CLIENT_ID = os.getenv("GOOGLE_OIDC_CLIENT_ID", "").strip()

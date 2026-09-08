@@ -2,55 +2,27 @@ type Query {
   sellerPaymentConnection: SellerPaymentConnectionType
   paymentCommissionConfiguration: PaymentCommissionConfigurationType!
   salesDashboard: SalesDashboardType!
-  orders(
-    first: Int
-    after: String
-    status: String
-    search: String
-    filter: OrderFilterInput
-  ): OrderConnectionType!
+  orders(first: Int, after: String, status: String, search: String, filter: OrderFilterInput): OrderConnectionType!
   order(id: ID!): OrderType
   publicOrder(token: String!): PublicOrderType
   publicOrderStatus(token: String!): PublicOrderStatusType
   salesBalance(filter: SalesBalanceFilterInput): SalesBalanceType!
-  salesBalanceBreakdown(
-    filter: SalesBalanceFilterInput
-    first: Int
-    after: String
-  ): SalesBalanceBreakdownConnectionType!
-  reconciliationIssues(
-    status: String
-    first: Int
-    after: String
-  ): ReconciliationIssueConnectionType!
+  salesBalanceBreakdown(filter: SalesBalanceFilterInput, first: Int, after: String): SalesBalanceBreakdownConnectionType!
+  reconciliationIssues(status: String, first: Int, after: String): ReconciliationIssueConnectionType!
   shippingDashboard: ShippingDashboardType!
-  shipments(
-    first: Int
-    after: String
-    filter: ShipmentFilterInput
-  ): ShipmentConnectionType!
+  shipments(first: Int, after: String, filter: ShipmentFilterInput): ShipmentConnectionType!
   shipment(id: ID!): ShipmentType
   ticket(id: ID!): TicketType
   shipmentTimeline(id: ID!): [ShipmentEventType!]!
   publicShipment(token: String!): PublicShipmentType
   inventorySchema(includeInactive: Boolean): InventorySchemaType!
   inventoryDashboard: InventoryDashboardType!
-  products(
-    filter: ProductFilterInput
-    sort: String
-    descending: Boolean
-    first: Int
-    after: String
-  ): ProductConnectionType!
+  products(filter: ProductFilterInput, sort: String, descending: Boolean, first: Int, after: String): ProductConnectionType!
   product(id: ID!): ProductType
   productStockBreakdown(productId: ID!, first: Int, after: String): StockBreakdownType!
   stockMovements(productId: ID!, first: Int, after: String): StockMovementConnectionType!
   productOrders(productId: ID!, first: Int, after: String): ProductOrderConnectionType!
-  productShipments(
-    productId: ID!
-    first: Int
-    after: String
-  ): ProductShipmentConnectionType!
+  productShipments(productId: ID!, first: Int, after: String): ProductShipmentConnectionType!
   inventoryAlerts(limit: Int): [InventoryAlertType!]!
   inventoryImport(id: ID!): InventoryImportType
   inventoryImports: [InventoryImportType!]!
@@ -660,6 +632,9 @@ type ProductStockType {
 type ProductMediaType {
   assetId: ID!
   url: String!
+  thumbnailUrl: String!
+  mediumUrl: String!
+  largeUrl: String!
   contentType: String!
   originalName: String!
   isPrimary: Boolean!
@@ -688,9 +663,7 @@ type StockBreakdownType {
   totalCount: Int!
 }
 
-"""
-One line of the expanded row. Available units are always aggregated.
-"""
+"""One line of the expanded row. Available units are always aggregated."""
 type StockBreakdownLineType {
   kind: String!
   label: String!
@@ -730,9 +703,7 @@ type ProductShipmentConnectionType {
   availableFromStage: String!
 }
 
-"""
-Populated in T3.
-"""
+"""Populated in T3."""
 type ProductShipmentType {
   id: ID!
   status: String!
@@ -778,6 +749,9 @@ type OrganisationType {
   timezone: String!
   phone: String!
   businessEmail: String!
+  address: String!
+  description: String!
+  logoUrl: String
 }
 
 type InventoryContextType {
@@ -790,6 +764,7 @@ type MemberType {
   email: String!
   fullName: String!
   role: String!
+  roleLabel: String!
   permissions: MembershipPermissionsType!
 }
 
@@ -812,6 +787,7 @@ type ProfileType {
   fullName: String!
   phone: String!
   locale: String!
+  photoUrl: String
 }
 
 type Mutation {
@@ -820,63 +796,21 @@ type Mutation {
   createOrder(idempotencyKey: String!, input: CreateOrderInput!): CreateOrder!
   publishOrderLink(idempotencyKey: String!, orderId: ID!): PublishOrderLink!
   setBuyerDetails(input: BuyerDetailsInput!, token: String!): SetBuyerDetails!
-  initiateMercadoPagoCheckout(
-    idempotencyKey: String!
-    token: String!
-  ): InitiateMercadoPagoCheckout!
-  reviewPaymentProof(
-    approved: Boolean!
-    idempotencyKey: String!
-    orderId: ID!
-    rejectionReason: String
-  ): ReviewPaymentProof!
-  confirmManualPayment(
-    amount: String!
-    idempotencyKey: String!
-    note: String
-    orderId: ID!
-    paidAt: DateTime!
-  ): ConfirmManualPayment!
+  initiateMercadoPagoCheckout(idempotencyKey: String!, token: String!): InitiateMercadoPagoCheckout!
+  reviewPaymentProof(approved: Boolean!, idempotencyKey: String!, orderId: ID!, rejectionReason: String): ReviewPaymentProof!
+  confirmManualPayment(amount: String!, idempotencyKey: String!, note: String, orderId: ID!, paidAt: DateTime!): ConfirmManualPayment!
   cancelOrder(idempotencyKey: String!, orderId: ID!, reason: String!): CancelOrder!
   refundPayment(idempotencyKey: String!, orderId: ID!, reason: String!): RefundPayment!
   resendOrderLink(idempotencyKey: String!, orderId: ID!): ResendOrderLink!
   retryReconciliation(idempotencyKey: String!, issueId: ID!): RetryReconciliation!
-  updateShipment(
-    idempotencyKey: String!
-    input: UpdateShipmentInput!
-    shipmentId: ID!
-  ): UpdateShipment!
-  markShipmentDispatched(
-    comment: String
-    idempotencyKey: String!
-    shipmentId: ID!
-  ): MarkShipmentDispatched!
+  updateShipment(idempotencyKey: String!, input: UpdateShipmentInput!, shipmentId: ID!): UpdateShipment!
+  markShipmentDispatched(comment: String, idempotencyKey: String!, shipmentId: ID!): MarkShipmentDispatched!
   generateShipmentLabel(idempotencyKey: String!, shipmentId: ID!): GenerateShipmentLabel!
-  openPublicTicket(
-    idempotencyKey: String!
-    input: OpenPublicTicketInput!
-    token: String!
-  ): OpenPublicTicket!
-  sendTicketMessage(
-    body: String!
-    idempotencyKey: String!
-    ticketId: ID!
-    token: String
-    turnstileToken: String
-  ): SendTicketMessage!
+  openPublicTicket(idempotencyKey: String!, input: OpenPublicTicketInput!, token: String!): OpenPublicTicket!
+  sendTicketMessage(body: String!, idempotencyKey: String!, ticketId: ID!, token: String, turnstileToken: String): SendTicketMessage!
   resolveTicket(comment: String, idempotencyKey: String!, ticketId: ID!): ResolveTicket!
-  rescheduleFollowUp(
-    dueAt: DateTime!
-    followUpId: ID!
-    idempotencyKey: String!
-    reason: String!
-  ): RescheduleFollowUp!
-  registerReturnCase(
-    idempotencyKey: String!
-    kind: String!
-    notes: String
-    shipmentId: ID!
-  ): RegisterReturnCase!
+  rescheduleFollowUp(dueAt: DateTime!, followUpId: ID!, idempotencyKey: String!, reason: String!): RescheduleFollowUp!
+  registerReturnCase(idempotencyKey: String!, kind: String!, notes: String, shipmentId: ID!): RegisterReturnCase!
   confirmReturnToStock(idempotencyKey: String!, returnCaseId: ID!): ConfirmReturnToStock!
   createCustomField(input: CreateCustomFieldInput!): CreateCustomField!
   updateCustomField(input: UpdateCustomFieldInput!): UpdateCustomField!
@@ -886,29 +820,17 @@ type Mutation {
   recordStockMovement(input: RecordStockMovementInput!): RecordStockMovement!
   archiveProduct(productId: ID!): ArchiveProduct!
   restoreProduct(productId: ID!): RestoreProduct!
-  attachProductMedia(
-    assetId: ID!
-    makePrimary: Boolean
-    productId: ID!
-  ): AttachProductMedia!
+  attachProductMedia(assetId: ID!, makePrimary: Boolean, productId: ID!): AttachProductMedia!
   setPrimaryProductMedia(assetId: ID!, productId: ID!): SetPrimaryProductMedia!
   removeProductMedia(assetId: ID!, productId: ID!): RemoveProductMedia!
   startInventoryImport(assetId: ID!): StartInventoryImport!
   previewInventoryImport(importId: ID!, mapping: JSONString!): PreviewInventoryImport!
   confirmInventoryImport(idempotencyKey: String!, importId: ID!): ConfirmInventoryImport!
   retryInventoryImport(importId: ID!): RetryInventoryImport!
-  startInventoryExport(
-    fileFormat: String!
-    filter: ProductFilterInput
-    idempotencyKey: String!
-  ): StartInventoryExport!
+  startInventoryExport(fileFormat: String!, filter: ProductFilterInput, idempotencyKey: String!): StartInventoryExport!
   retryInventoryExport(exportId: ID!): RetryInventoryExport!
   updateInventoryLowStockThreshold(threshold: Int!): UpdateInventoryLowStockThreshold!
-  updateProductLowStockThreshold(
-    clear: Boolean
-    productId: ID!
-    threshold: Int
-  ): UpdateProductLowStockThreshold!
+  updateProductLowStockThreshold(clear: Boolean, productId: ID!, threshold: Int): UpdateProductLowStockThreshold!
   updateOrganisation(input: UpdateOrganisationInput!): UpdateOrganisation!
   addOrganisationMember(input: AddMemberInput!): AddOrganisationMember!
   updateOrganisationMember(input: UpdateMemberInput!): UpdateOrganisationMember!
@@ -1230,6 +1152,9 @@ input UpdateOrganisationInput {
   phone: String!
   businessEmail: String!
   timezone: String!
+  address: String
+  description: String
+  logoAssetId: ID
 }
 
 type AddOrganisationMember {
@@ -1264,4 +1189,5 @@ type UpdateProfile {
 input UpdateProfileInput {
   fullName: String!
   phone: String!
+  photoAssetId: ID
 }

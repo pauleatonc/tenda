@@ -14,7 +14,14 @@ from apps.users.api import endpoint, success
 from apps.users.middleware import get_tenant_context
 from tenda.errors import AuthenticationRequired, DomainError, ResourceNotFound
 
-from .services import accept_fake_upload, complete_upload, prepare_upload, private_download_url
+from .images import variant_content_type
+from .services import (
+    accept_fake_upload,
+    complete_upload,
+    prepare_upload,
+    private_download_url,
+    read_ready_asset,
+)
 
 
 def _body(request: HttpRequest) -> dict[str, Any]:
@@ -109,3 +116,20 @@ def download_view(request: HttpRequest, asset_id: str) -> HttpResponse:
             "expiresIn": 300,
         }
     )
+
+
+@endpoint("GET")
+def content_view(request: HttpRequest, asset_id: str) -> HttpResponse:
+    variant = str(request.GET.get("variant") or "").strip() or None
+    asset, content = read_ready_asset(
+        context=_context(request),
+        public_id=_public_id(asset_id),
+        variant=variant,
+    )
+    content_type = asset.content_type
+    if variant and dict(asset.variants or {}).get(variant):
+        content_type = variant_content_type()
+    response = HttpResponse(content, content_type=content_type)
+    response["Cache-Control"] = "private, max-age=300"
+    response["Content-Disposition"] = "inline"
+    return response

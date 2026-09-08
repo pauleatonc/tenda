@@ -29,13 +29,21 @@ test('mobileGoogleLogin opens Google and stores the token from the app redirect'
             id: '1',
             email: 'ada@example.com',
             emailVerified: true,
-            profile: { id: 'p', fullName: 'Ada', phone: '', locale: 'es' },
+            profile: { id: 'p', fullName: 'Ada', phone: '', locale: 'es', photoUrl: null },
           },
-          organisation: { id: 'o', name: 'Tenda', timezone: 'America/Santiago' },
+          organisation: {
+            id: 'o',
+            name: 'Tenda',
+            timezone: 'America/Santiago',
+            address: '',
+            description: '',
+            logoUrl: null,
+          },
           inventory: { id: 'i', name: 'Principal' },
           membership: {
             id: 'm',
             role: 'owner',
+            roleLabel: 'titular',
             permissions: {
               viewFinancials: true,
               manageMembers: true,

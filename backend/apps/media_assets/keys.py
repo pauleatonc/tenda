@@ -17,7 +17,13 @@ from django.conf import settings
 
 from apps.media_assets.models import MediaAsset
 
-MEDIA_PURPOSES = frozenset({MediaAsset.Purpose.PRODUCT_IMAGE})
+MEDIA_PURPOSES = frozenset(
+    {
+        MediaAsset.Purpose.PRODUCT_IMAGE,
+        MediaAsset.Purpose.PROFILE_PHOTO,
+        MediaAsset.Purpose.ORGANISATION_LOGO,
+    }
+)
 
 
 def storage_kind(purpose: str) -> str:
@@ -42,6 +48,21 @@ def build_object_key(
     if extra:
         parts.append(str(extra))
     return f"{'/'.join(parts)}/{public_id}{extension}"
+
+
+def build_variant_key(
+    *,
+    organisation_id: UUID | str,
+    purpose: str,
+    public_id: UUID | str,
+    variant: str,
+    content_hash: str,
+) -> str:
+    digest = content_hash.lower()
+    return (
+        f"organisations/{organisation_id}/{storage_kind(purpose)}/{purpose}"
+        f"/{public_id}/{variant}-{digest[:32]}.webp"
+    )
 
 
 def r2_object_key(key: str) -> str:

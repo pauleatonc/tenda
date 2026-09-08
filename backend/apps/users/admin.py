@@ -69,7 +69,15 @@ class UserAdminForm(forms.ModelForm):  # type: ignore[type-arg]
 class ProfileInline(admin.StackedInline):  # type: ignore[type-arg]
     model = Profile
     extra = 0
-    fields = ("public_id", "full_name", "phone", "locale", "created_at", "updated_at")
+    fields = (
+        "public_id",
+        "full_name",
+        "phone",
+        "locale",
+        "photo_asset_id",
+        "created_at",
+        "updated_at",
+    )
     readonly_fields = ("public_id", "created_at", "updated_at")
 
 

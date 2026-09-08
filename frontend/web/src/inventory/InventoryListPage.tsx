@@ -186,7 +186,6 @@ export function InventoryListPage() {
   const [params, setParams] = useSearchParams()
   const [expanded, setExpanded] = useState<string | null>(null)
   const [adjusting, setAdjusting] = useState<ProductRow | null>(null)
-  const [columnsOpen, setColumnsOpen] = useState(false)
   const [showColumnDialog, setShowColumnDialog] = useState(false)
   const [columnVisibility, setColumnVisibility] =
     useState<ColumnVisibilityState>(loadVisibility)
@@ -301,14 +300,47 @@ export function InventoryListPage() {
         </div>
       </header>
 
-      {schema.data ? (
-        <details className="alert-settings">
-          <summary>Configurar alertas de stock</summary>
-          <InventoryThresholdSetting current={schema.data.lowStockThreshold} />
-        </details>
-      ) : null}
-
       <section className="inventory-toolbar" aria-label="Búsqueda y filtros">
+        <details className="inventory-settings">
+          <summary>Configuración del inventario</summary>
+          <div className="inventory-settings__panel">
+            {schema.data ? (
+              <section aria-labelledby="inventory-alerts-heading">
+                <h2 id="inventory-alerts-heading">Alertas de stock</h2>
+                <InventoryThresholdSetting current={schema.data.lowStockThreshold} />
+              </section>
+            ) : null}
+
+            <section aria-labelledby="inventory-columns-heading">
+              <h2 id="inventory-columns-heading">Columnas</h2>
+              <div className="inventory-settings__columns">
+                {table.getAllLeafColumns().map((column) => (
+                  <label key={column.id}>
+                    <input
+                      type="checkbox"
+                      checked={column.getIsVisible()}
+                      disabled={!column.getCanHide()}
+                      onChange={column.getToggleVisibilityHandler()}
+                    />
+                    {typeof column.columnDef.header === 'string'
+                      ? column.columnDef.header
+                      : column.id}
+                  </label>
+                ))}
+              </div>
+              {canManageSchema ? (
+                <button
+                  className="button button--secondary button--compact"
+                  type="button"
+                  onClick={() => setShowColumnDialog(true)}
+                >
+                  Agregar columna
+                </button>
+              ) : null}
+            </section>
+          </div>
+        </details>
+
         <SearchField
           value={search}
           label="Buscar productos"
@@ -321,50 +353,7 @@ export function InventoryListPage() {
           }
         />
 
-        <div className="chip-row" role="group" aria-label="Estado de stock">
-          {STOCK_STATES.map((state) => {
-            const active = stockStates.includes(state.value)
-            return (
-              <button
-                key={state.value}
-                type="button"
-                className={`filter-chip ${active ? 'filter-chip--active' : ''}`}
-                aria-pressed={active}
-                onClick={() =>
-                  updateParams((next) => {
-                    const values = toggleValue(stockStates, state.value)
-                    if (values.length) next.set('stock', values.join(','))
-                    else next.delete('stock')
-                  })
-                }
-              >
-                {state.label}
-              </button>
-            )
-          })}
-          {CATALOG_STATUSES.map((status) => {
-            const active = catalogStatuses.includes(status.value)
-            return (
-              <button
-                key={status.value}
-                type="button"
-                className={`filter-chip ${active ? 'filter-chip--active' : ''}`}
-                aria-pressed={active}
-                onClick={() =>
-                  updateParams((next) => {
-                    const values = toggleValue(catalogStatuses, status.value)
-                    if (values.length) next.set('estado', values.join(','))
-                    else next.delete('estado')
-                  })
-                }
-              >
-                {status.label}
-              </button>
-            )
-          })}
-        </div>
-
-        <div className="toolbar-actions">
+        <div className="inventory-toolbar__row">
           <label className="sr-only" htmlFor="inventory-sort">
             Ordenar por
           </label>
@@ -388,43 +377,48 @@ export function InventoryListPage() {
             <option value="createdAt:desc">Más recientes</option>
           </select>
 
-          <div className="column-picker">
-            <button
-              type="button"
-              className="button button--secondary"
-              aria-expanded={columnsOpen}
-              onClick={() => setColumnsOpen((value) => !value)}
-            >
-              Columnas
-            </button>
-            {columnsOpen ? (
-              <div className="column-picker__menu">
-                {table.getAllLeafColumns().map((column) => (
-                  <label key={column.id}>
-                    <input
-                      type="checkbox"
-                      checked={column.getIsVisible()}
-                      disabled={!column.getCanHide()}
-                      onChange={column.getToggleVisibilityHandler()}
-                    />
-                    {typeof column.columnDef.header === 'string'
-                      ? column.columnDef.header
-                      : column.id}
-                  </label>
-                ))}
-              </div>
-            ) : null}
+          <div className="chip-row" role="group" aria-label="Filtros de inventario">
+            {STOCK_STATES.map((state) => {
+              const active = stockStates.includes(state.value)
+              return (
+                <button
+                  key={state.value}
+                  type="button"
+                  className={`filter-chip ${active ? 'filter-chip--active' : ''}`}
+                  aria-pressed={active}
+                  onClick={() =>
+                    updateParams((next) => {
+                      const values = toggleValue(stockStates, state.value)
+                      if (values.length) next.set('stock', values.join(','))
+                      else next.delete('stock')
+                    })
+                  }
+                >
+                  {state.label}
+                </button>
+              )
+            })}
+            {CATALOG_STATUSES.map((status) => {
+              const active = catalogStatuses.includes(status.value)
+              return (
+                <button
+                  key={status.value}
+                  type="button"
+                  className={`filter-chip ${active ? 'filter-chip--active' : ''}`}
+                  aria-pressed={active}
+                  onClick={() =>
+                    updateParams((next) => {
+                      const values = toggleValue(catalogStatuses, status.value)
+                      if (values.length) next.set('estado', values.join(','))
+                      else next.delete('estado')
+                    })
+                  }
+                >
+                  {status.label}
+                </button>
+              )
+            })}
           </div>
-
-          {canManageSchema ? (
-            <button
-              className="button button--secondary"
-              type="button"
-              onClick={() => setShowColumnDialog(true)}
-            >
-              Agregar columna
-            </button>
-          ) : null}
         </div>
       </section>
 

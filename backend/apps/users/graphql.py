@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import uuid
 from typing import Any
 
 import graphene
 from graphql import GraphQLResolveInfo
 
-from tenda.errors import DomainError
+from apps.media_assets.models import MediaAsset
+from apps.media_assets.services import asset_content_url
+from tenda.errors import DomainError, ResourceNotFound
 from tenda.graphql import context_from_info, graphql_error, user_from_info
 
 from .models import Profile, User
@@ -20,10 +23,21 @@ class ProfileType(graphene.ObjectType):  # type: ignore[misc]
     full_name = graphene.String(required=True)
     phone = graphene.String(required=True)
     locale = graphene.String(required=True)
+    photo_url = graphene.String()
 
     @staticmethod
     def resolve_id(root: Profile, _info: GraphQLResolveInfo) -> str:
         return str(root.public_id)
+
+    @staticmethod
+    def resolve_photo_url(root: Profile, _info: GraphQLResolveInfo) -> str | None:
+        if root.photo_asset_id is None:
+            return None
+        asset = MediaAsset.objects.filter(
+            public_id=root.photo_asset_id,
+            status=MediaAsset.Status.READY,
+        ).first()
+        return asset_content_url(asset, variant="thumbnail")
 
 
 class ViewerType(graphene.ObjectType):  # type: ignore[misc]
@@ -48,6 +62,16 @@ class ViewerType(graphene.ObjectType):  # type: ignore[misc]
 class UpdateProfileInput(graphene.InputObjectType):  # type: ignore[misc]
     full_name = graphene.String(required=True)
     phone = graphene.String(required=True)
+    photo_asset_id = graphene.ID()
+
+
+def _optional_uuid(value: object) -> uuid.UUID | None:
+    if not value:
+        return None
+    try:
+        return uuid.UUID(str(value))
+    except ValueError as exc:
+        raise ResourceNotFound() from exc
 
 
 class UpdateProfile(graphene.Mutation):  # type: ignore[misc]
@@ -67,6 +91,7 @@ class UpdateProfile(graphene.Mutation):  # type: ignore[misc]
                 user=user_from_info(info),
                 full_name=str(input.get("full_name", "")),
                 phone=str(input.get("phone", "")),
+                photo_asset_id=_optional_uuid(input.get("photo_asset_id")),
             )
         except DomainError as exc:
             raise graphql_error(info, exc) from exc

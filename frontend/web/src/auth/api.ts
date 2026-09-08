@@ -12,6 +12,7 @@ export type ViewerPayload = {
       fullName: string
       phone: string
       locale: string
+      photoUrl: string | null
     }
   }
   organisation: {
@@ -20,6 +21,9 @@ export type ViewerPayload = {
     timezone: string
     phone: string
     businessEmail: string
+    address: string
+    description: string
+    logoUrl: string | null
   }
   inventory: {
     id: string
@@ -28,6 +32,7 @@ export type ViewerPayload = {
   membership: {
     id: string
     role: 'owner' | 'operator' | 'support_admin'
+    roleLabel: string
     permissions: {
       viewFinancials: boolean
       manageMembers: boolean

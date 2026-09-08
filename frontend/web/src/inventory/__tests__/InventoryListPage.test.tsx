@@ -46,7 +46,13 @@ function makeViewer(manageInventorySchema: boolean): ViewerPayload {
       id: 'user-1',
       email: 'ana@tenda.cl',
       emailVerified: true,
-      profile: { id: 'profile-1', fullName: 'Ana', phone: '', locale: 'es-CL' },
+      profile: {
+        id: 'profile-1',
+        fullName: 'Ana',
+        phone: '',
+        locale: 'es-CL',
+        photoUrl: null,
+      },
     },
     organisation: {
       id: 'org-1',
@@ -54,11 +60,15 @@ function makeViewer(manageInventorySchema: boolean): ViewerPayload {
       timezone: 'America/Santiago',
       phone: '',
       businessEmail: '',
+      address: '',
+      description: '',
+      logoUrl: null,
     },
     inventory: { id: 'inv-1', name: 'Inventario principal' },
     membership: {
       id: 'membership-1',
       role: manageInventorySchema ? 'owner' : 'operator',
+      roleLabel: manageInventorySchema ? 'titular' : 'equipo',
       permissions: {
         viewFinancials: true,
         manageMembers: manageInventorySchema,
@@ -180,6 +190,29 @@ describe('InventoryListPage', () => {
 
     await screen.findByRole('link', { name: 'Velas de soya' })
     expect(screen.queryByRole('button', { name: 'Agregar columna' })).toBeNull()
+  })
+
+  it('agrupa alertas y columnas en la configuración del inventario', async () => {
+    mocked.fetchProducts.mockResolvedValue({
+      totalCount: 1,
+      hasNextPage: false,
+      endCursor: '',
+      products: [makeProduct()],
+    })
+
+    renderPage(makeViewer(true))
+    await screen.findByRole('link', { name: 'Velas de soya' })
+
+    expect(screen.getByText('Configuración del inventario')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Columnas' })).toBeNull()
+    expect(screen.getByRole('combobox', { name: 'Ordenar por' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Disponible' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByText('Configuración del inventario'))
+
+    expect(screen.getByLabelText('Umbral general de stock bajo')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Columnas' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Agregar columna' })).toBeInTheDocument()
   })
 
   it('mantiene el asistente desactivado, sin navegación ni peticiones', async () => {

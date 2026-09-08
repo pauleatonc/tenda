@@ -11,6 +11,7 @@ from typing import Any
 from django.conf import settings
 from django.contrib.auth import login as django_login
 from django.contrib.auth import logout as django_logout
+from django.core.exceptions import RequestDataTooBig
 from django.http import (
     HttpRequest,
     HttpResponse,
@@ -21,6 +22,8 @@ from django.middleware.csrf import get_token
 
 from apps.audit.models import AuditEvent
 from apps.audit.services import record_audit_event
+from apps.media_assets.models import MediaAsset
+from apps.media_assets.services import asset_content_url
 from apps.organisations.selectors import TenantContext, resolve_tenant_context
 from tenda.antibot import require_turnstile
 from tenda.errors import (
@@ -102,6 +105,14 @@ def endpoint(*methods: str) -> Callable[[Endpoint], Endpoint]:
                 )
             try:
                 return view(request, *args, **kwargs)
+            except RequestDataTooBig:
+                return error_response(
+                    request,
+                    DomainError(
+                        "UPLOAD_TOO_LARGE",
+                        "El archivo supera el tamaño máximo permitido.",
+                    ),
+                )
             except DomainError as exc:
                 return error_response(request, exc)
 
@@ -160,14 +171,29 @@ def _require_context(request: HttpRequest) -> TenantContext:
     return context
 
 
+def _asset_url(organisation_id: int, asset_id: object) -> str | None:
+    if not asset_id:
+        return None
+    asset = MediaAsset.objects.filter(
+        public_id=asset_id,
+        organisation_id=organisation_id,
+        status=MediaAsset.Status.READY,
+    ).first()
+    return asset_content_url(asset, variant="thumbnail")
+
+
 def _context_payload(context: TenantContext) -> dict[str, object]:
+    organisation = context.organisation
     return {
         "organisation": {
-            "id": str(context.organisation.public_id),
-            "name": context.organisation.name,
-            "timezone": context.organisation.timezone,
-            "phone": context.organisation.phone,
-            "businessEmail": context.organisation.business_email,
+            "id": str(organisation.public_id),
+            "name": organisation.name,
+            "timezone": organisation.timezone,
+            "phone": organisation.phone,
+            "businessEmail": organisation.business_email,
+            "address": organisation.address,
+            "description": organisation.description,
+            "logoUrl": _asset_url(organisation.pk, organisation.logo_asset_id),
         },
         "inventory": {
             "id": str(context.inventory.public_id),
@@ -189,6 +215,7 @@ def _viewer_payload(context: TenantContext) -> dict[str, object]:
                 "fullName": profile.full_name,
                 "phone": profile.phone,
                 "locale": profile.locale,
+                "photoUrl": _asset_url(context.organisation.pk, profile.photo_asset_id),
             },
         },
         **_context_payload(context),

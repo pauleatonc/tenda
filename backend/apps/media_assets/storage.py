@@ -175,13 +175,20 @@ class LocalFileObjectStorage:
 
     def write_bytes(self, *, key: str, content: bytes, content_type: str) -> StoredObject:
         path = self._path(key)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        checksum = hashlib.sha256(content).hexdigest()
-        path.write_bytes(content)
-        self._meta_path(path).write_text(
-            json.dumps({"content_type": content_type, "sha256": checksum}),
-            encoding="utf-8",
-        )
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            checksum = hashlib.sha256(content).hexdigest()
+            path.write_bytes(content)
+            self._meta_path(path).write_text(
+                json.dumps({"content_type": content_type, "sha256": checksum}),
+                encoding="utf-8",
+            )
+        except PermissionError as exc:
+            raise DomainError(
+                "STORAGE_NOT_WRITABLE",
+                "No pudimos guardar el archivo en el disco local.",
+                status=500,
+            ) from exc
         return StoredObject(
             size=len(content),
             content_type=content_type,

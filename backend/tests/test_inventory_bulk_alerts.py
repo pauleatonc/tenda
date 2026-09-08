@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import io
+import json
 import uuid
 
 import pytest
+from django.test import Client
 from django.utils import timezone
 from openpyxl import Workbook, load_workbook
+from PIL import Image
 
 from apps.inventory.alerts import (
     active_stock_alerts,
@@ -61,6 +64,12 @@ def context_for(email: str) -> TenantContext:
     return resolve_tenant_context(user)
 
 
+def rgb_image_bytes() -> bytes:
+    buffer = io.BytesIO()
+    Image.new("RGB", (48, 48), (20, 80, 40)).save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
 def uploaded_asset(
     context: TenantContext,
     *,
@@ -92,16 +101,16 @@ def test_product_media_is_private_tenant_safe_and_has_one_primary() -> None:
     first = uploaded_asset(
         context,
         purpose=MediaAsset.Purpose.PRODUCT_IMAGE,
-        name="frente.webp",
-        content_type="image/webp",
-        content=b"front-image",
+        name="frente.png",
+        content_type="image/png",
+        content=rgb_image_bytes(),
     )
     second = uploaded_asset(
         context,
         purpose=MediaAsset.Purpose.PRODUCT_IMAGE,
-        name="detalle.webp",
-        content_type="image/webp",
-        content=b"detail-image",
+        name="detalle.png",
+        content_type="image/png",
+        content=rgb_image_bytes(),
     )
 
     attachment = attach_product_media(
@@ -142,6 +151,60 @@ def test_product_media_is_private_tenant_safe_and_has_one_primary() -> None:
     product.refresh_from_db()
     assert product.primary_image_id == first.id
     assert not MediaAsset.objects.filter(pk=second.pk).exists()
+
+
+def test_product_media_graphql_urls_use_content_endpoint() -> None:
+    fake_object_storage.clear()
+    email = "media-urls@example.com"
+    context = context_for(email)
+    product = create_product(context=context, name="Vela").product
+    asset = uploaded_asset(
+        context,
+        purpose=MediaAsset.Purpose.PRODUCT_IMAGE,
+        name="frente.png",
+        content_type="image/png",
+        content=rgb_image_bytes(),
+    )
+    attach_product_media(
+        context=context,
+        product_id=product.public_id,
+        asset_id=asset.public_id,
+    )
+    client = Client()
+    login = client.post(
+        "/api/v1/auth/login",
+        data=json.dumps({"email": email, "password": "Correct-Horse-Battery-42"}),
+        content_type="application/json",
+    )
+    assert login.status_code == 200
+    response = client.post(
+        "/graphql/",
+        data=json.dumps(
+            {
+                "query": """
+                  query ($id: ID!) {
+                    product(id: $id) {
+                      media { url thumbnailUrl mediumUrl largeUrl }
+                    }
+                  }
+                """,
+                "variables": {"id": str(product.public_id)},
+            }
+        ),
+        content_type="application/json",
+    )
+    body = response.json()
+    assert "errors" not in body, body
+    media = body["data"]["product"]["media"][0]
+    prefix = f"/api/v1/media/{asset.public_id}/content"
+    assert prefix in media["url"]
+    assert media["url"].endswith("variant=medium")
+    assert media["thumbnailUrl"].endswith("variant=thumbnail")
+    assert media["mediumUrl"].endswith("variant=medium")
+    assert media["largeUrl"].endswith("variant=large")
+    assert "r2.invalid" not in media["url"]
+    content = client.get(f"{prefix}?variant=medium")
+    assert content.status_code == 200
 
 
 def test_import_keeps_valid_rows_reports_errors_and_replays_without_duplicates() -> None:

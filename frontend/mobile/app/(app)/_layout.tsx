@@ -9,6 +9,20 @@ export default function AppLayout() {
         headerShown: false,
         contentStyle: { backgroundColor: colors.paper },
       }}
-    />
+    >
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen
+        name="mas/perfil"
+        options={{
+          headerShown: true,
+          title: 'Perfil y negocio',
+          headerBackTitle: 'Más',
+          headerShadowVisible: false,
+          headerStyle: { backgroundColor: colors.paper },
+          headerTintColor: colors.ink,
+          headerTitleStyle: { color: colors.ink, fontWeight: '800' },
+        }}
+      />
+    </Stack>
   )
 }

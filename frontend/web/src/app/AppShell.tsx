@@ -3,9 +3,11 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate, useOutletContext } from 'react-router-dom'
 
 import { getViewer, logout, TendaApiError, type ViewerPayload } from '../auth/api'
+import { AuthenticatedImage, PersonAvatar } from '../components/AuthenticatedImage'
 import { ConnectivityBanner, EmptyState, StatusChip } from '../components/ui'
 import { InventorySummary } from '../inventory/InventorySummary'
 import { SalesAttentionSummary } from '../sales/SalesAttentionSummary'
+import { ShippingHomeSummary } from '../shipping/ShippingHomeSummary'
 
 type NavItem = {
   to: string
@@ -73,10 +75,13 @@ export function ApplicationShell() {
     (item) => !item.financial || data.membership.permissions.viewFinancials,
   )
 
+  const storeInitial = (data.organisation.name || 'T').slice(0, 1).toUpperCase()
+
   return (
     <div className={`app-shell ${collapsed ? 'app-shell--collapsed' : ''}`}>
       <ConnectivityBanner />
-      <aside className="app-sidebar">
+      <div className="app-shell__body">
+        <aside className="app-sidebar">
         <div className="app-sidebar__brand">
           <Link className="wordmark" to="/app" aria-label="Tenda, inicio">
             tenda
@@ -97,31 +102,48 @@ export function ApplicationShell() {
               to={item.to}
               end={item.to === '/app'}
               title={collapsed ? item.label : undefined}
+              className={item.financial ? 'nav-financial' : undefined}
             >
               <span aria-hidden="true">{item.icon}</span>
               <span>{item.label}</span>
             </NavLink>
           ))}
         </nav>
-        <div className="app-sidebar__account">
-          <span className="avatar" aria-hidden="true">
-            {(data.viewer.profile.fullName || data.viewer.email)
-              .slice(0, 1)
-              .toUpperCase()}
-          </span>
+        <Link
+          className="app-sidebar__account"
+          to="/app/configuracion"
+          aria-label="Perfil y negocio"
+          title="Perfil y negocio"
+        >
+          <PersonAvatar
+            name={data.viewer.profile.fullName || data.viewer.email}
+            photoUrl={data.viewer.profile.photoUrl}
+          />
           <div>
             <strong>{data.viewer.profile.fullName || data.viewer.email}</strong>
-            <small>{data.membership.role}</small>
+            <small>{data.membership.roleLabel}</small>
           </div>
-        </div>
+        </Link>
       </aside>
 
       <div className="app-workspace">
         <header className="app-header">
-          <div>
-            <small>Tienda</small>
-            <strong>{data.organisation.name}</strong>
-          </div>
+          <Link className="app-header__store" to="/app/configuracion">
+            <span className="store-logo" aria-hidden="true">
+              <span className="store-logo__fallback">{storeInitial}</span>
+              {data.organisation.logoUrl ? (
+                <AuthenticatedImage
+                  src={data.organisation.logoUrl}
+                  alt=""
+                  className="store-logo__img"
+                />
+              ) : null}
+            </span>
+            <div>
+              <small>Tienda</small>
+              <strong>{data.organisation.name}</strong>
+            </div>
+          </Link>
           <div className="app-header__actions">
             <button type="button" aria-label="Notificaciones" title="Notificaciones">
               ♢
@@ -149,6 +171,7 @@ export function ApplicationShell() {
           <Outlet context={data} />
         </main>
       </div>
+      </div>
     </div>
   )
 }
@@ -169,7 +192,7 @@ export function DashboardPage() {
         </div>
       </header>
 
-      <section className="dashboard-grid" aria-label="Próximas acciones">
+      <section className="dashboard-grid" aria-label="Resumen del negocio">
         {!data.viewer.emailVerified ? (
           <article className="attention-card attention-card--warning">
             <div>
@@ -179,36 +202,13 @@ export function DashboardPage() {
             </div>
             <Link to="/verificar-email">Verificar ahora</Link>
           </article>
-        ) : (
-          <article className="attention-card">
-            <div>
-              <StatusChip status="success" label="Cuenta protegida" />
-              <h2>Todo listo para comenzar</h2>
-              <p>Agrega tu primer producto para activar el resumen de inventario.</p>
-            </div>
-            <Link to="/app/inventario">Ir a inventario</Link>
-          </article>
-        )}
+        ) : null}
 
         <InventorySummary />
 
         <SalesAttentionSummary />
 
-        <article className="context-card">
-          <span>Tu contexto</span>
-          <strong>{data.organisation.name}</strong>
-          <p>
-            Rol: <b>{data.membership.role}</b>
-          </p>
-          <p>
-            Finanzas:{' '}
-            <b>
-              {data.membership.permissions.viewFinancials
-                ? 'habilitadas'
-                : 'restringidas'}
-            </b>
-          </p>
-        </article>
+        <ShippingHomeSummary />
       </section>
     </>
   )
@@ -254,7 +254,7 @@ export function BalancesPlaceholder() {
         </header>
         <EmptyState
           title="No tienes acceso a información financiera"
-          description="Un Owner puede habilitar el permiso view_financials para tu membresía."
+          description="Un titular puede habilitar el permiso view_financials para tu membresía."
         />
       </>
     )

@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
+import { AuthenticatedImage } from '../components/AuthenticatedImage'
 import { UploadField } from '../components/ui'
 import { TendaApiError } from '../lib/http'
 import {
@@ -122,7 +123,7 @@ export function ProductMediaGallery({
             .sort((left, right) => Number(right.isPrimary) - Number(left.isPrimary))
             .map((item) => (
               <li key={item.assetId}>
-                <img src={item.url} alt={item.originalName} />
+                <AuthenticatedImage src={item.url} alt={item.originalName} />
                 <div>
                   <strong>{item.isPrimary ? 'Foto principal' : item.originalName}</strong>
                   <div className="row-actions">

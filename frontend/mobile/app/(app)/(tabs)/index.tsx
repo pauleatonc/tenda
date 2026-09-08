@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { AppScreen, MobileStatusChip } from '../../../components/app-ui'
 import { PrimaryButton, colors } from '../../../components/auth-ui'
 import { SectionCard } from '../../../components/inventory-ui'
+import { formatClp } from '../../../components/sales-ui'
 import { MobileApiError, getMobileViewer } from '../../../lib/auth-api'
 import {
   formatDate,
@@ -13,8 +14,9 @@ import {
   movementLabels,
 } from '../../../lib/format'
 import { fetchDashboard, inventoryKeys } from '../../../lib/inventory-api'
+import { fetchSalesDashboard, salesKeys } from '../../../lib/sales-api'
+import { fetchShippingDashboard, shippingKeys } from '../../../lib/shipping-api'
 
-/** V1-INV-01 on the phone: the numbers that decide the next action, nothing else. */
 function InventorySummary() {
   const dashboard = useQuery({
     queryKey: inventoryKeys.dashboard(),
@@ -49,20 +51,6 @@ function InventorySummary() {
   }
 
   const data = dashboard.data
-  if (!data.productCount) {
-    return (
-      <SectionCard title="Inventario">
-        <Text style={styles.muted}>
-          Agrega tu primer producto para ver disponibilidad, reservas y movimientos.
-        </Text>
-        <PrimaryButton
-          label="Agregar producto"
-          onPress={() => router.push('/inventario/producto')}
-        />
-      </SectionCard>
-    )
-  }
-
   const metrics = [
     { label: 'Productos', value: data.productCount },
     { label: 'Disponible', value: data.available },
@@ -72,14 +60,7 @@ function InventorySummary() {
   ]
 
   return (
-    <SectionCard
-      title="Inventario"
-      action={
-        <Link accessibilityRole="link" href="/inventario" style={styles.link}>
-          Ver todo
-        </Link>
-      }
-    >
+    <SectionCard title="Inventario">
       <View style={styles.metrics}>
         {metrics.map((metric) => (
           <View key={metric.label} style={styles.metric}>
@@ -123,18 +104,140 @@ function InventorySummary() {
               <Text style={styles.movementName}>{movement.productName}</Text>
               <Text style={styles.muted}>
                 {movementLabels[movement.movementType] ?? movement.movementType} ·{' '}
-                {formatSignedQuantity(movement.quantity)} ·{' '}
-                {formatDate(movement.createdAt)}
+                {formatSignedQuantity(movement.quantity)} · {formatDate(movement.createdAt)}
               </Text>
             </Link>
           ))}
         </View>
       ) : null}
 
-      <PrimaryButton
-        label="Agregar producto"
-        onPress={() => router.push('/inventario/producto')}
+      <PrimaryButton label="Ir a inventario" onPress={() => router.push('/inventario')} />
+    </SectionCard>
+  )
+}
+
+function SalesSummary() {
+  const summary = useQuery({
+    queryKey: salesKeys.dashboard(),
+    queryFn: fetchSalesDashboard,
+  })
+
+  if (summary.isPending) {
+    return (
+      <SectionCard title="Ventas">
+        <Text accessibilityLiveRegion="polite" style={styles.muted}>
+          Cargando resumen…
+        </Text>
+      </SectionCard>
+    )
+  }
+
+  if (summary.isError) {
+    return (
+      <SectionCard title="Ventas">
+        <Text style={styles.muted}>
+          {summary.error instanceof MobileApiError
+            ? summary.error.message
+            : 'No pudimos cargar el resumen de ventas.'}
+        </Text>
+        <PrimaryButton
+          label="Reintentar"
+          variant="secondary"
+          onPress={() => void summary.refetch()}
+        />
+      </SectionCard>
+    )
+  }
+
+  const data = summary.data
+  const pending =
+    data.awaitingBuyerCount +
+    data.awaitingPaymentCount +
+    data.awaitingValidationCount +
+    data.reconciliationRequiredCount
+  const metrics = [
+    { label: 'Esperando pago', value: String(data.awaitingPaymentCount) },
+    { label: 'Por validar', value: String(data.awaitingValidationCount) },
+    { label: 'Conciliación', value: String(data.reconciliationRequiredCount) },
+    { label: 'Mes confirmado', value: formatClp(data.confirmedThisMonthAmount) },
+  ]
+
+  return (
+    <SectionCard title="Ventas">
+      <MobileStatusChip
+        label={pending ? `${pending} acciones pendientes` : 'Ventas al día'}
+        tone={pending ? 'warning' : 'success'}
       />
+      <View style={styles.metrics}>
+        {metrics.map((metric) => (
+          <View key={metric.label} style={styles.metric}>
+            <Text style={styles.cardLabel}>{metric.label}</Text>
+            <Text style={styles.metricValue}>{metric.value}</Text>
+          </View>
+        ))}
+      </View>
+      <PrimaryButton label="Ir a ventas" onPress={() => router.push('/ventas')} />
+    </SectionCard>
+  )
+}
+
+function ShippingSummary() {
+  const summary = useQuery({
+    queryKey: shippingKeys.dashboard(),
+    queryFn: fetchShippingDashboard,
+  })
+
+  if (summary.isPending) {
+    return (
+      <SectionCard title="Despachos">
+        <Text accessibilityLiveRegion="polite" style={styles.muted}>
+          Cargando resumen…
+        </Text>
+      </SectionCard>
+    )
+  }
+
+  if (summary.isError) {
+    return (
+      <SectionCard title="Despachos">
+        <Text style={styles.muted}>
+          {summary.error instanceof MobileApiError
+            ? summary.error.message
+            : 'No pudimos cargar el resumen de despachos.'}
+        </Text>
+        <PrimaryButton
+          label="Reintentar"
+          variant="secondary"
+          onPress={() => void summary.refetch()}
+        />
+      </SectionCard>
+    )
+  }
+
+  const data = summary.data
+  const pending = data.attentionCount
+  const metrics = [
+    { label: 'Pendientes', value: data.pendingCount },
+    { label: 'En preparación', value: data.preparingCount },
+    { label: 'Chequeo de entrega', value: data.deliveryCheckCount },
+    { label: 'Incidencias', value: data.issueCount },
+  ]
+
+  return (
+    <SectionCard title="Despachos">
+      <MobileStatusChip
+        label={pending ? `${pending} acciones pendientes` : 'Despachos al día'}
+        tone={pending ? 'warning' : 'success'}
+      />
+      <View style={styles.metrics}>
+        {metrics.map((metric) => (
+          <View key={metric.label} style={styles.metric}>
+            <Text style={styles.cardLabel}>{metric.label}</Text>
+            <Text style={styles.metricValue}>{formatQuantity(metric.value)}</Text>
+          </View>
+        ))}
+      </View>
+      <PrimaryButton label="Ir a despachos" onPress={() => router.push('/despachos')} />
     </SectionCard>
   )
 }
@@ -185,35 +288,19 @@ export default function DashboardScreen() {
       eyebrow={data.inventory.name}
       title={`Hola, ${data.viewer.profile.fullName || data.viewer.email}`}
     >
-      <View style={styles.attention}>
-        <MobileStatusChip
-          label={data.viewer.emailVerified ? 'Cuenta protegida' : 'Requiere atención'}
-          tone={data.viewer.emailVerified ? 'success' : 'warning'}
-        />
-        <Text style={styles.cardTitle}>
-          {data.viewer.emailVerified
-            ? 'Todo listo para comenzar'
-            : 'Verifica tu correo electrónico'}
-        </Text>
-        <Text style={styles.muted}>
-          {data.viewer.emailVerified
-            ? 'Revisa tu inventario y registra la próxima operación.'
-            : 'Confirma tu email para proteger la cuenta y recuperar el acceso.'}
-        </Text>
-      </View>
+      {!data.viewer.emailVerified ? (
+        <View style={styles.attention}>
+          <MobileStatusChip label="Requiere atención" tone="warning" />
+          <Text style={styles.cardTitle}>Verifica tu correo electrónico</Text>
+          <Text style={styles.muted}>
+            Confirma tu email para proteger la cuenta y recuperar el acceso.
+          </Text>
+        </View>
+      ) : null}
 
       <InventorySummary />
-
-      <View style={styles.contextRow}>
-        <View style={styles.contextCard}>
-          <Text style={styles.cardLabel}>Tienda</Text>
-          <Text style={styles.contextValue}>{data.organisation.name}</Text>
-        </View>
-        <View style={styles.contextCard}>
-          <Text style={styles.cardLabel}>Rol</Text>
-          <Text style={styles.contextValue}>{data.membership.role}</Text>
-        </View>
-      </View>
+      <SalesSummary />
+      <ShippingSummary />
     </AppScreen>
   )
 }
@@ -247,20 +334,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   cardTitle: { color: colors.ink, fontSize: 20, fontWeight: '800' },
-  contextRow: { flexDirection: 'row', gap: 12 },
-  contextCard: {
-    backgroundColor: colors.surface,
-    borderColor: colors.line,
-    borderRadius: 18,
-    borderWidth: 1,
-    flex: 1,
-    gap: 8,
-    minHeight: 108,
-    padding: 17,
-  },
   cardLabel: { color: colors.inkMuted, fontSize: 12 },
-  contextValue: { color: colors.ink, fontSize: 16, fontWeight: '800' },
-  link: { color: colors.green, fontSize: 14, fontWeight: '800' },
   metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   metric: { gap: 3, minWidth: '44%' },
   metricValue: { color: colors.ink, fontSize: 22, fontWeight: '800' },

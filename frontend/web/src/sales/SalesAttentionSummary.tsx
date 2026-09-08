@@ -38,7 +38,9 @@ export function SalesAttentionSummary() {
           />
           <h2>Atención de ventas</h2>
         </div>
-        <Link to="/app/ventas">Abrir ventas</Link>
+        <Link className="button button--secondary" to="/app/ventas">
+          Ir a ventas
+        </Link>
       </header>
       <dl>
         <div>

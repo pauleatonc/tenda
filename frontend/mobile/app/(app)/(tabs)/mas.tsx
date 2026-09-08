@@ -20,13 +20,15 @@ export default function MoreScreen() {
   return (
     <AppScreen title="Más" eyebrow="Cuenta y negocio">
       <View style={styles.list}>
-        <View style={styles.row}>
-          <View>
-            <Text style={styles.rowTitle}>Perfil y negocio</Text>
-            <Text style={styles.rowDetail}>{data?.viewer.email ?? 'Cargando…'}</Text>
-          </View>
-          <Text style={styles.chevron}>›</Text>
-        </View>
+        <Link asChild href="/mas/perfil">
+          <Pressable accessibilityRole="button" style={styles.row}>
+            <View>
+              <Text style={styles.rowTitle}>Perfil y negocio</Text>
+              <Text style={styles.rowDetail}>{data?.viewer.email ?? 'Cargando…'}</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </Pressable>
+        </Link>
         {data?.membership.permissions.viewFinancials ? (
           <Link asChild href="/(app)/balances">
             <Pressable accessibilityRole="button" style={styles.row}>

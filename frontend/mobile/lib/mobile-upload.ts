@@ -53,6 +53,14 @@ export async function uploadProductImage(
   image: PickedImage,
   onProgress?: (percentage: number) => void,
 ): Promise<string> {
+  return uploadPrivateImage(image, 'product_image', onProgress)
+}
+
+export async function uploadPrivateImage(
+  image: PickedImage,
+  purpose: 'product_image' | 'profile_photo' | 'organisation_logo',
+  onProgress?: (percentage: number) => void,
+): Promise<string> {
   const prepared = await authenticatedRequest<{
     assetId: string
     uploadUrl: string
@@ -61,7 +69,7 @@ export async function uploadProductImage(
   }>('/api/v1/media/uploads/prepare', {
     method: 'POST',
     body: JSON.stringify({
-      purpose: 'product_image',
+      purpose,
       fileName: image.fileName,
       contentType: image.contentType,
       size: image.size,

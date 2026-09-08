@@ -10,13 +10,29 @@ export type MobileViewer = {
     id: string
     email: string
     emailVerified: boolean
-    profile: { id: string; fullName: string; phone: string; locale: string }
+    profile: {
+      id: string
+      fullName: string
+      phone: string
+      locale: string
+      photoUrl: string | null
+    }
   }
-  organisation: { id: string; name: string; timezone: string }
+  organisation: {
+    id: string
+    name: string
+    timezone: string
+    phone?: string
+    businessEmail?: string
+    address: string
+    description: string
+    logoUrl: string | null
+  }
   inventory: { id: string; name: string }
   membership: {
     id: string
     role: 'owner' | 'operator' | 'support_admin'
+    roleLabel: string
     permissions: {
       viewFinancials: boolean
       manageMembers: boolean

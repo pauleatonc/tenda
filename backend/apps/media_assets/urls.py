@@ -9,4 +9,5 @@ urlpatterns = [
     path("uploads/fake/<str:asset_id>", api.fake_upload_view, name="fake-upload"),
     path("uploads/complete", api.complete_upload_view, name="complete-upload"),
     path("<str:asset_id>/download", api.download_view, name="download"),
+    path("<str:asset_id>/content", api.content_view, name="content"),
 ]

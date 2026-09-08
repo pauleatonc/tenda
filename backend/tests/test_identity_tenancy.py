@@ -89,6 +89,7 @@ def test_registration_is_atomic_owner_provision_and_neutral_for_duplicate() -> N
     assert membership.can_view_financials
     assert membership.can_manage_members
     assert Inventory.objects.filter(organisation=membership.organisation).count() == 1
+    assert membership.organisation.name == "Ana Pérez"
     assert "token" not in json.dumps(first.json()).lower()
 
 
@@ -122,6 +123,9 @@ def test_email_verification_creates_web_session_and_viewer_context() -> None:
     assert response.json()["data"]["viewer"]["emailVerified"] is True
     assert viewer.status_code == 200
     assert viewer.json()["data"]["organisation"]["id"]
+    assert viewer.json()["data"]["membership"]["roleLabel"] == "titular"
+    assert viewer.json()["data"]["viewer"]["profile"]["photoUrl"] is None
+    assert viewer.json()["data"]["organisation"]["logoUrl"] is None
     assert viewer.json()["data"]["inventory"]["id"]
     assert replay.status_code == 400
     assert replay.json()["error"]["code"] == "TOKEN_INVALID_OR_EXPIRED"
@@ -459,17 +463,17 @@ def test_graphql_minimum_contract_and_permission_errors() -> None:
     assert login.status_code == 200
     query = """
       query Identity {
-        viewer { id email emailVerified profile { fullName phone } }
-        organisation { id name timezone }
+        viewer { id email emailVerified profile { fullName phone photoUrl } }
+        organisation { id name timezone address description logoUrl }
         activeInventory { id name }
-        members { id email role permissions { viewFinancials manageMembers } }
+        members { id email role roleLabel permissions { viewFinancials manageMembers } }
       }
     """
     result = post_json(client, "/graphql/", {"query": query})
     mutation = """
       mutation Update($profile: UpdateProfileInput!, $organisation: UpdateOrganisationInput!) {
         updateProfile(input: $profile) { profile { fullName phone } }
-        updateOrganisation(input: $organisation) { organisation { name phone } }
+        updateOrganisation(input: $organisation) { organisation { name phone address description } }
       }
     """
     updated = post_json(
@@ -484,6 +488,8 @@ def test_graphql_minimum_contract_and_permission_errors() -> None:
                     "phone": "+56222222222",
                     "businessEmail": "ventas@example.com",
                     "timezone": "America/Santiago",
+                    "address": "Av. Italia 1234, Ñuñoa",
+                    "description": "Taller de cerámica",
                 },
             },
         },
@@ -493,9 +499,13 @@ def test_graphql_minimum_contract_and_permission_errors() -> None:
     assert result.json()["data"]["viewer"]["email"] == owner.email
     assert result.json()["data"]["organisation"]["id"] == str(organisation.public_id)
     assert result.json()["data"]["members"][0]["role"] == "owner"
+    assert result.json()["data"]["members"][0]["roleLabel"] == "titular"
     assert updated.json()["data"]["updateProfile"]["profile"]["fullName"] == "Owner Updated"
     assert (
         updated.json()["data"]["updateOrganisation"]["organisation"]["name"] == "Tienda Actualizada"
+    )
+    assert updated.json()["data"]["updateOrganisation"]["organisation"]["address"] == (
+        "Av. Italia 1234, Ñuñoa"
     )
 
 

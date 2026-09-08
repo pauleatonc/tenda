@@ -6,8 +6,9 @@ import {
   ApplicationShell,
   DashboardPage,
   MorePage,
-  SectionPlaceholder,
 } from './app/AppShell'
+import { ProfilePage } from './app/ProfilePage'
+import './app/profile.css'
 import { ContactPage } from './public/ContactPage'
 import { InventoryListPage } from './inventory/InventoryListPage'
 import { InventoryExportsPage } from './inventory/InventoryExportsPage'
@@ -176,13 +177,7 @@ function ConfigurationPage() {
   if (params.has('paymentConnection')) {
     return <Navigate to={`/app/configuracion/pagos${location.search}`} replace />
   }
-  return (
-    <SectionPlaceholder
-      title="Perfil y negocio"
-      description="Información personal, Tienda y miembros."
-      stage="Configuración"
-    />
-  )
+  return <ProfilePage />
 }
 
 function App() {

@@ -17,7 +17,10 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
+from apps.media_assets.models import MediaAsset
+from apps.media_assets.services import ready_asset
 from apps.notifications.outbox import enqueue_outbox_event
+from apps.organisations.labels import role_label
 from apps.organisations.models import Membership
 from apps.organisations.selectors import TenantContext, resolve_tenant_context
 from apps.organisations.services import create_organisation_for_owner
@@ -180,7 +183,7 @@ def register(
     default_name = (
         organisation_name.strip()
         if organisation_name and organisation_name.strip()
-        else f"Negocio de {profile.full_name or clean_email.split('@', maxsplit=1)[0]}"
+        else (profile.full_name or clean_email.split("@", maxsplit=1)[0] or "Tienda")
     )
     provision = create_organisation_for_owner(owner=user, name=default_name)
     issue_email_verification(user)
@@ -387,12 +390,30 @@ def revoke_all_sessions(user: User) -> None:
 
 
 @transaction.atomic
-def update_profile(*, user: User, full_name: str, phone: str) -> Profile:
+def update_profile(
+    *,
+    user: User,
+    full_name: str,
+    phone: str,
+    photo_asset_id: uuid.UUID | None = None,
+) -> Profile:
     profile, _created = Profile.objects.select_for_update().get_or_create(user=user)
     profile.full_name = full_name.strip()
     profile.phone = phone.strip()
+    if photo_asset_id is not None:
+        context = resolve_tenant_context(user)
+        ready_asset(
+            context=context,
+            public_id=photo_asset_id,
+            purpose=MediaAsset.Purpose.PROFILE_PHOTO,
+            created_by=user,
+        )
+        profile.photo_asset_id = photo_asset_id
     profile.full_clean()
-    profile.save(update_fields=("full_name", "phone", "updated_at"))
+    update_fields = ["full_name", "phone", "updated_at"]
+    if photo_asset_id is not None:
+        update_fields.append("photo_asset_id")
+    profile.save(update_fields=tuple(update_fields))
     return profile
 
 
@@ -452,7 +473,7 @@ def _user_for_oidc_identity(
         user.profile.save(update_fields=("full_name", "updated_at"))
         create_organisation_for_owner(
             owner=user,
-            name=f"Negocio de {identity.full_name or email.split('@', maxsplit=1)[0]}",
+            name=identity.full_name or email.split("@", maxsplit=1)[0] or "Tienda",
         )
     elif identity.email_verified and not user.is_email_verified:
         user.email_verified_at = timezone.now()
@@ -624,6 +645,7 @@ def membership_summary(membership: Membership) -> dict[str, object]:
     return {
         "id": str(membership.public_id),
         "role": membership.role,
+        "roleLabel": role_label(membership.role),
         "permissions": {
             "viewFinancials": membership.can_view_financials,
             "manageMembers": membership.can_manage_members,

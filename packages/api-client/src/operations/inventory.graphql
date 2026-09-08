@@ -50,6 +50,9 @@ fragment CustomFieldDefinition on CustomFieldType {
 fragment ProductMedia on ProductMediaType {
   assetId
   url
+  thumbnailUrl
+  mediumUrl
+  largeUrl
   contentType
   originalName
   isPrimary

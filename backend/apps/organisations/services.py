@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from django.db import transaction
 
 from apps.inventory.models import Inventory
+from apps.media_assets.models import MediaAsset
+from apps.media_assets.services import ready_asset
 from apps.users.models import User
 from tenda.errors import DomainError, PermissionDenied
 
@@ -66,6 +68,9 @@ def update_organisation(
     phone: str,
     business_email: str,
     timezone_name: str,
+    address: str = "",
+    description: str = "",
+    logo_asset_id: uuid.UUID | None = None,
 ) -> Organisation:
     require_permission(
         context.membership,
@@ -83,6 +88,15 @@ def update_organisation(
     organisation.phone = phone.strip()
     organisation.business_email = business_email.strip().lower()
     organisation.timezone = timezone_name.strip() or "America/Santiago"
+    organisation.address = address.strip()
+    organisation.description = description.strip()
+    if logo_asset_id is not None:
+        ready_asset(
+            context=context,
+            public_id=logo_asset_id,
+            purpose=MediaAsset.Purpose.ORGANISATION_LOGO,
+        )
+        organisation.logo_asset_id = logo_asset_id
     try:
         organisation.full_clean()
     except Exception as exc:
@@ -91,7 +105,18 @@ def update_organisation(
             "Revisa los datos ingresados.",
             field_errors={"organisation": ["Los datos del negocio no son válidos."]},
         ) from exc
-    organisation.save(update_fields=("name", "phone", "business_email", "timezone", "updated_at"))
+    organisation.save(
+        update_fields=(
+            "name",
+            "phone",
+            "business_email",
+            "timezone",
+            "address",
+            "description",
+            "logo_asset_id",
+            "updated_at",
+        )
+    )
     return organisation
 
 

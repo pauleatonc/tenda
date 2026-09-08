@@ -8,6 +8,7 @@ query Viewer {
       fullName
       phone
       locale
+      photoUrl
     }
   }
   organisation {
@@ -16,6 +17,9 @@ query Viewer {
     timezone
     phone
     businessEmail
+    address
+    description
+    logoUrl
   }
   activeInventory {
     id
@@ -24,6 +28,7 @@ query Viewer {
   activeMembership {
     id
     role
+    roleLabel
     permissions {
       viewFinancials
       manageMembers
@@ -39,6 +44,7 @@ query OrganisationMembers {
     email
     fullName
     role
+    roleLabel
     permissions {
       viewFinancials
       manageMembers
@@ -55,6 +61,7 @@ mutation UpdateProfile($input: UpdateProfileInput!) {
       fullName
       phone
       locale
+      photoUrl
     }
   }
 }
@@ -67,6 +74,9 @@ mutation UpdateOrganisation($input: UpdateOrganisationInput!) {
       timezone
       phone
       businessEmail
+      address
+      description
+      logoUrl
     }
   }
 }
@@ -78,6 +88,7 @@ mutation AddOrganisationMember($input: AddMemberInput!) {
       email
       fullName
       role
+      roleLabel
     }
   }
 }
@@ -89,6 +100,7 @@ mutation UpdateOrganisationMember($input: UpdateMemberInput!) {
       email
       fullName
       role
+      roleLabel
       permissions {
         viewFinancials
         manageMembers

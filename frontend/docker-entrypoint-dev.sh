@@ -2,7 +2,9 @@
 set -e
 cd /repo
 
-if [ ! -f node_modules/.modules.yaml ]; then
+LOCK=pnpm-lock.yaml
+MARKER=node_modules/.modules.yaml
+if [ ! -f "$MARKER" ] || [ "$LOCK" -nt "$MARKER" ]; then
   pnpm install --frozen-lockfile --filter @tenda/web... --filter @tenda/mobile...
 fi
 if [ ! -f packages/api-client/dist/index.js ]; then

@@ -810,6 +810,7 @@
 .sales-attention > header {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 20px;
   justify-content: space-between;
 }
@@ -817,11 +818,6 @@
 .sales-attention h2 {
   font-family: var(--font-display);
   margin: 10px 0 0;
-}
-
-.sales-attention header > a {
-  color: var(--green);
-  font-weight: 750;
 }
 
 .sales-attention dl {

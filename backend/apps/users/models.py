@@ -101,6 +101,7 @@ class Profile(models.Model):
     full_name = models.CharField(max_length=160, blank=True)
     phone = models.CharField(max_length=32, blank=True)
     locale = models.CharField(max_length=16, default="es-CL")
+    photo_asset_id = models.UUIDField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
