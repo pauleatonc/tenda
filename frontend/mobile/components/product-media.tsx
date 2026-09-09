@@ -184,6 +184,68 @@ export function MobileProductMedia({
   )
 }
 
+export const MAX_CREATE_PHOTOS = 10
+
+export function MobilePendingPhotoQueue({
+  photos,
+  onAddFromLibrary,
+  onAddFromCamera,
+  onRemove,
+  required = false,
+}: {
+  photos: PickedImage[]
+  onAddFromLibrary: () => void
+  onAddFromCamera: () => void
+  onRemove: (uri: string) => void
+  required?: boolean
+}) {
+  const remaining = MAX_CREATE_PHOTOS - photos.length
+  return (
+    <SectionCard title="Fotos">
+      <Text style={styles.help}>
+        {required && !photos.length
+          ? 'Sube o toma una foto para continuar. Puedes agregar hasta 10.'
+          : `Hasta ${MAX_CREATE_PHOTOS} fotos. La primera será la principal.`}
+      </Text>
+      <View style={styles.pendingActions}>
+        <View style={styles.pendingAction}>
+          <PrimaryButton
+            label="Elegir de la galería"
+            variant="secondary"
+            disabled={remaining <= 0}
+            onPress={onAddFromLibrary}
+          />
+        </View>
+        <View style={styles.pendingAction}>
+          <PrimaryButton
+            label="Tomar foto"
+            variant="secondary"
+            disabled={remaining <= 0}
+            onPress={onAddFromCamera}
+          />
+        </View>
+      </View>
+      {photos.map((photo, index) => (
+        <View key={photo.uri} style={styles.card}>
+          <Image
+            accessibilityLabel={index === 0 ? 'Foto principal' : `Foto ${index + 1}`}
+            source={{ uri: photo.uri }}
+            style={styles.image}
+          />
+          <Text style={styles.name}>{index === 0 ? 'Principal' : `Foto ${index + 1}`}</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => onRemove(photo.uri)}
+            style={styles.actions}
+          >
+            <Text style={styles.delete}>Quitar</Text>
+          </Pressable>
+        </View>
+      ))}
+    </SectionCard>
+  )
+}
+
 const styles = StyleSheet.create({
   help: { color: colors.inkSoft, fontSize: 13, lineHeight: 19 },
   error: { color: colors.error, fontSize: 13, lineHeight: 19 },
@@ -213,4 +275,6 @@ const styles = StyleSheet.create({
   },
   link: { color: colors.green, fontSize: 13, fontWeight: '700' },
   delete: { color: colors.error, fontSize: 13, fontWeight: '700' },
+  pendingActions: { gap: 10 },
+  pendingAction: {},
 })

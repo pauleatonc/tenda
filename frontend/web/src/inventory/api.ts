@@ -10,6 +10,7 @@ import {
   InventoryExportsDocument,
   InventoryImportDocument,
   InventoryImportsDocument,
+  InventoryImportTemplateDocument,
   InventorySchemaDocument,
   PreviewInventoryImportDocument,
   ProductBreakdownDocument,
@@ -35,6 +36,7 @@ import {
   type OperationInventoryAlertFragment,
   type OperationInventoryExportJobFragment,
   type OperationInventoryImportJobFragment,
+  type OperationInventoryImportTemplateQuery,
   type OperationProductDetailQuery,
   type OperationProductFilterInput,
   type OperationProductMediaFragment,
@@ -414,6 +416,14 @@ export async function fetchInventoryImports(): Promise<InventoryImportJob[]> {
   return data.inventoryImports.map(toImportJob)
 }
 
+export type InventoryImportTemplate =
+  OperationInventoryImportTemplateQuery['inventoryImportTemplate']
+
+export async function fetchInventoryImportTemplate(): Promise<InventoryImportTemplate> {
+  const data = await graphqlRequest(InventoryImportTemplateDocument, {})
+  return data.inventoryImportTemplate
+}
+
 export async function startInventoryExport(input: {
   fileFormat: 'csv' | 'xlsx'
   filter?: OperationProductFilterInput
@@ -477,6 +487,7 @@ export const inventoryKeys = {
   alerts: () => ['inventory', 'alerts'] as const,
   imports: () => ['inventory', 'imports'] as const,
   import: (id: string) => ['inventory', 'import', id] as const,
+  importTemplate: () => ['inventory', 'import-template'] as const,
   exports: () => ['inventory', 'exports'] as const,
   export: (id: string) => ['inventory', 'export', id] as const,
 }

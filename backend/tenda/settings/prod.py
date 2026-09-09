@@ -47,5 +47,6 @@ SECURE_HSTS_PRELOAD = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS = "DENY"
 TENDA_ENV = "production"
+OBJECT_STORAGE_PROVIDER = os.getenv("OBJECT_STORAGE_PROVIDER", "r2")
 if not os.getenv("R2_PREFIX", "").strip():
     R2_PREFIX = "prod"

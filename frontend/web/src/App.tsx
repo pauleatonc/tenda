@@ -14,6 +14,7 @@ import { InventoryListPage } from './inventory/InventoryListPage'
 import { InventoryExportsPage } from './inventory/InventoryExportsPage'
 import { InventoryImportPage } from './inventory/InventoryImportPage'
 import { ProductDetailPage } from './inventory/ProductDetailPage'
+import { ProductCreateChooser } from './inventory/ProductCreateChooser'
 import { ProductFormPage } from './inventory/ProductFormPage'
 import { PublicCheckoutPage } from './public/PublicCheckoutPage'
 import { PublicOrderPage } from './public/PublicOrderPage'
@@ -199,7 +200,19 @@ function App() {
       <Route path="/app" element={<ApplicationShell />}>
         <Route index element={<DashboardPage />} />
         <Route path="inventario" element={<InventoryListPage />} />
-        <Route path="inventario/nuevo" element={<ProductFormPage mode="create" />} />
+        <Route path="inventario/nuevo" element={<ProductCreateChooser />} />
+        <Route
+          path="inventario/nuevo/manual"
+          element={<ProductFormPage mode="create" origin="manual" />}
+        />
+        <Route
+          path="inventario/nuevo/variante"
+          element={<ProductFormPage mode="create" origin="variant" />}
+        />
+        <Route
+          path="inventario/nuevo/asistida"
+          element={<ProductFormPage mode="create" origin="assisted" />}
+        />
         <Route path="inventario/importar" element={<InventoryImportPage />} />
         <Route path="inventario/exportaciones" element={<InventoryExportsPage />} />
         <Route path="inventario/:productId" element={<ProductDetailPage />} />

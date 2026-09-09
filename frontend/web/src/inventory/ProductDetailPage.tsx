@@ -156,6 +156,9 @@ export function ProductDetailPage() {
           </div>
         </div>
         <div className="page-heading__actions">
+          <Link className="button button--secondary" to="/app/inventario">
+            Volver al inventario
+          </Link>
           <Link
             className="button button--secondary"
             to={`/app/inventario/${product.id}/editar`}

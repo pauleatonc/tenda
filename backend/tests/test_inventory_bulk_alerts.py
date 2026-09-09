@@ -17,8 +17,10 @@ from apps.inventory.alerts import (
 )
 from apps.inventory.bulk import (
     analyse_import_job,
+    build_import_template,
     confirm_inventory_import,
     inventory_export_download_url,
+    mapping_from_import_headers,
     preview_inventory_import,
     process_export_job,
     process_import_job,
@@ -354,6 +356,56 @@ def test_xlsx_import_and_export_preserve_integral_inventory_values() -> None:
     assert rows[1][6] == "12990"
 
 
+def test_import_template_roundtrip_creates_products_from_canonical_headers() -> None:
+    fake_object_storage.clear()
+    context = context_for("template-owner@example.com")
+    create_custom_field(
+        context=context,
+        label="Aroma",
+        key="aroma",
+        field_type=CustomFieldDefinition.FieldType.SHORT_TEXT,
+    )
+    _file_name, _content_type, content = build_import_template(context)
+    workbook = load_workbook(io.BytesIO(content))
+    sheet = workbook["Productos"]
+    headers = [str(cell.value) for cell in next(sheet.iter_rows(min_row=1, max_row=1))]
+    assert headers[:5] == [
+        "Nombre",
+        "Cantidad inicial",
+        "Estado de catálogo",
+        "Precio de compra",
+        "Precio de venta",
+    ]
+    assert headers[5] == "Aroma"
+    sheet.append(["Vela lima", 4, "Activo", 1200, 3900, "Lima"])
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    source = uploaded_asset(
+        context,
+        purpose=MediaAsset.Purpose.IMPORT_FILE,
+        name="planilla-productos.xlsx",
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        content=buffer.getvalue(),
+    )
+    job = start_inventory_import(context=context, asset_id=source.public_id)
+    analyse_import_job(job.public_id)
+    mapping = mapping_from_import_headers(context, headers)
+    preview_inventory_import(context=context, import_id=job.public_id, mapping=mapping)
+    confirm_inventory_import(
+        context=context,
+        import_id=job.public_id,
+        idempotency_key="confirm-template-1",
+    )
+    completed = process_import_job(job.public_id)
+    assert completed.status == InventoryImport.Status.SUCCEEDED
+    product = Product.objects.get(inventory=context.inventory, name="Vela lima")
+    assert product.catalog_status == Product.CatalogStatus.ACTIVE
+    assert product.purchase_price == 1200
+    assert product.sale_price == 3900
+    assert product.extra_attributes["aroma"] == "Lima"
+    assert StockMovement.objects.filter(product=product, quantity=4).exists()
+
+
 def test_export_is_idempotent_private_and_contains_filtered_inventory() -> None:
     fake_object_storage.clear()
     context = context_for("export-owner@example.com")
@@ -384,7 +436,9 @@ def test_export_is_idempotent_private_and_contains_filtered_inventory() -> None:
     assert b"Vela" in content
     assert b"Taza" not in content
     url = inventory_export_download_url(context=context, job=completed)
-    assert url is not None and "expires=300" in url
+    assert url is not None
+    assert f"/api/v1/media/{completed.file_asset.public_id}/content" in url
+    assert "r2.invalid" not in url
 
 
 def test_failed_export_retries_the_same_durable_job() -> None:

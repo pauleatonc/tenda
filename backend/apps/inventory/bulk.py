@@ -21,7 +21,10 @@ from zipfile import BadZipFile
 from django.db import transaction
 from django.utils import timezone
 from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Font
+from openpyxl.utils import get_column_letter
 from openpyxl.utils.exceptions import InvalidFileException
+from openpyxl.worksheet.datavalidation import DataValidation
 
 from apps.audit.idempotency import execute_idempotent
 from apps.audit.services import record_audit_event
@@ -50,6 +53,125 @@ CORE_DESTINATIONS = frozenset(
         "salePrice",
     }
 )
+
+CATALOG_STATUS_ALIASES = {
+    "active": Product.CatalogStatus.ACTIVE,
+    "activo": Product.CatalogStatus.ACTIVE,
+    "inactive": Product.CatalogStatus.INACTIVE,
+    "inactivo": Product.CatalogStatus.INACTIVE,
+}
+
+IMPORT_TEMPLATE_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+IMPORT_TEMPLATE_FILENAME = "planilla-productos.xlsx"
+
+
+@dataclass(frozen=True, slots=True)
+class ImportColumn:
+    destination: str
+    header: str
+    required: bool = False
+
+
+IMPORT_CORE_COLUMNS: tuple[ImportColumn, ...] = (
+    ImportColumn("name", "Nombre", True),
+    ImportColumn("initialQuantity", "Cantidad inicial"),
+    ImportColumn("catalogStatus", "Estado de catálogo"),
+    ImportColumn("purchasePrice", "Precio de compra"),
+    ImportColumn("salePrice", "Precio de venta"),
+)
+
+
+def import_template_columns(context: TenantContext) -> tuple[ImportColumn, ...]:
+    """Stable Excel headers: core fields first, then each active custom column."""
+
+    used = {column.header.casefold() for column in IMPORT_CORE_COLUMNS}
+    columns = list(IMPORT_CORE_COLUMNS)
+    for field in active_custom_fields(context):
+        header = field.label.strip()
+        if header.casefold() in used:
+            header = f"{field.label.strip()} ({field.key})"
+        used.add(header.casefold())
+        columns.append(ImportColumn(f"extraAttributes.{field.key}", header))
+    return tuple(columns)
+
+
+def mapping_from_import_headers(
+    context: TenantContext,
+    headers: Sequence[str],
+) -> dict[str, str]:
+    folded: dict[str, str] = {}
+    for header in headers:
+        cleaned = str(header).strip()
+        if cleaned:
+            folded[cleaned.casefold()] = cleaned
+    mapping: dict[str, str] = {}
+    for column in import_template_columns(context):
+        source = folded.get(column.header.casefold())
+        if source:
+            mapping[column.destination] = source
+    return mapping
+
+
+def build_import_template(context: TenantContext) -> tuple[str, str, bytes]:
+    columns = import_template_columns(context)
+    workbook = Workbook()
+    sheet = workbook.active
+    assert sheet is not None
+    sheet.title = "Productos"
+    headers = [column.header for column in columns]
+    sheet.append(headers)
+    for cell in sheet[1]:
+        cell.font = Font(bold=True)
+    sheet.freeze_panes = "A2"
+    last_column = get_column_letter(max(len(columns), 1))
+    sheet.auto_filter.ref = f"A1:{last_column}1"
+    for index, column in enumerate(columns, start=1):
+        sheet.column_dimensions[get_column_letter(index)].width = min(
+            28,
+            max(16, len(column.header) + 4),
+        )
+
+    status_index = next(
+        (
+            index
+            for index, column in enumerate(columns, start=1)
+            if column.destination == "catalogStatus"
+        ),
+        None,
+    )
+    if status_index is not None:
+        letter = get_column_letter(status_index)
+        validation = DataValidation(
+            type="list",
+            formula1='"Activo,Inactivo,active,inactive"',
+            allow_blank=True,
+        )
+        validation.promptTitle = "Estado de catálogo"
+        validation.prompt = "Usa Activo o Inactivo."
+        sheet.add_data_validation(validation)
+        validation.add(f"{letter}2:{letter}5000")
+
+    instructions = workbook.create_sheet("Instrucciones")
+    instructions["A1"] = "Cómo usar esta planilla"
+    instructions["A1"].font = Font(bold=True)
+    for index, line in enumerate(
+        (
+            "No cambies ni borres la fila de encabezados.",
+            "Completa una fila por producto. El nombre es obligatorio y único en el inventario.",
+            "Cantidad inicial es un entero de 0 o más. Si la dejas vacía, queda en 0.",
+            "Estado de catálogo: Activo o Inactivo.",
+            "Los precios van en pesos chilenos enteros, sin símbolo ni decimales.",
+            "Las columnas extra son las que definiste en tu inventario.",
+            "Cuando termines, súbela en Tenda web: Inventario → Importar.",
+        ),
+        start=3,
+    ):
+        instructions[f"A{index}"] = line
+    instructions.column_dimensions["A"].width = 96
+
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    return IMPORT_TEMPLATE_FILENAME, IMPORT_TEMPLATE_CONTENT_TYPE, buffer.getvalue()
 
 
 @dataclass(frozen=True, slots=True)
@@ -246,16 +368,17 @@ def normalise_import_row(
             "Revisa los datos ingresados.",
             field_errors={"name": ["Usa un nombre de hasta 160 caracteres."]},
         )
-    catalog_status = str(_row_value(row, mapping, "catalogStatus")).strip().lower() or "active"
-    if catalog_status not in {
-        Product.CatalogStatus.ACTIVE,
-        Product.CatalogStatus.INACTIVE,
-    }:
-        raise DomainError(
-            "VALIDATION_ERROR",
-            "Revisa los datos ingresados.",
-            field_errors={"catalogStatus": ["Usa active o inactive."]},
-        )
+    raw_status = str(_row_value(row, mapping, "catalogStatus")).strip()
+    if not raw_status:
+        catalog_status = Product.CatalogStatus.ACTIVE
+    else:
+        catalog_status = CATALOG_STATUS_ALIASES.get(raw_status.casefold())
+        if catalog_status is None:
+            raise DomainError(
+                "VALIDATION_ERROR",
+                "Revisa los datos ingresados.",
+                field_errors={"catalogStatus": ["Usa Activo o Inactivo."]},
+            )
     initial_raw = _row_value(row, mapping, "initialQuantity")
     if initial_raw in (None, ""):
         initial_quantity = 0

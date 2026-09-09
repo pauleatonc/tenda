@@ -262,7 +262,8 @@ export function InventoryListPage() {
   const hasFilters = activeFilters > 0
 
   return (
-    <>
+    <div className="inventory-page">
+      <div className="inventory-page__chrome">
       <header className="page-heading page-heading--split">
         <div>
           <p className="eyebrow">{viewer.inventory.name}</p>
@@ -286,17 +287,6 @@ export function InventoryListPage() {
           >
             Exportar
           </Link>
-          <button
-            className="button button--secondary"
-            type="button"
-            disabled
-            aria-describedby="assistant-hint"
-          >
-            Agregar con asistente
-          </button>
-          <p id="assistant-hint" className="assistant-hint">
-            Próximamente: el asistente con foto aún no está disponible.
-          </p>
         </div>
       </header>
 
@@ -440,15 +430,6 @@ export function InventoryListPage() {
         </div>
       ) : null}
 
-      {products.isPending ? (
-        <div className="table-skeleton" aria-live="polite" aria-busy="true">
-          <span className="sr-only">Cargando productos…</span>
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} />
-          ))}
-        </div>
-      ) : null}
-
       {!products.isPending && !products.isError && rows.length === 0 ? (
         hasFilters ? (
           <EmptyState
@@ -475,6 +456,16 @@ export function InventoryListPage() {
             }
           />
         )
+      ) : null}
+      </div>
+
+      {products.isPending ? (
+        <div className="table-skeleton" aria-live="polite" aria-busy="true">
+          <span className="sr-only">Cargando productos…</span>
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} />
+          ))}
+        </div>
       ) : null}
 
       {!products.isPending && rows.length > 0 ? (
@@ -559,6 +550,6 @@ export function InventoryListPage() {
       {showColumnDialog ? (
         <CustomFieldDialog onClose={() => setShowColumnDialog(false)} />
       ) : null}
-    </>
+    </div>
   )
 }

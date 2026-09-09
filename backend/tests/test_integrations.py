@@ -5,6 +5,7 @@ import hmac
 import json
 from decimal import Decimal
 from io import BytesIO
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -17,6 +18,7 @@ from apps.media_assets.models import MediaAsset
 from apps.media_assets.services import (
     MAX_PURPOSE_UPLOAD_BYTES,
     complete_upload,
+    create_generated_asset,
     prepare_upload,
     private_download_url,
 )
@@ -84,7 +86,9 @@ def test_private_storage_fake_is_tenant_scoped_and_expiring() -> None:
     assert "/large-" in completed.object_key
     assert completed.checksum_sha256[:32] in completed.object_key
     assert completed.status == MediaAsset.Status.READY
-    assert "expires=300" in download_url
+    assert f"/api/v1/media/{completed.public_id}/content" in download_url
+    assert download_url.endswith("variant=medium")
+    assert "r2.invalid" not in download_url
     assert not hasattr(completed, "public_url")
     with pytest.raises(DomainError):
         private_download_url(
@@ -102,6 +106,26 @@ def test_local_file_storage_writes_under_media_root(tmp_path) -> None:
     stored = storage.head(key=key)
     assert stored.content_type == "image/webp"
     assert stored.size == 10
+
+
+def test_local_generated_files_are_stored_and_linked_via_media(tmp_path, settings) -> None:
+    settings.OBJECT_STORAGE_PROVIDER = "local"
+    settings.PUBLIC_API_URL = "http://localhost:8000"
+    settings.MEDIA_ROOT = tmp_path
+    context = context_for("local-media-export@example.com")
+    asset = create_generated_asset(
+        context=context,
+        purpose=MediaAsset.Purpose.INVENTORY_EXPORT,
+        original_name="inventario.csv",
+        content_type="text/csv",
+        content=b"Nombre,Cantidad\nVela,1\n",
+    )
+
+    stored = tmp_path.joinpath(*Path(asset.object_key).parts)
+    assert stored.read_bytes() == b"Nombre,Cantidad\nVela,1\n"
+    url = private_download_url(context=context, public_id=asset.public_id)
+    assert url == f"http://localhost:8000/api/v1/media/{asset.public_id}/content"
+    assert "r2.invalid" not in url
 
 
 def test_object_keys_group_media_and_documents() -> None:

@@ -344,6 +344,19 @@ query InventoryExports {
   }
 }
 
+query InventoryImportTemplate {
+  inventoryImportTemplate {
+    fileName
+    contentType
+    contentBase64
+    columns {
+      destination
+      header
+      required
+    }
+  }
+}
+
 mutation AttachProductMedia($productId: ID!, $assetId: ID!, $makePrimary: Boolean) {
   attachProductMedia(
     productId: $productId

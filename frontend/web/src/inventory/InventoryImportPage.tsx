@@ -8,15 +8,21 @@ import {
   confirmInventoryImport,
   fetchInventoryImport,
   fetchInventoryImports,
+  fetchInventoryImportTemplate,
   fetchInventorySchema,
   inventoryKeys,
   previewInventoryImport,
   retryInventoryImport,
   startInventoryImport,
   uploadPrivateFile,
-  type InventoryImportJob,
 } from './api'
 import { formatDate, formatQuantity } from './format'
+import {
+  downloadBase64File,
+  humanImportFailure,
+  importColumnsForFields,
+  mappingFromImportHeaders,
+} from './import-template'
 
 const POLLING_STATUSES = new Set(['analysing', 'queued', 'processing'])
 const TERMINAL_STATUSES = new Set(['succeeded', 'completed_with_errors', 'failed'])
@@ -31,51 +37,23 @@ const statusLabels: Record<string, string> = {
   failed: 'Fallida',
 }
 
-function guessHeader(headers: string[], candidates: string[]): string {
-  const wanted = new Set(
-    candidates.map((candidate) => candidate.trim().toLocaleLowerCase('es-CL')),
-  )
-  return (
-    headers.find((header) => wanted.has(header.trim().toLocaleLowerCase('es-CL'))) ?? ''
-  )
-}
-
-function defaultMapping(
-  job: InventoryImportJob,
-  fields: { key: string; label: string }[],
-): Record<string, string> {
-  const mapping: Record<string, string> = {}
-  const guesses: Record<string, string[]> = {
-    name: ['nombre', 'producto', 'name'],
-    initialQuantity: ['cantidad', 'stock', 'stock inicial', 'initial quantity'],
-    catalogStatus: ['estado', 'estado catálogo', 'catalog status'],
-    purchasePrice: ['precio compra', 'costo', 'purchase price'],
-    salePrice: ['precio venta', 'precio', 'sale price'],
-  }
-  for (const [destination, candidates] of Object.entries(guesses)) {
-    const source = guessHeader(job.headers, candidates)
-    if (source) mapping[destination] = source
-  }
-  for (const field of fields) {
-    const source = guessHeader(job.headers, [field.label.toLowerCase(), field.key.toLowerCase()])
-    if (source) mapping[`extraAttributes.${field.key}`] = source
-  }
-  return mapping
-}
-
 export function InventoryImportPage() {
   const queryClient = useQueryClient()
   const [jobId, setJobId] = useState('')
   const [uploadProgress, setUploadProgress] = useState<number | null>(null)
   const [mapping, setMapping] = useState<Record<string, string>>({})
   const [mappingReadyForJob, setMappingReadyForJob] = useState('')
-  const [previewed, setPreviewed] = useState(false)
+  const [previewedKey, setPreviewedKey] = useState('')
   const [pollDelay, setPollDelay] = useState(1_000)
   const [idempotencyKey, setIdempotencyKey] = useState(newIdempotencyKey)
 
   const schema = useQuery({
     queryKey: inventoryKeys.schema(false),
     queryFn: () => fetchInventorySchema(false),
+  })
+  const template = useQuery({
+    queryKey: inventoryKeys.importTemplate(),
+    queryFn: fetchInventoryImportTemplate,
   })
   const history = useQuery({
     queryKey: inventoryKeys.imports(),
@@ -107,6 +85,12 @@ export function InventoryImportPage() {
     () => (schema.data?.fields ?? []).filter((field) => field.isActive),
     [schema.data],
   )
+  const columns = useMemo(
+    () => template.data?.columns ?? importColumnsForFields(activeFields),
+    [activeFields, template.data],
+  )
+
+  const mappingKey = JSON.stringify(mapping)
 
   useEffect(() => {
     if (
@@ -116,10 +100,10 @@ export function InventoryImportPage() {
     ) {
       return
     }
-    setMapping(defaultMapping(job.data, activeFields))
+    setMapping(mappingFromImportHeaders(job.data.headers, columns))
     setMappingReadyForJob(job.data.id)
-    setPreviewed(false)
-  }, [activeFields, job.data, mappingReadyForJob])
+    setPreviewedKey('')
+  }, [columns, job.data, mappingReadyForJob])
 
   const upload = useMutation({
     mutationFn: async (file: File) => {
@@ -138,12 +122,22 @@ export function InventoryImportPage() {
   })
 
   const preview = useMutation({
-    mutationFn: () => previewInventoryImport(jobId, mapping),
-    onSuccess: (updated) => {
+    mutationFn: (nextMapping: Record<string, string>) =>
+      previewInventoryImport(jobId, nextMapping),
+    onSuccess: (updated, nextMapping) => {
       queryClient.setQueryData(inventoryKeys.import(jobId), updated)
-      setPreviewed(true)
+      setPreviewedKey(JSON.stringify(nextMapping))
     },
   })
+
+  useEffect(() => {
+    if (!job.data || job.data.status !== 'awaiting_mapping') return
+    if (mappingReadyForJob !== job.data.id || !mapping.name) return
+    if (previewedKey === mappingKey || preview.isPending) return
+    preview.mutate(mapping)
+    // `preview` in the deps retriggers this effect on every mutation identity change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job.data, mapping, mappingKey, mappingReadyForJob, previewedKey])
 
   const confirm = useMutation({
     mutationFn: () => confirmInventoryImport(jobId, idempotencyKey),
@@ -162,24 +156,19 @@ export function InventoryImportPage() {
   })
 
   const current = job.data
-  const destinations = [
-    { key: 'name', label: 'Nombre del producto (obligatorio)' },
-    { key: 'initialQuantity', label: 'Cantidad inicial' },
-    { key: 'catalogStatus', label: 'Estado de catálogo' },
-    { key: 'purchasePrice', label: 'Precio de compra' },
-    { key: 'salePrice', label: 'Precio de venta' },
-    ...activeFields.map((field) => ({
-      key: `extraAttributes.${field.key}`,
-      label: field.label,
-    })),
-  ]
+  const destinations = columns.map((column) => ({
+    key: column.destination,
+    label: column.required ? `${column.header} (obligatorio)` : column.header,
+  }))
+  const usedTemplateHeaders = Boolean(mapping.name)
+  const previewed = previewedKey === mappingKey && Boolean(mapping.name)
   const actionError = upload.error ?? preview.error ?? confirm.error ?? retry.error
 
   function reset() {
     setJobId('')
     setMapping({})
     setMappingReadyForJob('')
-    setPreviewed(false)
+    setPreviewedKey('')
     setIdempotencyKey(newIdempotencyKey())
   }
 
@@ -189,7 +178,10 @@ export function InventoryImportPage() {
         <div>
           <p className="eyebrow">Inventario</p>
           <h1>Importar productos</h1>
-          <p>Sube un CSV o XLSX, revisa las columnas y confirma antes de escribir datos.</p>
+          <p>
+            Descarga la planilla Excel con las columnas de tu inventario, complétala y
+            súbela. La importación masiva solo está en la web.
+          </p>
         </div>
         <Link className="button button--secondary" to="/app/inventario">
           Volver
@@ -201,7 +193,7 @@ export function InventoryImportPage() {
           <strong>No pudimos completar el paso</strong>
           <span>
             {actionError instanceof TendaApiError
-              ? actionError.message
+              ? humanImportFailure(actionError.code, actionError.message)
               : 'Revisa el archivo e inténtalo nuevamente.'}
           </span>
         </div>
@@ -209,12 +201,42 @@ export function InventoryImportPage() {
 
       {!jobId ? (
         <section className="wizard-card">
-          <span className="wizard-card__step">Paso 1 de 4</span>
-          <h2>Selecciona el archivo</h2>
-          <p>Máximo 25 MB. La primera fila debe contener encabezados únicos.</p>
+          <span className="wizard-card__step">Paso 1 de 3</span>
+          <h2>Descarga la planilla y cárgala completa</h2>
+          <p>
+            Incluye nombre, cantidad, estado, precios y las columnas propias del
+            inventario. Completa una fila por producto y no cambies los encabezados.
+          </p>
+          <div className="page-heading__actions">
+            <button
+              className="button button--primary"
+              type="button"
+              disabled={!template.data || template.isFetching}
+              onClick={() => {
+                if (!template.data) return
+                downloadBase64File(
+                  template.data.fileName,
+                  template.data.contentType,
+                  template.data.contentBase64,
+                )
+              }}
+            >
+              {template.isFetching ? 'Preparando planilla…' : 'Descargar planilla Excel'}
+            </button>
+            {template.isError ? (
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={() => void template.refetch()}
+              >
+                Reintentar descarga
+              </button>
+            ) : null}
+          </div>
+          <p>Máximo 25 MB. Aceptamos la planilla .xlsx (o un CSV con los mismos encabezados).</p>
           <UploadField
-            label="Archivo de inventario"
-            accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            label="Planilla de productos"
+            accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
             disabled={upload.isPending}
             onSelect={(file) => upload.mutate(file)}
           />
@@ -229,7 +251,7 @@ export function InventoryImportPage() {
 
       {jobId && (!current || current.status === 'analysing') ? (
         <section className="wizard-card" aria-busy="true">
-          <span className="wizard-card__step">Paso 2 de 4</span>
+          <span className="wizard-card__step">Paso 2 de 3</span>
           <h2>Analizando archivo</h2>
           <p aria-live="polite">
             Detectamos encabezados y filas. Puedes dejar esta vista abierta.
@@ -240,11 +262,18 @@ export function InventoryImportPage() {
 
       {current?.status === 'awaiting_mapping' ? (
         <section className="wizard-card">
-          <span className="wizard-card__step">Paso 2 de 4</span>
-          <h2>Asocia las columnas</h2>
+          <span className="wizard-card__step">Paso 2 de 3</span>
+          <h2>
+            {usedTemplateHeaders
+              ? 'Revisa la planilla y confirma'
+              : 'Asocia las columnas'}
+          </h2>
           <p>
             Archivo: <strong>{current.sourceFileName}</strong> ·{' '}
             {formatQuantity(current.totalRows)} filas
+            {usedTemplateHeaders
+              ? '. Usamos los encabezados de la planilla de Tenda.'
+              : '. Asocia al menos el nombre del producto.'}
           </p>
           <div className="mapping-grid">
             {destinations.map((destination) => (
@@ -260,7 +289,7 @@ export function InventoryImportPage() {
                       else delete next[destination.key]
                       return next
                     })
-                    setPreviewed(false)
+                    setPreviewedKey('')
                   }}
                 >
                   <option value="">No importar</option>
@@ -273,14 +302,10 @@ export function InventoryImportPage() {
               </label>
             ))}
           </div>
-          <button
-            className="button button--primary"
-            type="button"
-            disabled={!mapping.name || preview.isPending}
-            onClick={() => preview.mutate()}
-          >
-            {preview.isPending ? 'Validando…' : 'Previsualizar y validar'}
-          </button>
+
+          {preview.isPending ? (
+            <p aria-live="polite">Validando las primeras filas…</p>
+          ) : null}
 
           {current.previewRows.length ? (
             <div className="import-preview">
@@ -312,8 +337,6 @@ export function InventoryImportPage() {
 
           {previewed ? (
             <div className="wizard-review" aria-live="polite">
-              <span className="wizard-card__step">Paso 3 de 4</span>
-              <h3>Resultado de la previsualización</h3>
               {current.rowErrors.length ? (
                 <>
                   <p>
@@ -346,7 +369,7 @@ export function InventoryImportPage() {
 
       {current && ['queued', 'processing'].includes(current.status) ? (
         <section className="wizard-card" aria-busy="true">
-          <span className="wizard-card__step">Paso 4 de 4</span>
+          <span className="wizard-card__step">Paso 3 de 3</span>
           <h2>{statusLabels[current.status]}</h2>
           <progress max={100} value={current.progress} />
           <p aria-live="polite">
@@ -361,7 +384,7 @@ export function InventoryImportPage() {
           <span className="wizard-card__step">Resultado</span>
           <h2>{statusLabels[current.status]}</h2>
           {current.status === 'failed' ? (
-            <p>La tarea terminó con el código {current.errorCode || 'UNEXPECTED_ERROR'}.</p>
+            <p>{humanImportFailure(current.errorCode)}</p>
           ) : (
             <p>
               {formatQuantity(current.createdCount)} filas creadas ·{' '}

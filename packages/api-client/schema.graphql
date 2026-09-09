@@ -28,6 +28,7 @@ type Query {
   inventoryImports: [InventoryImportType!]!
   inventoryExport(id: ID!): InventoryExportType
   inventoryExports: [InventoryExportType!]!
+  inventoryImportTemplate: InventoryImportTemplateType!
   organisation: OrganisationType
   activeInventory: InventoryContextType
   activeMembership: MemberType
@@ -741,6 +742,19 @@ type InventoryExportType {
   expiresAt: DateTime
   createdAt: DateTime!
   completedAt: DateTime
+}
+
+type InventoryImportTemplateType {
+  fileName: String!
+  contentType: String!
+  contentBase64: String!
+  columns: [InventoryImportColumnType!]!
+}
+
+type InventoryImportColumnType {
+  destination: String!
+  header: String!
+  required: Boolean!
 }
 
 type OrganisationType {

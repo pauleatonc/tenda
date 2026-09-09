@@ -177,8 +177,14 @@ def _clean_date(definition: CustomFieldDefinition, value: Any) -> str:
 def _clean_boolean(definition: CustomFieldDefinition, value: Any) -> bool:
     if isinstance(value, bool):
         return value
-    if isinstance(value, str) and value.strip().lower() in {"true", "false"}:
-        return value.strip().lower() == "true"
+    if isinstance(value, (int, float)) and value in (0, 1):
+        return bool(value)
+    if isinstance(value, str):
+        normalised = value.strip().casefold()
+        if normalised in {"true", "1", "sí", "si", "yes"}:
+            return True
+        if normalised in {"false", "0", "no"}:
+            return False
     raise validation_error(_field_error_key(definition), "Selecciona sí o no.")
 
 
@@ -186,9 +192,16 @@ def _clean_single_select(definition: CustomFieldDefinition, value: Any) -> str:
     if not isinstance(value, str):
         raise validation_error(_field_error_key(definition), "Selecciona una opción válida.")
     candidate = value.strip()
-    if candidate not in definition.option_keys:
-        raise validation_error(_field_error_key(definition), "Selecciona una opción válida.")
-    return candidate
+    if candidate in definition.option_keys:
+        return candidate
+    for option in definition.options or []:
+        if not isinstance(option, Mapping):
+            continue
+        label = str(option.get("label", "")).strip()
+        key = str(option.get("key", "")).strip()
+        if key and label.casefold() == candidate.casefold():
+            return key
+    raise validation_error(_field_error_key(definition), "Selecciona una opción válida.")
 
 
 def clean_value(definition: CustomFieldDefinition, value: Any) -> Any:

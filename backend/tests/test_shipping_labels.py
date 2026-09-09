@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from datetime import timedelta
-from urllib.parse import unquote
+from urllib.parse import urlparse
 
 import pytest
 from django.utils import timezone
 
-from apps.media_assets.storage import get_object_storage
 from apps.sales.models import Order
 from apps.shipping.labels import INTERNAL_LABEL_DISCLAIMER, INTERNAL_LABEL_TITLE
 from apps.shipping.models import LabelDocument, Shipment
@@ -30,9 +29,11 @@ mutation Generate($id: ID!, $key: String!) {
 """
 
 
-def _download_bytes(url: str) -> bytes:
-    key = url.split("/download/", 1)[1].split("?", 1)[0]
-    return get_object_storage().read_bytes(key=unquote(key))
+def _download_bytes(client, url: str) -> bytes:
+    path = urlparse(url).path
+    response = client.get(path)
+    assert response.status_code == 200, response.content
+    return response.content
 
 
 def test_generate_label_renders_internal_pdf_with_expiring_url() -> None:
@@ -51,10 +52,11 @@ def test_generate_label_renders_internal_pdf_with_expiring_url() -> None:
 
     label = payload["label"]
     assert label["fileName"].startswith("etiqueta-interna-")
-    assert label["downloadUrl"].startswith("https://r2.invalid/download/")
-    assert "expires=300" in label["downloadUrl"]
+    assert "/api/v1/media/" in label["downloadUrl"]
+    assert label["downloadUrl"].endswith("/content")
+    assert "r2.invalid" not in label["downloadUrl"]
     assert label["expiresAt"]
-    pdf = _download_bytes(label["downloadUrl"])
+    pdf = _download_bytes(client, label["downloadUrl"])
     assert pdf.startswith(b"%PDF")
     assert INTERNAL_LABEL_TITLE.encode("latin-1") in pdf
     assert INTERNAL_LABEL_DISCLAIMER.encode("latin-1") in pdf

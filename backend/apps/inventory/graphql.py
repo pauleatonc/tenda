@@ -6,6 +6,7 @@ selectors and services of this app.
 
 from __future__ import annotations
 
+import base64
 import uuid
 from decimal import Decimal
 from typing import Any
@@ -16,7 +17,7 @@ from graphql import GraphQLResolveInfo
 
 from apps.media_assets.services import asset_content_url
 from tenda.errors import DomainError, ResourceNotFound
-from tenda.graphql import context_from_info, graphql_error
+from tenda.graphql import context_from_info, graphql_error, request_from_info
 from tenda.pagination import Page, paginate
 
 from .alerts import (
@@ -26,7 +27,9 @@ from .alerts import (
     update_product_low_stock_threshold,
 )
 from .bulk import (
+    build_import_template,
     confirm_inventory_import,
+    import_template_columns,
     inventory_export_download_url,
     inventory_export_for_context,
     inventory_exports_for_context,
@@ -480,6 +483,19 @@ class InventoryImportType(graphene.ObjectType):  # type: ignore[misc]
         info: GraphQLResolveInfo,
     ) -> str | None:
         return inventory_import_report_url(context=context_from_info(info), job=root)
+
+
+class InventoryImportColumnType(graphene.ObjectType):  # type: ignore[misc]
+    destination = graphene.String(required=True)
+    header = graphene.String(required=True)
+    required = graphene.Boolean(required=True)
+
+
+class InventoryImportTemplateType(graphene.ObjectType):  # type: ignore[misc]
+    file_name = graphene.String(required=True)
+    content_type = graphene.String(required=True)
+    content_base64 = graphene.String(required=True)
+    columns = graphene.List(graphene.NonNull(InventoryImportColumnType), required=True)
 
 
 class InventoryExportType(graphene.ObjectType):  # type: ignore[misc]
@@ -1005,6 +1021,12 @@ class StartInventoryImport(graphene.Mutation):  # type: ignore[misc]
         asset_id: str,
     ) -> StartInventoryImport:
         try:
+            if request_from_info(info).headers.get("X-Tenda-Client") == "mobile":
+                raise DomainError(
+                    "IMPORT_WEB_ONLY",
+                    "La importación por planilla Excel se hace en la versión web.",
+                    status=403,
+                )
             job = start_inventory_import(
                 context=context_from_info(info),
                 asset_id=_uuid_or_not_found(asset_id),
@@ -1274,6 +1296,10 @@ class InventoryQuery(graphene.ObjectType):  # type: ignore[misc]
     )
     inventory_exports = graphene.List(
         graphene.NonNull(InventoryExportType),
+        required=True,
+    )
+    inventory_import_template = graphene.Field(
+        InventoryImportTemplateType,
         required=True,
     )
 
@@ -1589,6 +1615,30 @@ class InventoryQuery(graphene.ObjectType):  # type: ignore[misc]
             return inventory_exports_for_context(context_from_info(info))
         except DomainError as exc:
             raise graphql_error(info, exc) from exc
+
+    @staticmethod
+    def resolve_inventory_import_template(
+        _root: object,
+        info: GraphQLResolveInfo,
+    ) -> dict[str, Any]:
+        try:
+            context = context_from_info(info)
+            file_name, content_type, content = build_import_template(context)
+        except DomainError as exc:
+            raise graphql_error(info, exc) from exc
+        return {
+            "file_name": file_name,
+            "content_type": content_type,
+            "content_base64": base64.b64encode(content).decode("ascii"),
+            "columns": [
+                {
+                    "destination": column.destination,
+                    "header": column.header,
+                    "required": column.required,
+                }
+                for column in import_template_columns(context)
+            ],
+        }
 
 
 class InventoryMutation(graphene.ObjectType):  # type: ignore[misc]

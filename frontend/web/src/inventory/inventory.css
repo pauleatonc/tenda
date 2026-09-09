@@ -13,12 +13,140 @@
   gap: 10px;
 }
 
-.assistant-hint {
-  color: var(--ink-muted);
-  flex-basis: 100%;
-  font-size: 12px;
+.create-chooser {
+  display: grid;
+  gap: 16px;
+  max-width: 720px;
+}
+
+.create-chooser__card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  color: inherit;
+  display: grid;
+  gap: 8px;
+  padding: 22px;
+  text-decoration: none;
+}
+
+.create-chooser__card:hover,
+.create-chooser__card:focus-visible {
+  border-color: var(--green);
+}
+
+.create-chooser__card h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
   margin: 0;
-  text-align: right;
+}
+
+.create-chooser__card p {
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.product-picker {
+  display: grid;
+  gap: 10px;
+}
+
+.product-picker__list {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  display: grid;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.product-picker__list button {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  cursor: pointer;
+  min-height: 48px;
+  padding: 10px 14px;
+  text-align: left;
+}
+
+.product-picker__list button:last-child {
+  border-bottom: 0;
+}
+
+.photo-queue {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.photo-queue input[type='file'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.photo-queue__list {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+.photo-queue__list li {
+  background: #fbfaf6;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: grid;
+  gap: 8px;
+  overflow: hidden;
+  padding-bottom: 10px;
+}
+
+.photo-queue__list img {
+  aspect-ratio: 1;
+  display: block;
+  object-fit: cover;
+  width: 100%;
+}
+
+.photo-queue__list span,
+.photo-queue__list button {
+  font-size: 12px;
+  margin: 0 10px;
+}
+
+.photo-queue__list button {
+  background: transparent;
+  border: 0;
+  color: var(--green);
+  cursor: pointer;
+  font-weight: 700;
+  min-height: 32px;
+  padding: 0;
+  text-align: left;
+}
+
+.inventory-page__chrome {
+  margin-inline: auto;
+  max-width: 1240px;
+}
+
+.inventory-page .table-wrapper,
+.inventory-page .table-skeleton {
+  width: 100%;
+}
+
+.inventory-page .data-table {
+  min-width: 100%;
+  table-layout: auto;
+  width: 100%;
 }
 
 .inventory-toolbar {
@@ -80,9 +208,6 @@
 
 .inventory-settings summary {
   cursor: pointer;
-  font-weight: 700;
-  list-style-position: outside;
-  min-height: 28px;
 }
 
 .inventory-settings__panel {

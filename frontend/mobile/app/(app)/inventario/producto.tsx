@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -17,17 +17,32 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { PrimaryButton, StatusMessage, colors } from '../../../components/auth-ui'
 import { CustomFieldSheet } from '../../../components/custom-field-sheet'
 import { OptionRow, SectionCard, SheetField } from '../../../components/inventory-ui'
+import { MobilePendingPhotoQueue } from '../../../components/product-media'
 import { MobileApiError } from '../../../lib/auth-api'
 import { catalogStatusLabels } from '../../../lib/format'
 import { isOfflineError, newIdempotencyKey } from '../../../lib/graphql'
 import {
+  attachProductMedia,
   createProduct,
   fetchInventorySchema,
   fetchProductDetail,
+  fetchProducts,
   inventoryKeys,
   updateProduct,
   type CustomField,
+  type ProductCard,
 } from '../../../lib/inventory-api'
+import {
+  pickProductImage,
+  takeProductImage,
+  uploadProductImage,
+  type PickedImage,
+} from '../../../lib/mobile-upload'
+import {
+  productDraftEquals,
+  suggestVariantName,
+  type ProductIdentityDraft,
+} from '../../../lib/product-draft'
 
 function isBlank(value: string | undefined): boolean {
   return value === undefined || value.trim() === ''
@@ -53,14 +68,39 @@ function coerceAttribute(field: CustomField, raw: string): unknown {
   return raw.trim()
 }
 
+function attributesFromDraft(
+  fields: CustomField[],
+  attributes: Record<string, string>,
+): Record<string, unknown> {
+  const extraAttributes: Record<string, unknown> = {}
+  for (const field of fields) {
+    const value = coerceAttribute(field, attributes[field.key] ?? '')
+    if (value !== null) extraAttributes[field.key] = value
+  }
+  return extraAttributes
+}
+
+function identityFromProduct(product: ProductCard): ProductIdentityDraft {
+  return {
+    name: product.name,
+    catalogStatus: product.catalogStatus,
+    purchasePrice: product.purchasePrice,
+    salePrice: product.salePrice,
+    extraAttributes: product.extraAttributes,
+  }
+}
+
 /**
  * V1-INV-03 on the phone: one column, one field per row and the keyboard that
  * matches each value. Creating a column never discards what is already typed.
  */
 export default function ProductFormScreen() {
-  const params = useLocalSearchParams<{ id?: string }>()
+  const params = useLocalSearchParams<{ id?: string; origen?: string }>()
   const productId = typeof params.id === 'string' ? params.id : undefined
+  const origin = typeof params.origen === 'string' ? params.origen : 'manual'
   const isEdit = Boolean(productId)
+  const isVariant = !isEdit && origin === 'variante'
+  const isAssisted = !isEdit && origin === 'asistida'
   const queryClient = useQueryClient()
 
   const [name, setName] = useState('')
@@ -74,6 +114,11 @@ export default function ProductFormScreen() {
   const [columnSheetOpen, setColumnSheetOpen] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [idempotencyKey, setIdempotencyKey] = useState(newIdempotencyKey)
+  const [photos, setPhotos] = useState<PickedImage[]>([])
+  const [pickerQuery, setPickerQuery] = useState('')
+  const [debouncedPicker, setDebouncedPicker] = useState('')
+  const [sourceProduct, setSourceProduct] = useState<ProductCard | null>(null)
+  const [sourceIdentity, setSourceIdentity] = useState<ProductIdentityDraft | null>(null)
 
   const inputRefs = useRef<Record<string, TextInput | null>>({})
 
@@ -86,6 +131,23 @@ export default function ProductFormScreen() {
     queryKey: inventoryKeys.product(productId ?? ''),
     queryFn: () => fetchProductDetail(productId ?? ''),
     enabled: isEdit,
+  })
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedPicker(pickerQuery.trim()), 250)
+    return () => clearTimeout(timer)
+  }, [pickerQuery])
+
+  const picker = useQuery({
+    queryKey: inventoryKeys.products({ search: debouncedPicker }),
+    queryFn: () =>
+      fetchProducts({
+        filter: { search: debouncedPicker || null },
+        sort: 'name',
+        first: 8,
+      }),
+    enabled: isVariant && !sourceProduct,
+    placeholderData: keepPreviousData,
   })
 
   // Hydrate once when the product arrives; from then on the draft wins.
@@ -122,13 +184,37 @@ export default function ProductFormScreen() {
     if (firstKey) inputRefs.current[firstKey]?.focus()
   }
 
+  function currentIdentity(): ProductIdentityDraft {
+    return {
+      name,
+      catalogStatus,
+      purchasePrice: parsePrice(purchasePrice).value,
+      salePrice: parsePrice(salePrice).value,
+      extraAttributes: attributesFromDraft(fields, attributes),
+    }
+  }
+
+  function applySource(row: ProductCard) {
+    setSourceProduct(row)
+    setSourceIdentity(identityFromProduct(row))
+    setName(row.name)
+    setCatalogStatus(row.catalogStatus)
+    setPurchasePrice(row.purchasePrice ?? '')
+    setSalePrice(row.salePrice ?? '')
+    setAttributes(
+      Object.fromEntries(
+        Object.entries(row.extraAttributes).map(([key, value]) => [
+          key,
+          attributeToDraft(value),
+        ]),
+      ),
+    )
+    setDirty(true)
+  }
+
   const save = useMutation({
     mutationFn: async () => {
-      const extraAttributes: Record<string, unknown> = {}
-      for (const field of fields) {
-        const value = coerceAttribute(field, attributes[field.key] ?? '')
-        if (value !== null) extraAttributes[field.key] = value
-      }
+      const extraAttributes = attributesFromDraft(fields, attributes)
       const purchase = parsePrice(purchasePrice)
       const sale = parsePrice(salePrice)
       if (isEdit && productId) {
@@ -153,12 +239,20 @@ export default function ProductFormScreen() {
         extraAttributes,
         idempotencyKey,
       })
+      try {
+        for (const [index, photo] of photos.entries()) {
+          const assetId = await uploadProductImage(photo)
+          await attachProductMedia(created.product.id, assetId, index === 0)
+        }
+      } catch {
+        // The product already exists; the detail gallery can retry the photos.
+      }
       return created.product
     },
     onSuccess: (saved) => {
       void queryClient.invalidateQueries({ queryKey: ['inventory'] })
       setDirty(false)
-      router.replace(`/inventario/${saved.id}`)
+      router.replace(isEdit ? `/inventario/${saved.id}` : '/inventario')
     },
     onError: (error: unknown) => {
       if (!(error instanceof MobileApiError)) {
@@ -182,6 +276,12 @@ export default function ProductFormScreen() {
 
   function validate(): boolean {
     const nextErrors: Record<string, string | undefined> = {}
+    if (isAssisted && photos.length === 0) {
+      nextErrors.photos = 'Sube o toma una foto para continuar.'
+    }
+    if (isVariant && !sourceProduct) {
+      nextErrors.source = 'Elige el producto que quieres copiar.'
+    }
     if (isBlank(name)) nextErrors.name = 'Escribe el nombre del producto.'
     if (!parsePrice(purchasePrice).ok) {
       nextErrors.purchasePrice = 'Usa un monto entero en pesos, sin decimales.'
@@ -200,21 +300,53 @@ export default function ProductFormScreen() {
         nextErrors[`extraAttributes.${field.key}`] = `Completa ${field.label}.`
       }
     }
+    if (isVariant && sourceProduct && sourceIdentity) {
+      if (productDraftEquals(currentIdentity(), sourceIdentity)) {
+        nextErrors.variant = `Cambia al menos un dato respecto de ${sourceProduct.name}. Si el nombre queda igual, el inventario lo rechazará.`
+      } else if (
+        name.trim().toLocaleLowerCase('es-CL') ===
+        sourceProduct.name.trim().toLocaleLowerCase('es-CL')
+      ) {
+        nextErrors.name = `Elige un nombre distinto. Sugerencia: ${suggestVariantName(sourceProduct.name, 'variante')}.`
+      }
+    }
     setErrors(nextErrors)
     const invalid = Object.keys(nextErrors).length > 0
     if (invalid) focusFirstError(nextErrors)
     return !invalid
   }
 
-  function leave() {
+  function confirmLeave(go: () => void) {
     if (!dirty) {
-      router.back()
+      go()
       return
     }
     Alert.alert('Tienes cambios sin guardar', '¿Quieres salir y descartarlos?', [
       { text: 'Seguir editando', style: 'cancel' },
-      { text: 'Salir', style: 'destructive', onPress: () => router.back() },
+      { text: 'Salir', style: 'destructive', onPress: go },
     ])
+  }
+
+  function leave() {
+    confirmLeave(() => router.back())
+  }
+
+  function leaveToInventory() {
+    confirmLeave(() => router.replace('/inventario'))
+  }
+
+  async function addPhoto(from: 'library' | 'camera') {
+    try {
+      const image = from === 'camera' ? await takeProductImage() : await pickProductImage()
+      if (!image) return
+      setPhotos((current) => [...current, image])
+      setDirty(true)
+    } catch (error) {
+      Alert.alert(
+        'No pudimos agregar la foto',
+        error instanceof Error ? error.message : 'Inténtalo otra vez.',
+      )
+    }
   }
 
   if (isEdit && product.isPending) {
@@ -237,13 +369,30 @@ export default function ProductFormScreen() {
           <Text style={styles.muted}>
             El producto no existe o pertenece a otra Tienda.
           </Text>
-          <PrimaryButton label="Volver al inventario" onPress={() => router.back()} />
+          <PrimaryButton
+            label="Volver al inventario"
+            onPress={() => router.replace('/inventario')}
+          />
         </View>
       </SafeAreaView>
     )
   }
 
   const errorList = Object.values(errors).filter(Boolean) as string[]
+  const showForm = !isVariant || Boolean(sourceProduct)
+  const showAssistedGate = isAssisted && photos.length === 0
+  const title = isEdit
+    ? 'Editar producto'
+    : isVariant
+      ? 'Variante de un producto'
+      : 'Nuevo producto'
+  const lead = isEdit
+    ? 'Editar no cambia el stock: los cambios de cantidad se registran como movimiento.'
+    : isVariant
+      ? 'Cambia al menos un dato. El nombre tiene que ser distinto al del producto original.'
+      : isAssisted
+        ? 'La foto queda lista. Completa los datos: el agente los rellenará en una próxima versión.'
+        : 'Registra el mínimo necesario. Puedes ampliar la ficha con columnas propias.'
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -258,13 +407,16 @@ export default function ProductFormScreen() {
           <View style={styles.heading}>
             <Text style={styles.eyebrow}>Inventario</Text>
             <Text accessibilityRole="header" style={styles.title}>
-              {isEdit ? 'Editar producto' : 'Nuevo producto'}
+              {title}
             </Text>
-            <Text style={styles.muted}>
-              {isEdit
-                ? 'Editar no cambia el stock: los cambios de cantidad se registran como movimiento.'
-                : 'Registra el mínimo necesario. Puedes ampliar la ficha con columnas propias.'}
-            </Text>
+            <Text style={styles.muted}>{lead}</Text>
+            {isEdit ? (
+              <PrimaryButton
+                label="Volver al inventario"
+                variant="secondary"
+                onPress={leaveToInventory}
+              />
+            ) : null}
           </View>
 
           {errorList.length ? (
@@ -279,177 +431,231 @@ export default function ProductFormScreen() {
           ) : null}
           {apiError ? <StatusMessage message={apiError.message} /> : null}
 
-          <SectionCard title="Datos básicos">
-            <SheetField
-              label="Nombre"
-              value={name}
-              maxLength={160}
-              onChangeText={(value) => {
-                setName(value)
-                setDirty(true)
-              }}
-              error={errors.name}
-              ref={(node: TextInput | null) => {
-                inputRefs.current.name = node
-              }}
-            />
-
-            {!isEdit ? (
+          {isVariant && !sourceProduct ? (
+            <SectionCard title="Producto de origen">
               <SheetField
-                label="Cantidad inicial"
-                help="Se registra como una entrada inicial en el historial."
-                keyboardType="number-pad"
-                value={initialQuantity}
-                onChangeText={(value) => {
-                  setInitialQuantity(value)
-                  setDirty(true)
-                }}
-                error={errors.initialQuantity}
-                ref={(node: TextInput | null) => {
-                  inputRefs.current.initialQuantity = node
-                }}
+                label="Buscar producto existente"
+                value={pickerQuery}
+                onChangeText={setPickerQuery}
+                placeholder="Buscar por nombre…"
               />
-            ) : null}
+              {picker.isPending ? <Text style={styles.muted}>Buscando productos…</Text> : null}
+              {picker.data?.products.map((row) => (
+                <Pressable
+                  key={row.id}
+                  accessibilityRole="button"
+                  onPress={() => applySource(row)}
+                  style={styles.sourceRow}
+                >
+                  <Text style={styles.sourceName}>{row.name}</Text>
+                </Pressable>
+              ))}
+            </SectionCard>
+          ) : null}
 
-            <OptionRow
-              label="Estado de catálogo"
-              value={catalogStatus}
-              onChange={(value) => {
-                setCatalogStatus(value)
-                setDirty(true)
-              }}
-              options={['active', 'inactive'].map((status) => ({
-                value: status,
-                label: catalogStatusLabels[status],
-              }))}
-            />
-          </SectionCard>
-
-          <SectionCard title="Precios de referencia">
+          {isVariant && sourceProduct ? (
             <Text style={styles.muted}>
-              El precio efectivo se define en cada venta y puede variar entre unidades.
-              Moneda: CLP.
+              Partiendo de {sourceProduct.name}. Toca “Elegir otro” para cambiar.
             </Text>
-            <SheetField
-              label="Precio de compra"
-              help="Déjalo vacío si aún no lo defines."
-              keyboardType="number-pad"
-              value={purchasePrice}
-              onChangeText={(value) => {
-                setPurchasePrice(value)
-                setDirty(true)
-              }}
-              error={errors.purchasePrice}
-              ref={(node: TextInput | null) => {
-                inputRefs.current.purchasePrice = node
-              }}
-            />
-            <SheetField
-              label="Precio de venta"
-              keyboardType="number-pad"
-              value={salePrice}
-              onChangeText={(value) => {
-                setSalePrice(value)
-                setDirty(true)
-              }}
-              error={errors.salePrice}
-              ref={(node: TextInput | null) => {
-                inputRefs.current.salePrice = node
-              }}
-            />
-          </SectionCard>
+          ) : null}
 
-          <SectionCard title="Datos adicionales">
-            {!fields.length ? (
-              <Text style={styles.muted}>
-                Todavía no defines columnas propias para este inventario.
-              </Text>
-            ) : null}
-            {fields.map((field) => {
-              const errorKey = `extraAttributes.${field.key}`
-              const value = attributes[field.key] ?? ''
-              const update = (next: string) => {
-                setAttributes((current) => ({ ...current, [field.key]: next }))
-                setDirty(true)
-              }
-              if (field.fieldType === 'boolean' || field.fieldType === 'single_select') {
-                const options =
-                  field.fieldType === 'boolean'
-                    ? [
-                        { value: 'true', label: 'Sí' },
-                        { value: 'false', label: 'No' },
-                      ]
-                    : field.options.map((option) => ({
-                        value: option.key,
-                        label: option.label,
-                      }))
-                return (
-                  <OptionRow
-                    key={field.id}
-                    label={`${field.label}${field.isRequired ? ' *' : ''}`}
-                    value={value}
-                    onChange={update}
-                    options={options}
-                    error={errors[errorKey]}
-                  />
-                )
-              }
-              return (
+          {isVariant && sourceProduct ? (
+            <PrimaryButton
+              label="Elegir otro"
+              variant="secondary"
+              onPress={() => {
+                setSourceProduct(null)
+                setSourceIdentity(null)
+              }}
+            />
+          ) : null}
+
+          {showAssistedGate ? (
+            <>
+              {/* The agent will fill this draft from the photo in a later iteration. */}
+              <MobilePendingPhotoQueue
+                photos={photos}
+                required
+                onAddFromLibrary={() => void addPhoto('library')}
+                onAddFromCamera={() => void addPhoto('camera')}
+                onRemove={(uri) => setPhotos((current) => current.filter((item) => item.uri !== uri))}
+              />
+              <PrimaryButton label="Cancelar" variant="secondary" onPress={leave} />
+            </>
+          ) : null}
+
+          {showForm && !showAssistedGate ? (
+            <>
+              <SectionCard title="Datos básicos">
                 <SheetField
-                  key={field.id}
-                  label={`${field.label}${field.isRequired ? ' *' : ''}`}
-                  help={field.helpText || undefined}
-                  keyboardType={field.fieldType === 'decimal' ? 'decimal-pad' : 'default'}
-                  placeholder={field.fieldType === 'date' ? 'AAAA-MM-DD' : undefined}
-                  value={value}
-                  onChangeText={update}
-                  error={errors[errorKey]}
+                  label="Nombre"
+                  value={name}
+                  maxLength={160}
+                  onChangeText={(value) => {
+                    setName(value)
+                    setDirty(true)
+                  }}
+                  error={errors.name ?? errors.variant}
                   ref={(node: TextInput | null) => {
-                    inputRefs.current[errorKey] = node
+                    inputRefs.current.name = node
                   }}
                 />
-              )
-            })}
-            <PrimaryButton
-              label="Agregar columna"
-              variant="secondary"
-              onPress={() => setColumnSheetOpen(true)}
-            />
-          </SectionCard>
 
-          <SectionCard title="Fotos">
-            <Text style={styles.muted}>
-              La carga de fotos se habilita junto con el almacenamiento de media del
-              inventario.
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Usar asistente con foto"
-              accessibilityState={{ disabled: true }}
-              accessibilityHint="Próximamente: el asistente con foto aún no está disponible."
-              disabled
-              style={styles.assistant}
-            >
-              <Text style={styles.assistantText}>Usar asistente con foto</Text>
-              <Text style={styles.assistantBadge}>Próximamente</Text>
-            </Pressable>
-            <Text style={styles.muted}>
-              Próximamente: el asistente con foto aún no está disponible.
-            </Text>
-          </SectionCard>
+                {!isEdit ? (
+                  <SheetField
+                    label="Cantidad inicial"
+                    help="Se registra como una entrada inicial en el historial."
+                    keyboardType="number-pad"
+                    value={initialQuantity}
+                    onChangeText={(value) => {
+                      setInitialQuantity(value)
+                      setDirty(true)
+                    }}
+                    error={errors.initialQuantity}
+                    ref={(node: TextInput | null) => {
+                      inputRefs.current.initialQuantity = node
+                    }}
+                  />
+                ) : null}
 
-          <View style={styles.actions}>
-            <PrimaryButton
-              label={isEdit ? 'Guardar cambios' : 'Crear producto'}
-              loading={save.isPending}
-              onPress={() => {
-                setApiError(null)
-                if (!validate()) return
-                save.mutate()
-              }}
-            />
-            <PrimaryButton label="Cancelar" variant="secondary" onPress={leave} />
-          </View>
+                <OptionRow
+                  label="Estado de catálogo"
+                  value={catalogStatus}
+                  onChange={(value) => {
+                    setCatalogStatus(value)
+                    setDirty(true)
+                  }}
+                  options={['active', 'inactive'].map((status) => ({
+                    value: status,
+                    label: catalogStatusLabels[status],
+                  }))}
+                />
+              </SectionCard>
+
+              <SectionCard title="Precios de referencia">
+                <Text style={styles.muted}>
+                  El precio efectivo se define en cada venta y puede variar entre unidades.
+                  Moneda: CLP.
+                </Text>
+                <SheetField
+                  label="Precio de compra"
+                  help="Déjalo vacío si aún no lo defines."
+                  keyboardType="number-pad"
+                  value={purchasePrice}
+                  onChangeText={(value) => {
+                    setPurchasePrice(value)
+                    setDirty(true)
+                  }}
+                  error={errors.purchasePrice}
+                  ref={(node: TextInput | null) => {
+                    inputRefs.current.purchasePrice = node
+                  }}
+                />
+                <SheetField
+                  label="Precio de venta"
+                  keyboardType="number-pad"
+                  value={salePrice}
+                  onChangeText={(value) => {
+                    setSalePrice(value)
+                    setDirty(true)
+                  }}
+                  error={errors.salePrice}
+                  ref={(node: TextInput | null) => {
+                    inputRefs.current.salePrice = node
+                  }}
+                />
+              </SectionCard>
+
+              <SectionCard title="Datos adicionales">
+                {!fields.length ? (
+                  <Text style={styles.muted}>
+                    Todavía no defines columnas propias para este inventario.
+                  </Text>
+                ) : null}
+                {fields.map((field) => {
+                  const errorKey = `extraAttributes.${field.key}`
+                  const value = attributes[field.key] ?? ''
+                  const update = (next: string) => {
+                    setAttributes((current) => ({ ...current, [field.key]: next }))
+                    setDirty(true)
+                  }
+                  if (field.fieldType === 'boolean' || field.fieldType === 'single_select') {
+                    const options =
+                      field.fieldType === 'boolean'
+                        ? [
+                            { value: 'true', label: 'Sí' },
+                            { value: 'false', label: 'No' },
+                          ]
+                        : field.options.map((option) => ({
+                            value: option.key,
+                            label: option.label,
+                          }))
+                    return (
+                      <OptionRow
+                        key={field.id}
+                        label={`${field.label}${field.isRequired ? ' *' : ''}`}
+                        value={value}
+                        onChange={update}
+                        options={options}
+                        error={errors[errorKey]}
+                      />
+                    )
+                  }
+                  return (
+                    <SheetField
+                      key={field.id}
+                      label={`${field.label}${field.isRequired ? ' *' : ''}`}
+                      help={field.helpText || undefined}
+                      keyboardType={field.fieldType === 'decimal' ? 'decimal-pad' : 'default'}
+                      placeholder={field.fieldType === 'date' ? 'AAAA-MM-DD' : undefined}
+                      value={value}
+                      onChangeText={update}
+                      error={errors[errorKey]}
+                      ref={(node: TextInput | null) => {
+                        inputRefs.current[errorKey] = node
+                      }}
+                    />
+                  )
+                })}
+                <PrimaryButton
+                  label="Agregar columna"
+                  variant="secondary"
+                  onPress={() => setColumnSheetOpen(true)}
+                />
+              </SectionCard>
+
+              {!isEdit ? (
+                <MobilePendingPhotoQueue
+                  photos={photos}
+                  required={isAssisted}
+                  onAddFromLibrary={() => void addPhoto('library')}
+                  onAddFromCamera={() => void addPhoto('camera')}
+                  onRemove={(uri) =>
+                    setPhotos((current) => current.filter((item) => item.uri !== uri))
+                  }
+                />
+              ) : (
+                <SectionCard title="Fotos">
+                  <Text style={styles.muted}>
+                    Guarda los cambios y administra las fotos desde el detalle del producto.
+                  </Text>
+                </SectionCard>
+              )}
+
+              <View style={styles.actions}>
+                <PrimaryButton
+                  label={isEdit ? 'Guardar cambios' : 'Crear producto'}
+                  loading={save.isPending}
+                  onPress={() => {
+                    setApiError(null)
+                    if (!validate()) return
+                    save.mutate()
+                  }}
+                />
+                <PrimaryButton label="Cancelar" variant="secondary" onPress={leave} />
+              </View>
+            </>
+          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -494,28 +700,13 @@ const styles = StyleSheet.create({
   summaryTitle: { color: colors.error, fontSize: 15, fontWeight: '800' },
   summaryItem: { color: colors.error, fontSize: 14, lineHeight: 20 },
   actions: { gap: 12 },
-  assistant: {
-    alignItems: 'center',
+  sourceRow: {
     borderColor: colors.line,
     borderRadius: 12,
-    borderStyle: 'dashed',
     borderWidth: 1,
-    flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'space-between',
-    minHeight: 52,
-    opacity: 0.6,
-    paddingHorizontal: 16,
+    minHeight: 48,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
   },
-  assistantText: { color: colors.inkSoft, fontSize: 15, fontWeight: '700' },
-  assistantBadge: {
-    backgroundColor: '#eceae3',
-    borderRadius: 999,
-    color: colors.inkSoft,
-    fontSize: 12,
-    fontWeight: '800',
-    overflow: 'hidden',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
+  sourceName: { color: colors.ink, fontSize: 16, fontWeight: '700' },
 })

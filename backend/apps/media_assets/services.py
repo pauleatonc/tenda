@@ -270,6 +270,11 @@ def private_download_url(
     ).first()
     if asset is None:
         raise DomainError("NOT_FOUND", "No encontramos el recurso solicitado.", status=404)
+    if uses_in_process_upload():
+        url = asset_content_url(asset, variant=variant)
+        if not url:
+            raise DomainError("NOT_FOUND", "No encontramos el recurso solicitado.", status=404)
+        return url
     return get_object_storage().presign_download(
         key=_object_key_for_variant(asset, variant),
         expires_in_seconds=300,

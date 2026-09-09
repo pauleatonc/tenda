@@ -215,27 +215,25 @@ describe('InventoryListPage', () => {
     expect(screen.getByRole('button', { name: 'Agregar columna' })).toBeInTheDocument()
   })
 
-  it('mantiene el asistente desactivado, sin navegación ni peticiones', async () => {
+  it('lleva a agregar producto por el chooser y ya no muestra el asistente suelto', async () => {
     mocked.fetchProducts.mockResolvedValue({
       totalCount: 1,
       hasNextPage: false,
       endCursor: '',
       products: [makeProduct()],
     })
-    const fetchSpy = vi.spyOn(globalThis, 'fetch')
 
     renderPage(makeViewer(true))
     await screen.findByRole('link', { name: 'Velas de soya' })
 
-    const assistant = screen.getByRole('button', { name: 'Agregar con asistente' })
-    expect(assistant).toBeDisabled()
-    expect(assistant.closest('a')).toBeNull()
+    expect(screen.getByRole('link', { name: 'Agregar producto' })).toHaveAttribute(
+      'href',
+      '/app/inventario/nuevo',
+    )
+    expect(screen.queryByRole('button', { name: 'Agregar con asistente' })).toBeNull()
     expect(
-      screen.getByText('Próximamente: el asistente con foto aún no está disponible.'),
-    ).toBeInTheDocument()
-
-    await userEvent.click(assistant)
-    expect(fetchSpy).not.toHaveBeenCalled()
+      screen.queryByText('Próximamente: el asistente con foto aún no está disponible.'),
+    ).not.toBeInTheDocument()
   })
 
   it('expande el desglose anunciando aria-expanded y carga solo al abrir', async () => {

@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native'
+import { router } from 'expo-router'
 import type { ReactElement } from 'react'
 
 import InventoryScreen from '../(tabs)/inventario'
@@ -116,5 +117,24 @@ describe('Inventario mobile', () => {
     expect(await screen.findByText('Sin resultados')).toBeOnTheScreen()
     await fireEvent.press(screen.getByText('Limpiar filtros'))
     expect(await screen.findByText('Aún no tienes productos')).toBeOnTheScreen()
+  })
+
+  it('abre las tres formas de agregar un producto', async () => {
+    mocked.fetchProducts.mockResolvedValue({
+      totalCount: 1,
+      hasNextPage: false,
+      endCursor: '',
+      products: [makeProduct()],
+    })
+
+    await renderScreen(<InventoryScreen />)
+    await fireEvent.press(await screen.findByRole('button', { name: 'Agregar' }))
+
+    expect(screen.getByText('Carga manual')).toBeOnTheScreen()
+    expect(screen.getByText('Agregar variante a un producto existente')).toBeOnTheScreen()
+    expect(screen.getByText('Creación asistida')).toBeOnTheScreen()
+
+    await fireEvent.press(screen.getByText('Carga manual'))
+    expect(router.push).toHaveBeenCalledWith('/inventario/producto')
   })
 })

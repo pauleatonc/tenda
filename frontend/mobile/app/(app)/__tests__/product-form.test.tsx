@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native'
-import { router } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import type { ReactElement } from 'react'
 
 import ProductFormScreen from '../inventario/producto'
@@ -12,9 +12,19 @@ jest.mock('../../../lib/inventory-api', () => ({
   ...jest.requireActual('../../../lib/inventory-api'),
   fetchInventorySchema: jest.fn(),
   fetchProductDetail: jest.fn(),
+  fetchProducts: jest.fn(),
   createProduct: jest.fn(),
   createCustomField: jest.fn(),
+  attachProductMedia: jest.fn(),
 }))
+
+jest.mock('../../../lib/mobile-upload', () => ({
+  pickProductImage: jest.fn(),
+  takeProductImage: jest.fn(),
+  uploadProductImage: jest.fn(),
+}))
+
+const mockedParams = useLocalSearchParams as jest.Mock
 
 const mocked = api as jest.Mocked<typeof api>
 
@@ -34,6 +44,7 @@ function renderScreen(ui: ReactElement) {
 describe('Crear producto en mobile', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockedParams.mockReturnValue({})
     mocked.fetchInventorySchema.mockResolvedValue(
       emptySchema as Awaited<ReturnType<typeof api.fetchInventorySchema>>,
     )
@@ -93,6 +104,79 @@ describe('Crear producto en mobile', () => {
     expect(mocked.createProduct).toHaveBeenCalledTimes(1)
   })
 
+  it('tras crear vuelve al inventario', async () => {
+    mocked.createProduct.mockResolvedValue({
+      product: {
+        id: 'product-1',
+        name: 'Velas de soya',
+        catalogStatus: 'active',
+        purchasePrice: '2000',
+        salePrice: '5000',
+        currency: 'CLP',
+        extraAttributes: {},
+        lowStockThreshold: null,
+        effectiveLowStockThreshold: 5,
+        archivedAt: null,
+        stock: { onHand: 12, reserved: 0, available: 12, activeFulfilment: 0 },
+      },
+      movement: null,
+      replayed: false,
+    } as Awaited<ReturnType<typeof api.createProduct>>)
+
+    await renderScreen(<ProductFormScreen />)
+    await fireEvent.changeText(screen.getByLabelText('Nombre'), 'Velas de soya')
+    await fireEvent.press(screen.getByRole('button', { name: 'Crear producto' }))
+
+    await waitFor(() => {
+      expect(router.replace).toHaveBeenCalledWith('/inventario')
+    })
+  })
+
+  it('en editar muestra un botón para volver al inventario', async () => {
+    mockedParams.mockReturnValue({ id: 'product-1' })
+    mocked.fetchProductDetail.mockResolvedValue({
+      product: {
+        id: 'product-1',
+        name: 'Velas de soya',
+        catalogStatus: 'active',
+        purchasePrice: '2000',
+        salePrice: '5000',
+        currency: 'CLP',
+        extraAttributes: {},
+        lowStockThreshold: null,
+        effectiveLowStockThreshold: 5,
+        archivedAt: null,
+        createdAt: '2026-08-01T12:00:00Z',
+        updatedAt: '',
+        media: [],
+        stock: { onHand: 12, reserved: 0, available: 12, activeFulfilment: 0 },
+      },
+      breakdown: {
+        available: 12,
+        totalCount: 0,
+        pageInfo: { hasNextPage: false, endCursor: '' },
+        lines: [],
+      },
+      orders: {
+        totalCount: 0,
+        availableFromStage: 'sales',
+        nodes: [],
+        pageInfo: { hasNextPage: false, endCursor: '' },
+      },
+      shipments: {
+        totalCount: 0,
+        nodes: [],
+        pageInfo: { hasNextPage: false, endCursor: '' },
+      },
+    } as Awaited<ReturnType<typeof api.fetchProductDetail>>)
+
+    await renderScreen(<ProductFormScreen />)
+
+    expect(await screen.findByText('Editar producto')).toBeOnTheScreen()
+    await fireEvent.press(screen.getByRole('button', { name: 'Volver al inventario' }))
+    expect(router.replace).toHaveBeenCalledWith('/inventario')
+  })
+
   it('crear una columna conserva lo ya escrito y suma el campo nuevo', async () => {
     mocked.createCustomField.mockResolvedValue({
       id: 'field-1',
@@ -125,20 +209,58 @@ describe('Crear producto en mobile', () => {
     expect(screen.getByLabelText('Nombre')).toHaveDisplayValue('Velas de soya')
   })
 
-  it('mantiene el asistente con foto desactivado y sin peticiones', async () => {
+  it('muestra la cola de fotos en carga manual y no un asistente desactivado', async () => {
     const fetchSpy = jest.spyOn(globalThis, 'fetch')
-
     await renderScreen(<ProductFormScreen />)
 
-    const assistant = screen.getByLabelText('Usar asistente con foto')
-    expect(assistant).toBeDisabled()
-    expect(
-      screen.getByText('Próximamente: el asistente con foto aún no está disponible.'),
-    ).toBeOnTheScreen()
-
-    await fireEvent.press(assistant)
-
-    expect(router.push).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Elegir de la galería' })).toBeOnTheScreen()
+    expect(screen.getByRole('button', { name: 'Tomar foto' })).toBeOnTheScreen()
+    expect(screen.queryByLabelText('Usar asistente con foto')).toBeNull()
     expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('en creación asistida no muestra el formulario hasta que hay una foto', async () => {
+    mockedParams.mockReturnValue({ origen: 'asistida' })
+    const fetchSpy = jest.spyOn(globalThis, 'fetch')
+    await renderScreen(<ProductFormScreen />)
+
+    expect(screen.getByText(/Sube o toma una foto para continuar/)).toBeOnTheScreen()
+    expect(screen.queryByLabelText('Nombre')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Tomar foto' })).toBeOnTheScreen()
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('bloquea una variante idéntica y no llama al API', async () => {
+    mockedParams.mockReturnValue({ origen: 'variante' })
+    mocked.fetchProducts.mockResolvedValue({
+      totalCount: 1,
+      hasNextPage: false,
+      endCursor: '',
+      products: [
+        {
+          id: 'product-1',
+          name: 'Velas de soya',
+          catalogStatus: 'active',
+          purchasePrice: '2000',
+          salePrice: '5000',
+          currency: 'CLP',
+          extraAttributes: {},
+          lowStockThreshold: null,
+          effectiveLowStockThreshold: 5,
+          archivedAt: null,
+          stock: { onHand: 12, reserved: 0, available: 12, activeFulfilment: 0 },
+        },
+      ],
+    } as Awaited<ReturnType<typeof api.fetchProducts>>)
+
+    await renderScreen(<ProductFormScreen />)
+    await fireEvent.press(await screen.findByText('Velas de soya'))
+    await fireEvent.press(screen.getByRole('button', { name: 'Crear producto' }))
+
+    expect(
+      (await screen.findAllByText(/Cambia al menos un dato respecto de Velas de soya/))
+        .length,
+    ).toBeGreaterThan(0)
+    expect(mocked.createProduct).not.toHaveBeenCalled()
   })
 })

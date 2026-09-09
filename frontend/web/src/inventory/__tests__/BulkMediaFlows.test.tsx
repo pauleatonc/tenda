@@ -17,6 +17,7 @@ vi.mock('../api', async () => {
     fetchInventorySchema: vi.fn(),
     fetchInventoryImport: vi.fn(),
     fetchInventoryImports: vi.fn(),
+    fetchInventoryImportTemplate: vi.fn(),
     fetchInventoryExports: vi.fn(),
     uploadPrivateFile: vi.fn(),
     startInventoryImport: vi.fn(),
@@ -74,6 +75,18 @@ describe('Importación, exportación y fotos', () => {
     })
     mocked.fetchInventoryImports.mockResolvedValue([])
     mocked.fetchInventoryExports.mockResolvedValue([])
+    mocked.fetchInventoryImportTemplate.mockResolvedValue({
+      fileName: 'planilla-productos.xlsx',
+      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      contentBase64: 'UEs=',
+      columns: [
+        { destination: 'name', header: 'Nombre', required: true },
+        { destination: 'initialQuantity', header: 'Cantidad inicial', required: false },
+        { destination: 'catalogStatus', header: 'Estado de catálogo', required: false },
+        { destination: 'purchasePrice', header: 'Precio de compra', required: false },
+        { destination: 'salePrice', header: 'Precio de venta', required: false },
+      ],
+    })
   })
 
   it('sube, mapea, previsualiza y confirma una importación', async () => {
@@ -97,13 +110,16 @@ describe('Importación, exportación y fotos', () => {
     })
 
     renderPage(<InventoryImportPage />)
-    await userEvent.upload(screen.getByLabelText('Archivo de inventario'), file)
+    expect(
+      await screen.findByRole('button', { name: 'Descargar planilla Excel' }),
+    ).toBeInTheDocument()
+    await userEvent.upload(screen.getByLabelText('Planilla de productos'), file)
 
-    expect(await screen.findByText('Asocia las columnas')).toBeInTheDocument()
-    expect(screen.getByLabelText('Nombre del producto (obligatorio)')).toHaveValue(
-      'Nombre',
-    )
-    await userEvent.click(screen.getByRole('button', { name: 'Previsualizar y validar' }))
+    expect(
+      await screen.findByText('Revisa la planilla y confirma'),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Nombre (obligatorio)')).toHaveValue('Nombre')
+    expect(screen.queryByRole('button', { name: 'Previsualizar y validar' })).toBeNull()
     expect(
       await screen.findByText(
         'La muestra no presenta errores. Confirma para procesar todo el archivo.',
@@ -124,6 +140,37 @@ describe('Importación, exportación y fotos', () => {
       'import-1',
       expect.any(String),
     )
+  })
+
+  it('explica un archivo irreconocible sin mostrar INVALID_IMPORT_FILE', async () => {
+    const file = new File(['no-es-excel'], 'roto.xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+    mocked.uploadPrivateFile.mockResolvedValue('asset-1')
+    mocked.startInventoryImport.mockResolvedValue({
+      ...importJob,
+      sourceFileName: 'roto.xlsx',
+      status: 'analysing',
+      progress: 0,
+      headers: [],
+      previewRows: [],
+    })
+    mocked.fetchInventoryImport.mockResolvedValue({
+      ...importJob,
+      sourceFileName: 'roto.xlsx',
+      status: 'failed',
+      errorCode: 'INVALID_IMPORT_FILE',
+    })
+
+    renderPage(<InventoryImportPage />)
+    await userEvent.upload(screen.getByLabelText('Planilla de productos'), file)
+
+    expect(
+      await screen.findByText(
+        'No se pudo reconocer el formato de la planilla. Por favor descargue el formato indicado e intente de nuevo.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/INVALID_IMPORT_FILE/)).toBeNull()
   })
 
   it('inicia una exportación con los filtros visibles', async () => {

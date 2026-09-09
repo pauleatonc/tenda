@@ -58,8 +58,8 @@ export default function InventoryJobsScreen() {
             Importaciones y exportaciones
           </Text>
           <Text style={styles.muted}>
-            Consulta progreso y resultados. La carga y el mapeo masivo se realizan en la
-            versión web.
+            Para cargar productos con una planilla Excel usa Tenda en el computador.
+            Aquí solo consultas el progreso de esos lotes y de las exportaciones.
           </Text>
         </View>
         <PrimaryButton

@@ -191,8 +191,14 @@ export default function InventoryScreen() {
   const [catalogStatuses, setCatalogStatuses] = useState<string[]>([])
   const [sort, setSort] = useState<string>('name')
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [adjusting, setAdjusting] = useState<ProductCard | null>(null)
+
+  function openCreate(origen?: 'variante' | 'asistida') {
+    setCreateOpen(false)
+    router.push(origen ? `/inventario/producto?origen=${origen}` : '/inventario/producto')
+  }
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300)
@@ -246,10 +252,7 @@ export default function InventoryScreen() {
               {products.isPending ? 'Cargando productos…' : `${totalCount} productos`}
             </Text>
           </View>
-          <PrimaryButton
-            label="Agregar"
-            onPress={() => router.push('/inventario/producto')}
-          />
+          <PrimaryButton label="Agregar" onPress={() => setCreateOpen(true)} />
         </View>
 
         <TextInput
@@ -273,7 +276,7 @@ export default function InventoryScreen() {
           ))}
           <InventoryChip label="Filtros" onPress={() => setFiltersOpen(true)} />
           <InventoryChip
-            label="Importar / exportar"
+            label="Lotes y exportaciones"
             onPress={() => router.push('/inventario/operaciones')}
           />
         </View>
@@ -340,7 +343,7 @@ export default function InventoryScreen() {
               action={
                 <PrimaryButton
                   label="Crear producto"
-                  onPress={() => router.push('/inventario/producto')}
+                  onPress={() => setCreateOpen(true)}
                 />
               }
             />
@@ -411,6 +414,25 @@ export default function InventoryScreen() {
             />
           ))}
         </View>
+      </Sheet>
+
+      <Sheet
+        visible={createOpen}
+        title="Agregar producto"
+        description="Elige cómo quieres registrar el producto."
+        onClose={() => setCreateOpen(false)}
+      >
+        <PrimaryButton label="Carga manual" onPress={() => openCreate()} />
+        <PrimaryButton
+          label="Agregar variante a un producto existente"
+          variant="secondary"
+          onPress={() => openCreate('variante')}
+        />
+        <PrimaryButton
+          label="Creación asistida"
+          variant="secondary"
+          onPress={() => openCreate('asistida')}
+        />
       </Sheet>
 
       {adjusting ? (

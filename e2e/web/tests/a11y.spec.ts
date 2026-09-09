@@ -31,7 +31,9 @@ test('axe WCAG en landing, login, inventario y el anuncio del agente', async ({
   await loginAsOwner(page)
   await page.getByRole('link', { name: 'Inventario', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Inventario' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Agregar con asistente' })).toBeDisabled()
+  await page.getByRole('link', { name: /Agregar producto|Crear producto/ }).first().click()
+  await expect(page.getByRole('heading', { name: 'Agregar producto' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Carga manual' })).toBeVisible()
   await expectNoSeriousAxeViolations(page)
 
   await page.getByRole('link', { name: 'Más', exact: true }).click()

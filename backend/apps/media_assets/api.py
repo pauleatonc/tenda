@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import json
 import uuid
+from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from django.http import HttpRequest, HttpResponse
 
+from apps.media_assets.keys import MEDIA_PURPOSES
 from apps.media_assets.storage import uses_in_process_upload
 from apps.organisations.selectors import TenantContext
 from apps.users.api import endpoint, success
@@ -15,6 +18,7 @@ from apps.users.middleware import get_tenant_context
 from tenda.errors import AuthenticationRequired, DomainError, ResourceNotFound
 
 from .images import variant_content_type
+from .models import MediaAsset
 from .services import (
     accept_fake_upload,
     complete_upload,
@@ -48,6 +52,16 @@ def _public_id(value: object) -> uuid.UUID:
         return uuid.UUID(str(value))
     except (TypeError, ValueError) as exc:
         raise ResourceNotFound() from exc
+
+
+def _content_disposition(asset: MediaAsset) -> str:
+    if asset.purpose in MEDIA_PURPOSES:
+        return "inline"
+    raw_name = Path(asset.original_name or "archivo").name.replace('"', "")
+    ascii_name = raw_name.encode("ascii", "ignore").decode("ascii") or "archivo"
+    return (
+        f'attachment; filename="{ascii_name}"; filename*=UTF-8\'\'{quote(raw_name)}'
+    )
 
 
 @endpoint("POST")
@@ -131,5 +145,5 @@ def content_view(request: HttpRequest, asset_id: str) -> HttpResponse:
         content_type = variant_content_type()
     response = HttpResponse(content, content_type=content_type)
     response["Cache-Control"] = "private, max-age=300"
-    response["Content-Disposition"] = "inline"
+    response["Content-Disposition"] = _content_disposition(asset)
     return response

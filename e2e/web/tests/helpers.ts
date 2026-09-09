@@ -49,13 +49,15 @@ export async function createCatalogProduct(page: Page, name: string): Promise<vo
     .getByRole('link', { name: /Agregar producto|Crear producto/ })
     .first()
     .click()
+  await page.getByRole('link', { name: 'Carga manual' }).click()
   await expect(page.getByRole('heading', { name: 'Nuevo producto' })).toBeVisible()
   await page.getByLabel('Nombre').fill(name)
   await page.getByLabel('Cantidad inicial').fill('5')
   await page.getByLabel('Precio de compra').fill('2000')
   await page.getByLabel('Precio de venta').fill('5000')
   await page.getByRole('button', { name: 'Crear producto' }).click()
-  await expect(page.getByRole('heading', { name })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Inventario' })).toBeVisible()
+  await expect(page.getByRole('link', { name })).toBeVisible({ timeout: 20_000 })
 }
 
 export async function publishShippingSale(

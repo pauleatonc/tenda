@@ -25,6 +25,18 @@ function uploadError(code: string, message: string, retryable = false) {
   })
 }
 
+async function toPickedImage(
+  image: ImagePicker.ImagePickerAsset,
+): Promise<PickedImage> {
+  const blob = await (await fetch(image.uri)).blob()
+  return {
+    uri: image.uri,
+    fileName: image.fileName || `producto-${Date.now()}.jpg`,
+    contentType: image.mimeType || 'image/jpeg',
+    size: image.fileSize ?? blob.size,
+  }
+}
+
 export async function pickProductImage(): Promise<PickedImage | null> {
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync()
   if (!permission.granted) {
@@ -39,14 +51,24 @@ export async function pickProductImage(): Promise<PickedImage | null> {
     quality: 0.9,
   })
   if (result.canceled) return null
-  const image = result.assets[0]
-  const blob = await (await fetch(image.uri)).blob()
-  return {
-    uri: image.uri,
-    fileName: image.fileName || `producto-${Date.now()}.jpg`,
-    contentType: image.mimeType || 'image/jpeg',
-    size: image.fileSize ?? blob.size,
+  return toPickedImage(result.assets[0])
+}
+
+export async function takeProductImage(): Promise<PickedImage | null> {
+  const permission = await ImagePicker.requestCameraPermissionsAsync()
+  if (!permission.granted) {
+    throw uploadError(
+      'CAMERA_PERMISSION_REQUIRED',
+      'Permite el acceso a la cámara para tomar una foto del producto.',
+    )
   }
+  const result = await ImagePicker.launchCameraAsync({
+    mediaTypes: ['images'],
+    allowsEditing: true,
+    quality: 0.9,
+  })
+  if (result.canceled) return null
+  return toPickedImage(result.assets[0])
 }
 
 export async function uploadProductImage(

@@ -301,3 +301,61 @@ def test_another_tenant_cannot_read_a_product_by_id() -> None:
 
     assert response["errors"][0]["extensions"]["code"] == "NOT_FOUND"
     assert response["data"]["product"] is None
+
+
+def test_inventory_import_template_includes_core_and_dynamic_columns() -> None:
+    client, context = signed_in("template-graphql@example.com")
+    create_custom_field(
+        context=context,
+        label="Aroma",
+        key="aroma",
+        field_type=CustomFieldDefinition.FieldType.SHORT_TEXT,
+    )
+    data = graphql_data(
+        client,
+        """
+        query {
+          inventoryImportTemplate {
+            fileName
+            contentType
+            contentBase64
+            columns { destination header required }
+          }
+        }
+        """,
+    )
+    template = data["inventoryImportTemplate"]
+    assert template["fileName"] == "planilla-productos.xlsx"
+    assert template["contentType"].endswith("spreadsheetml.sheet")
+    assert template["contentBase64"]
+    headers = [column["header"] for column in template["columns"]]
+    assert headers[:5] == [
+        "Nombre",
+        "Cantidad inicial",
+        "Estado de catálogo",
+        "Precio de compra",
+        "Precio de venta",
+    ]
+    assert "Aroma" in headers
+    assert template["columns"][0]["required"] is True
+
+
+def test_start_inventory_import_is_rejected_from_mobile() -> None:
+    client, _context = signed_in("mobile-import@example.com")
+    response = client.post(
+        "/graphql/",
+        data=json.dumps(
+            {
+                "query": """
+                mutation Start($assetId: ID!) {
+                  startInventoryImport(assetId: $assetId) { importJob { id } }
+                }
+                """,
+                "variables": {"assetId": "00000000-0000-0000-0000-000000000001"},
+            }
+        ),
+        content_type="application/json",
+        HTTP_X_TENDA_CLIENT="mobile",
+    )
+    payload = response.json()
+    assert payload["errors"][0]["extensions"]["code"] == "IMPORT_WEB_ONLY"
