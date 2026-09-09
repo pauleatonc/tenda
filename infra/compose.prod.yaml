@@ -28,6 +28,7 @@ x-backend: &backend
     REDIS_URL: redis://redis:6379/0
     AGENT_FEATURE_STATUS: coming_soon
     SALES_RESERVATION_TTL_SECONDS: ${SALES_RESERVATION_TTL_SECONDS:-28800}
+    OBJECT_STORAGE_PROVIDER: ${OBJECT_STORAGE_PROVIDER:-r2}
   depends_on:
     postgres:
       condition: service_healthy

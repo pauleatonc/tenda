@@ -24,6 +24,8 @@ x-backend: &backend
     AGENT_FEATURE_STATUS: coming_soon
     SALES_RESERVATION_TTL_SECONDS: ${SALES_RESERVATION_TTL_SECONDS:-28800}
     TURNSTILE_FAKE_MODE: ${TURNSTILE_FAKE_MODE:-true}
+    OBJECT_STORAGE_PROVIDER: ${OBJECT_STORAGE_PROVIDER:-local}
+    MEDIA_ROOT: ${MEDIA_ROOT:-/app/media}
   depends_on:
     postgres:
       condition: service_healthy
