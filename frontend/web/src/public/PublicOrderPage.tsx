@@ -10,6 +10,8 @@ import {
   PublicOrderUnavailable,
   PublicPage,
 } from './PublicOrderComponents'
+import { BankTransferDetails } from './BankTransferDetails'
+import { PublicDeliveryForm } from './PublicDeliveryForm'
 import { PublicProofUpload } from './PublicProofUpload'
 
 export function PublicOrderPage() {
@@ -84,8 +86,24 @@ export function PublicOrderPage() {
         {awaitingProof || reviewingProof ? (
           <section className="public-proof-card">
             <p className="eyebrow">Transferencia</p>
-            <h2>Paga por depósito</h2>
-            <PublicProofUpload token={token} order={detail} />
+            <h2>Paga por transferencia</h2>
+            <div className="public-offer-split">
+              <BankTransferDetails
+                details={detail.bankDetails}
+                instructions={detail.bankTransferInstructions}
+              />
+              <PublicDeliveryForm
+                token={token}
+                order={detail}
+                readOnly={reviewingProof}
+              />
+            </div>
+            <PublicProofUpload
+              token={token}
+              order={detail}
+              showBankInstructions={false}
+              requireDelivery
+            />
           </section>
         ) : (
           <PublicOrderStatusPanel
@@ -119,7 +137,7 @@ export function PublicOrderPage() {
         <p>{translated(deliveryModeLabels, detail.deliveryMode)}</p>
         {detail.deliveryMode === 'shipping' ? (
           <small>
-            Podrás indicar destinatario, dirección, comuna y ciudad al comprar.
+            Podrás indicar destinatario, dirección, región y comuna al comprar.
           </small>
         ) : (
           <small>El vendedor coordinará contigo los detalles de la entrega.</small>

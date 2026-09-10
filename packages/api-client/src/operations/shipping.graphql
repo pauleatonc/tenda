@@ -88,8 +88,8 @@ fragment ShipmentSummary on ShipmentType {
   statusLabel
   deliveryMode
   recipientName
-  municipality
-  city
+  commune
+  region
   carrier
   trackingCode
   trackingUrl
@@ -108,6 +108,7 @@ fragment ShipmentSummary on ShipmentType {
 
 fragment ShipmentDetail on ShipmentType {
   ...ShipmentSummary
+  recipientTaxId
   addressLine
   deliveryNotes
   dispatchedAt

@@ -30,6 +30,7 @@ from apps.sales.order_services import (
     restore_order,
     review_payment_proof,
     send_offer_link,
+    set_buyer_details,
 )
 from apps.sales.selectors import seller_allowed_actions
 from apps.sales.uploads import (
@@ -117,6 +118,56 @@ def offer_order(context: TenantContext, *, quantity: int = 3, requested: int = 1
     return order, product
 
 
+def complete_offer_delivery(token: str) -> None:
+    set_buyer_details(
+        token=token,
+        details={
+            "name": "Ana Pérez",
+            "email": "ana@example.com",
+            "phone": "+56911111111",
+            "recipientName": "Ana Pérez",
+            "recipientTaxId": "11.111.111-1",
+            "addressLine": "Los Aromos 123",
+            "commune": "Ñuñoa",
+            "region": "Región Metropolitana de Santiago",
+        },
+    )
+
+
+def test_deposit_offer_requires_delivery_details() -> None:
+    _user, context = identity("deposit-delivery@example.com")
+    order, _product = offer_order(context)
+    token = decrypt_credential(order.public_token_ciphertext)
+    with pytest.raises(DomainError) as error:
+        set_buyer_details(
+            token=token,
+            details={"name": "Ana", "email": "ana@example.com"},
+        )
+    assert error.value.code == "VALIDATION_ERROR"
+    assert "recipientTaxId" in error.value.field_errors
+
+    updated = set_buyer_details(
+        token=token,
+        details={
+            "name": "Ana Pérez",
+            "email": "ana@example.com",
+            "phone": "+56911111111",
+            "recipientName": "Ana Pérez",
+            "recipientTaxId": "111111111",
+            "addressLine": "Los Aromos 123",
+            "commune": "Ñuñoa",
+            "region": "Región Metropolitana de Santiago",
+        },
+    )
+    buyer = updated.buyer
+    assert buyer.recipient_name == "Ana Pérez"
+    assert buyer.recipient_tax_id == "11.111.111-1"
+    assert buyer.address_line == "Los Aromos 123"
+    assert buyer.commune == "Ñuñoa"
+    assert buyer.region == "Región Metropolitana de Santiago"
+    assert buyer.phone == "+56911111111"
+
+
 def test_reservation_ttl_reads_operational_parameter() -> None:
     _user, context = identity("ttl-owner@example.com")
     ensure_reservation_ttl(24)
@@ -139,6 +190,16 @@ def test_bank_transfer_offer_reserves_upload_approve_and_cancel() -> None:
     assert order.reservation_expires_at - order.created_at >= timedelta(hours=23)
 
     token = decrypt_credential(order.public_token_ciphertext)
+    with pytest.raises(DomainError) as missing_delivery:
+        prepare_receipt_upload(
+            token=token,
+            original_name="comprobante.png",
+            content_type="image/png",
+            size=4,
+        )
+    assert missing_delivery.value.code == "DELIVERY_DETAILS_REQUIRED"
+
+    complete_offer_delivery(token)
     prepared = prepare_receipt_upload(
         token=token,
         original_name="comprobante.png",
@@ -189,6 +250,7 @@ def test_reissue_cancels_and_creates_new_reserved_offer() -> None:
     _user, context = identity("deposit-reissue@example.com")
     order, product = offer_order(context, quantity=2, requested=1)
     token = decrypt_credential(order.public_token_ciphertext)
+    complete_offer_delivery(token)
     prepared = prepare_receipt_upload(
         token=token,
         original_name="comprobante.png",

@@ -1,22 +1,25 @@
+import { isValidChileLocation, isValidChileanRut } from '@tenda/api-client'
+
 import { newIdempotencyKey } from '../lib/http'
 
 export type PublicCheckoutDraft = {
-  version: 1
+  version: 2
   step: 1 | 2 | 3
   fullName: string
   email: string
   phone: string
   recipientName: string
+  recipientTaxId: string
   deliveryAddress: string
   deliveryCommune: string
-  deliveryCity: string
+  deliveryRegion: string
   wantsTaxData: boolean
   taxId: string
   taxName: string
   taxBusinessActivity: string
   taxAddress: string
   taxCommune: string
-  taxCity: string
+  taxRegion: string
   taxEmail: string
   paymentMethod: string
   detailsIdempotencyKey: string
@@ -29,22 +32,23 @@ function storageKey(token: string): string {
 
 export function createPublicCheckoutDraft(): PublicCheckoutDraft {
   return {
-    version: 1,
+    version: 2,
     step: 1,
     fullName: '',
     email: '',
     phone: '',
     recipientName: '',
+    recipientTaxId: '',
     deliveryAddress: '',
     deliveryCommune: '',
-    deliveryCity: '',
+    deliveryRegion: '',
     wantsTaxData: false,
     taxId: '',
     taxName: '',
     taxBusinessActivity: '',
     taxAddress: '',
     taxCommune: '',
-    taxCity: '',
+    taxRegion: '',
     taxEmail: '',
     paymentMethod: '',
     detailsIdempotencyKey: newIdempotencyKey(),
@@ -56,7 +60,7 @@ function isDraft(value: unknown): value is PublicCheckoutDraft {
   if (!value || typeof value !== 'object') return false
   const candidate = value as Partial<PublicCheckoutDraft>
   return (
-    candidate.version === 1 &&
+    candidate.version === 2 &&
     typeof candidate.step === 'number' &&
     typeof candidate.fullName === 'string' &&
     typeof candidate.paymentMethod === 'string' &&
@@ -73,7 +77,9 @@ export function loadPublicCheckoutDraft(
     const raw = storage.getItem(storageKey(token))
     if (!raw) return createPublicCheckoutDraft()
     const parsed: unknown = JSON.parse(raw)
-    return isDraft(parsed) ? parsed : createPublicCheckoutDraft()
+    return isDraft(parsed)
+      ? { ...createPublicCheckoutDraft(), ...parsed }
+      : createPublicCheckoutDraft()
   } catch {
     return createPublicCheckoutDraft()
   }
@@ -98,10 +104,12 @@ export type CheckoutErrors = Partial<
   Record<
     | 'fullName'
     | 'contact'
+    | 'phone'
     | 'recipientName'
+    | 'recipientTaxId'
     | 'deliveryAddress'
     | 'deliveryCommune'
-    | 'deliveryCity'
+    | 'deliveryRegion'
     | 'taxId'
     | 'taxName'
     | 'taxEmail'
@@ -110,9 +118,17 @@ export type CheckoutErrors = Partial<
   >
 >
 
+export function requiresCheckoutDelivery(
+  deliveryMode: string,
+  paymentMethod?: string,
+): boolean {
+  return deliveryMode === 'shipping' || paymentMethod === 'bank_transfer'
+}
+
 export function validateContactAndDelivery(
   draft: PublicCheckoutDraft,
   deliveryMode: string,
+  paymentMethod?: string,
 ): CheckoutErrors {
   const errors: CheckoutErrors = {}
   if (!draft.fullName.trim()) errors.fullName = 'Escribe tu nombre.'
@@ -122,17 +138,30 @@ export function validateContactAndDelivery(
   if (draft.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email)) {
     errors.contact = 'Revisa el formato del email.'
   }
-  if (deliveryMode === 'shipping') {
+  if (requiresCheckoutDelivery(deliveryMode, paymentMethod)) {
+    if (!draft.phone.trim()) {
+      errors.phone = 'Ingresa un teléfono de contacto.'
+    }
     if (!draft.recipientName.trim()) {
       errors.recipientName = 'Escribe quién recibe el pedido.'
+    }
+    if (!isValidChileanRut(draft.recipientTaxId)) {
+      errors.recipientTaxId = 'Ingresa el RUT de quien recibe.'
     }
     if (!draft.deliveryAddress.trim()) {
       errors.deliveryAddress = 'Escribe la dirección de despacho.'
     }
-    if (!draft.deliveryCommune.trim()) {
-      errors.deliveryCommune = 'Escribe la comuna.'
+    if (!draft.deliveryRegion.trim()) {
+      errors.deliveryRegion = 'Selecciona la región.'
     }
-    if (!draft.deliveryCity.trim()) errors.deliveryCity = 'Escribe la ciudad.'
+    if (!draft.deliveryCommune.trim()) {
+      errors.deliveryCommune = 'Selecciona la comuna.'
+    } else if (
+      draft.deliveryRegion &&
+      !isValidChileLocation(draft.deliveryRegion, draft.deliveryCommune)
+    ) {
+      errors.deliveryCommune = 'Selecciona una comuna de esa región.'
+    }
   }
   if (draft.wantsTaxData) {
     if (!draft.taxId.trim()) errors.taxId = 'Escribe el RUT.'

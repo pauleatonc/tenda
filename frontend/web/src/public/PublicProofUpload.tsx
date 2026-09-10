@@ -7,6 +7,7 @@ import { TendaApiError } from '../lib/http'
 import { salesKeys, uploadPublicPaymentProof, type PublicOrder } from '../sales/api'
 import { formatClp } from '../sales/model'
 import { BankTransferDetails } from './BankTransferDetails'
+import { hasRequiredDelivery } from './publicDelivery'
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
@@ -14,10 +15,12 @@ export function PublicProofUpload({
   token,
   order,
   showBankInstructions = true,
+  requireDelivery = false,
 }: {
   token: string
   order: PublicOrder
   showBankInstructions?: boolean
+  requireDelivery?: boolean
 }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -69,6 +72,7 @@ export function PublicProofUpload({
     setFile(selected)
   }
 
+  const deliveryReady = !requireDelivery || hasRequiredDelivery(order.buyer)
   const canUpload =
     order.paymentMethod === 'bank_transfer' &&
     ['reserved', 'purchase_in_progress'].includes(order.status)
@@ -115,11 +119,16 @@ export function PublicProofUpload({
             Transfiere exactamente <strong>{formatClp(order.total)}</strong>. Subir el
             archivo no aprueba el pago: el vendedor debe validarlo.
           </p>
+          {!deliveryReady ? (
+            <p className="field__error" role="status">
+              Completa y guarda los datos de despacho para enviar el comprobante.
+            </p>
+          ) : null}
           <UploadField
             label="Selecciona una foto o PDF del comprobante"
             accept="image/jpeg,image/png,image/webp,application/pdf"
             onSelect={selectFile}
-            disabled={upload.isPending}
+            disabled={!deliveryReady || upload.isPending}
           />
           {fileError ? (
             <p className="field__error" role="alert">
@@ -162,7 +171,7 @@ export function PublicProofUpload({
           <button
             className="button button--primary button--wide"
             type="button"
-            disabled={!file || upload.isPending}
+            disabled={!deliveryReady || !file || upload.isPending}
             onClick={() => {
               if (file) {
                 setProgress(0)

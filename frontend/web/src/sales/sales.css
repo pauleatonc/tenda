@@ -528,8 +528,51 @@
 .sale-detail-grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-bottom: 20px;
+}
+
+.detail-card__header {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.detail-card__header h2 {
+  margin: 0;
+}
+
+.detail-card__edit {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  display: inline-flex;
+  flex-shrink: 0;
+  height: 32px;
+  justify-content: center;
+  padding: 0;
+  width: 32px;
+}
+
+.detail-card__edit:hover,
+.detail-card__edit:focus-visible {
+  color: var(--ink);
+}
+
+.detail-card__form,
+.detail-card__form-actions {
+  display: grid;
+  gap: 12px;
+}
+
+.detail-card__form-actions {
+  grid-template-columns: 1fr 1fr;
+  margin-top: 4px;
 }
 
 .payment-proof img {
@@ -1427,6 +1470,58 @@
   grid-template-columns: minmax(0, 1.35fr) minmax(300px, 0.65fr);
 }
 
+.public-offer-split {
+  align-items: start;
+  display: grid;
+  gap: 22px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  margin-bottom: 24px;
+}
+
+.public-offer-split .bank-instructions {
+  margin-bottom: 0;
+}
+
+.public-delivery-panel {
+  background: #fbfaf6;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+
+.public-delivery-panel h2 {
+  font-family: var(--font-display);
+  margin: 0;
+}
+
+.public-delivery-panel header p {
+  color: var(--ink-soft);
+  line-height: 1.55;
+  margin: 6px 0 0;
+}
+
+.public-delivery-fields,
+.public-delivery-summary {
+  display: grid;
+  gap: 12px;
+}
+
+.public-delivery-summary {
+  margin: 0;
+}
+
+.public-delivery-summary dt {
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.public-delivery-summary dd {
+  margin: 2px 0 0;
+}
+
 .public-checkout-card,
 .public-proof-card {
   background: var(--surface);
@@ -1452,8 +1547,10 @@
 }
 
 .public-form-grid input,
-.public-checkout-card input {
-  background: #fbfaf7;
+.public-form-grid select,
+.public-checkout-card input,
+.public-checkout-card select {
+  background-color: #fbfaf7;
 }
 
 .public-delivery-label {
@@ -1768,7 +1865,9 @@
 
   .payment-settings-grid,
   .public-checkout-layout,
-  .public-proof-layout {
+  .public-proof-layout,
+  .public-offer-split,
+  .sale-detail-grid {
     grid-template-columns: 1fr;
   }
 

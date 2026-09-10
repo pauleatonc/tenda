@@ -15,7 +15,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from django.db import transaction
-from django.db.models import QuerySet
+from django.db.models import Prefetch, QuerySet
 from django.utils import timezone
 
 from apps.audit.idempotency import execute_idempotent
@@ -30,8 +30,11 @@ from apps.inventory.services import (
     reserve_stock,
 )
 from apps.notifications.outbox import enqueue_outbox_event
+from apps.organisations.bank import format_rut, is_valid_rut
 from apps.organisations.models import Membership
 from apps.organisations.selectors import TenantContext
+from apps.sales.chile import chile_communes_by_region, is_valid_chile_location
+from apps.shipping.models import LabelDocument
 from tenda.crypto import decrypt_credential, encrypt_credential, encrypt_outbox_value
 from tenda.errors import DomainError, ResourceNotFound
 
@@ -134,6 +137,32 @@ def _clean_required_text(
             field_errors={field: [message]},
         )
     return cleaned
+
+
+def _chile_location_errors(
+    region: str,
+    commune: str,
+    *,
+    required: bool,
+    region_field: str = "region",
+    commune_field: str = "commune",
+) -> dict[str, list[str]]:
+    errors: dict[str, list[str]] = {}
+    if required and not region:
+        errors[region_field] = ["Selecciona la región."]
+    if required and not commune:
+        errors[commune_field] = ["Selecciona la comuna."]
+    if not region and not commune:
+        return errors
+    if is_valid_chile_location(region, commune):
+        return errors
+    if region not in chile_communes_by_region():
+        errors.setdefault(region_field, ["Selecciona una región válida."])
+    if commune:
+        errors.setdefault(commune_field, ["Selecciona una comuna de esa región."])
+    else:
+        errors.setdefault(commune_field, ["Selecciona la comuna."])
+    return errors
 
 
 def _clean_quantity(value: object, *, index: int) -> int:
@@ -245,12 +274,17 @@ def _order_queryset() -> QuerySet[Order]:
         "payment",
         "payment__proof",
         "payment__proof__asset",
+        "shipment",
     ).prefetch_related(
         "items",
         "items__product",
         "reservations",
         "timeline",
         "reconciliation_issues",
+        Prefetch(
+            "shipment__labels",
+            queryset=LabelDocument.objects.select_related("asset").order_by("-created_at"),
+        ),
     )
 
 
@@ -913,6 +947,25 @@ def publish_order_link(
 
 
 @transaction.atomic
+def order_requires_delivery_details(order: Order) -> bool:
+    return (
+        order.delivery_mode == Order.DeliveryMode.SHIPPING
+        or order.payment_method == Order.PaymentMethod.BANK_TRANSFER
+    )
+
+
+def buyer_has_required_delivery(buyer: BuyerSnapshot | None) -> bool:
+    if buyer is None:
+        return False
+    return bool(
+        (buyer.recipient_name or "").strip()
+        and is_valid_rut(buyer.recipient_tax_id)
+        and (buyer.phone or "").strip()
+        and (buyer.address_line or "").strip()
+        and is_valid_chile_location(buyer.region or "", buyer.commune or "")
+    )
+
+
 def set_buyer_details(
     *,
     token: str,
@@ -920,6 +973,20 @@ def set_buyer_details(
     correlation_id: str = "",
 ) -> Order:
     order = public_order_for_token(token)
+    with transaction.atomic():
+        return _set_buyer_details_locked(
+            order=order,
+            details=details,
+            correlation_id=correlation_id,
+        )
+
+
+def _set_buyer_details_locked(
+    *,
+    order: Order,
+    details: Mapping[str, Any],
+    correlation_id: str,
+) -> Order:
     order = (
         Order.objects.select_for_update()
         .select_related("organisation", "inventory")
@@ -934,6 +1001,31 @@ def set_buyer_details(
             "El pedido ya no permite editar los datos del comprador.",
             status=409,
         )
+    _apply_buyer_snapshot(order, details)
+    if order.status == Order.Status.RESERVED:
+        _transition_order(
+            order,
+            Order.Status.PURCHASE_IN_PROGRESS,
+            event_type="buyer.details_completed",
+            title="Comprador completó sus datos",
+            correlation_id=correlation_id,
+        )
+    else:
+        _append_event(
+            order=order,
+            event_type="buyer.details_updated",
+            title="Comprador actualizó sus datos",
+            correlation_id=correlation_id,
+        )
+        _audit_order(
+            order=order,
+            action="sales.buyer_details_updated",
+            correlation_id=correlation_id,
+        )
+    return _order_queryset().get(pk=order.pk)
+
+
+def _apply_buyer_snapshot(order: Order, details: Mapping[str, Any]) -> BuyerSnapshot:
     name = _clean_required_text(
         details.get("name"),
         field="name",
@@ -962,21 +1054,60 @@ def set_buyer_details(
         details.get("recipient_name", details.get("recipientName")),
         maximum=160,
     )
-    city = _clean_text(details.get("city"), maximum=120)
-    if order.delivery_mode == Order.DeliveryMode.SHIPPING:
+    recipient_tax_id = _clean_text(
+        details.get("recipient_tax_id", details.get("recipientTaxId")),
+        maximum=16,
+    )
+    commune = _clean_text(details.get("commune"), maximum=120)
+    region = _clean_text(details.get("region"), maximum=120)
+    tax_commune = _clean_text(
+        details.get("tax_commune", details.get("taxCommune")),
+        maximum=120,
+    )
+    tax_region = _clean_text(
+        details.get("tax_region", details.get("taxRegion")),
+        maximum=120,
+    )
+    if order_requires_delivery_details(order):
         missing: dict[str, list[str]] = {}
         if not recipient:
             missing["recipientName"] = ["Ingresa quién recibe."]
+        if not is_valid_rut(recipient_tax_id):
+            missing["recipientTaxId"] = ["Ingresa el RUT de quien recibe."]
+        else:
+            recipient_tax_id = format_rut(recipient_tax_id)
+        if not phone:
+            missing["phone"] = ["Ingresa un teléfono de contacto."]
         if not address:
             missing["addressLine"] = ["Ingresa la dirección de despacho."]
-        if not city:
-            missing["city"] = ["Ingresa la ciudad."]
+        missing.update(_chile_location_errors(region, commune, required=True))
         if missing:
             raise DomainError(
                 "VALIDATION_ERROR",
                 "Completa los datos de despacho.",
                 field_errors=missing,
             )
+    else:
+        location_errors = _chile_location_errors(region, commune, required=False)
+        if location_errors:
+            raise DomainError(
+                "VALIDATION_ERROR",
+                "Completa los datos de despacho.",
+                field_errors=location_errors,
+            )
+    tax_errors = _chile_location_errors(
+        tax_region,
+        tax_commune,
+        required=False,
+        region_field="taxRegion",
+        commune_field="taxCommune",
+    )
+    if tax_errors:
+        raise DomainError(
+            "VALIDATION_ERROR",
+            "Revisa los datos ingresados.",
+            field_errors=tax_errors,
+        )
     snapshot, _created = BuyerSnapshot.objects.update_or_create(
         order=order,
         defaults={
@@ -984,12 +1115,10 @@ def set_buyer_details(
             "email": email,
             "phone": phone,
             "recipient_name": recipient,
+            "recipient_tax_id": recipient_tax_id,
             "address_line": address,
-            "municipality": _clean_text(
-                details.get("municipality"),
-                maximum=120,
-            ),
-            "city": city,
+            "commune": commune,
+            "region": region,
             "delivery_notes": _clean_text(
                 details.get("delivery_notes", details.get("deliveryNotes")),
                 maximum=500,
@@ -1007,14 +1136,8 @@ def set_buyer_details(
                 details.get("tax_address", details.get("taxAddress")),
                 maximum=240,
             ),
-            "tax_municipality": _clean_text(
-                details.get("tax_municipality", details.get("taxMunicipality")),
-                maximum=120,
-            ),
-            "tax_city": _clean_text(
-                details.get("tax_city", details.get("taxCity")),
-                maximum=120,
-            ),
+            "tax_commune": tax_commune,
+            "tax_region": tax_region,
             "tax_email": _clean_text(
                 details.get("tax_email", details.get("taxEmail")),
                 maximum=254,
@@ -1022,28 +1145,80 @@ def set_buyer_details(
             "completed_at": timezone.now(),
         },
     )
-    if order.status == Order.Status.RESERVED:
-        _transition_order(
-            order,
-            Order.Status.PURCHASE_IN_PROGRESS,
-            event_type="buyer.details_completed",
-            title="Comprador completó sus datos",
-            correlation_id=correlation_id,
-        )
-    else:
-        _append_event(
-            order=order,
-            event_type="buyer.details_updated",
-            title="Comprador actualizó sus datos",
-            correlation_id=correlation_id,
-        )
-        _audit_order(
-            order=order,
-            action="sales.buyer_details_updated",
-            correlation_id=correlation_id,
-        )
-    del snapshot
-    return _order_queryset().get(pk=order.pk)
+    return snapshot
+
+
+def update_order_buyer(
+    *,
+    context: TenantContext,
+    order_id: uuid.UUID,
+    details: Mapping[str, Any],
+    idempotency_key: str,
+    correlation_id: str = "",
+) -> OrderCommandResult:
+    canonical = {
+        "orderId": str(order_id),
+        "name": details.get("name"),
+        "email": details.get("email"),
+        "phone": details.get("phone"),
+        "recipientName": details.get("recipient_name", details.get("recipientName")),
+        "recipientTaxId": details.get("recipient_tax_id", details.get("recipientTaxId")),
+        "addressLine": details.get("address_line", details.get("addressLine")),
+        "commune": details.get("commune"),
+        "region": details.get("region"),
+        "deliveryNotes": details.get("delivery_notes", details.get("deliveryNotes")),
+    }
+
+    def command() -> tuple[dict[str, Any], int]:
+        with transaction.atomic():
+            order = (
+                Order.objects.select_for_update(of=("self",))
+                .select_related("organisation", "inventory")
+                .filter(
+                    organisation=context.organisation,
+                    inventory=context.inventory,
+                    public_id=order_id,
+                )
+                .first()
+            )
+            if order is None:
+                raise ResourceNotFound()
+            if order.status not in {
+                Order.Status.RESERVED,
+                Order.Status.PURCHASE_IN_PROGRESS,
+                Order.Status.PURCHASE_VALIDATION,
+                Order.Status.PAID,
+            }:
+                raise DomainError(
+                    "ORDER_TRANSITION_NOT_ALLOWED",
+                    "Esta venta ya no permite editar los datos del comprador.",
+                    status=409,
+                )
+            _apply_buyer_snapshot(order, details)
+            _append_event(
+                order=order,
+                event_type="buyer.details_updated",
+                title="Vendedor corrigió los datos del comprador",
+                correlation_id=correlation_id,
+            )
+            _audit_order(
+                order=order,
+                action="sales.buyer_details_updated_by_seller",
+                correlation_id=correlation_id,
+            )
+            return {"orderId": str(order.public_id)}, 200
+
+    outcome = execute_idempotent(
+        context=context,
+        scope="sales.update_order_buyer",
+        key=idempotency_key,
+        request_payload=canonical,
+        command=command,
+    )
+    return OrderCommandResult(
+        order=order_for_context(context, uuid.UUID(str(outcome.payload["orderId"]))),
+        replayed=outcome.replayed,
+    )
 
 
 def _connected_payment_connection(order: Order) -> SellerPaymentConnection:

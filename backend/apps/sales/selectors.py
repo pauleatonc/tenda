@@ -8,6 +8,7 @@ from datetime import date, datetime, time, timedelta
 from decimal import ROUND_DOWN, Decimal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q, QuerySet
 
 from apps.organisations.permissions import (
@@ -315,6 +316,26 @@ def paginated_reconciliation_issues(
     )
 
 
+def _order_shipment(order: Order):
+    try:
+        return order.shipment
+    except ObjectDoesNotExist:
+        return None
+
+
+def _shipment_has_label(shipment) -> bool:
+    prefetched = getattr(shipment, "_prefetched_objects_cache", {}).get("labels")
+    if prefetched is not None:
+        return bool(prefetched)
+    return shipment.labels.exists()
+
+
+def _shipment_can_generate_label(shipment) -> bool:
+    from apps.shipping.selectors import shipment_can_generate_label
+
+    return shipment_can_generate_label(shipment)
+
+
 def seller_allowed_actions(order: Order) -> tuple[str, ...]:
     actions: list[str] = []
     if order.status in {
@@ -337,8 +358,20 @@ def seller_allowed_actions(order: Order) -> tuple[str, ...]:
         Order.Status.PURCHASE_IN_PROGRESS,
     } and order.payment_method in {Order.PaymentMethod.CASH, Order.PaymentMethod.BANK_TRANSFER}:
         actions.append("confirmManualPayment")
+    if order.status in {
+        Order.Status.RESERVED,
+        Order.Status.PURCHASE_IN_PROGRESS,
+        Order.Status.PURCHASE_VALIDATION,
+        Order.Status.PAID,
+    }:
+        actions.append("updateOrderBuyer")
     if order.status == Order.Status.PAID:
         actions.append("refundPayment")
+        shipment = _order_shipment(order)
+        if shipment is not None and (
+            _shipment_has_label(shipment) or _shipment_can_generate_label(shipment)
+        ):
+            actions.append("viewShipmentLabel")
     if order.status == Order.Status.CANCELLED and order.timeline.filter(
         event_type="order.cancelled"
     ).exists():

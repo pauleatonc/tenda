@@ -274,8 +274,10 @@ def shipment_label_field_errors(shipment: Shipment) -> dict[str, list[str]]:
     if shipment.delivery_mode == Order.DeliveryMode.SHIPPING:
         if not shipment.address_line.strip():
             errors["addressLine"] = ["Completa la dirección de destino."]
-        if not shipment.city.strip():
-            errors["city"] = ["Completa la ciudad de destino."]
+        if not shipment.region.strip():
+            errors["region"] = ["Completa la región de destino."]
+        if not shipment.commune.strip():
+            errors["commune"] = ["Completa la comuna de destino."]
     return errors
 
 

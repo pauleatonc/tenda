@@ -11,7 +11,7 @@ from apps.inventory.services import create_product
 from apps.organisations.selectors import TenantContext, resolve_tenant_context
 from apps.organisations.services import create_organisation_for_owner
 from apps.sales.models import Order
-from apps.sales.order_services import create_order, publish_order_link
+from apps.sales.order_services import create_order, publish_order_link, set_buyer_details
 from apps.users.models import User
 from tenda.crypto import decrypt_credential
 
@@ -101,6 +101,7 @@ def test_graphql_exposes_exact_stage_two_query_and_mutation_names() -> None:
         "createOrder",
         "publishOrderLink",
         "setBuyerDetails",
+        "updateOrderBuyer",
         "initiateMercadoPagoCheckout",
         "reviewPaymentProof",
         "confirmManualPayment",
@@ -262,6 +263,19 @@ def test_public_html_escapes_metadata_and_contextual_upload_routes_are_scoped() 
         idempotency_key="public-rest-publish",
     )
     token = decrypt_credential(order.public_token_ciphertext)
+    set_buyer_details(
+        token=token,
+        details={
+            "name": "Ana",
+            "email": "ana@example.com",
+            "phone": "+56911111111",
+            "recipientName": "Ana",
+            "recipientTaxId": "11.111.111-1",
+            "addressLine": "Los Aromos 123",
+            "commune": "Ñuñoa",
+            "region": "Región Metropolitana de Santiago",
+        },
+    )
 
     page = Client().get(f"/p/{token}")
     assert page.status_code == 200

@@ -24,6 +24,7 @@ import {
   SellerPaymentConnectionDocument,
   SetBuyerDetailsDocument,
   StartMercadoPagoConnectionDocument,
+  UpdateOrderBuyerDocument,
   mapBalanceBreakdownRow,
   mapOrderSummary,
   mapPublicOrder,
@@ -58,6 +59,7 @@ import {
   type SalesOrderFilter,
   type SellerOrder,
   type SetBuyerDetailsRequest,
+  type UpdateOrderBuyerRequest,
 } from '@tenda/api-client'
 
 import { graphqlRequest, request, uploadBinary } from '../lib/http'
@@ -149,6 +151,18 @@ export async function setBuyerDetails(input: SetBuyerDetailsRequest) {
     input: toBuyerDetailsInput(input),
   })
   return mapPublicOrder(data.setBuyerDetails.order)
+}
+
+export async function updateOrderBuyer(input: UpdateOrderBuyerRequest) {
+  const data = await graphqlRequest(UpdateOrderBuyerDocument, {
+    orderId: input.orderId,
+    input: toBuyerDetailsInput(input),
+    idempotencyKey: input.idempotencyKey,
+  })
+  return {
+    replayed: data.updateOrderBuyer.replayed,
+    order: mapSellerOrder(data.updateOrderBuyer.order),
+  }
 }
 
 export async function initiateMercadoPagoCheckout(input: InitiateCheckoutRequest) {
@@ -249,6 +263,7 @@ export async function sendOfferLink(input: SendOfferLinkRequest) {
   })
   return {
     replayed: data.sendOfferLink.replayed,
+    publicUrl: data.sendOfferLink.order.publicUrl,
     order: mapSellerOrder(data.sendOfferLink.order),
   }
 }

@@ -5,7 +5,12 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as api from '../api'
+import * as shippingApi from '../../shipping/api'
 import { SaleDetailPage } from '../SaleDetailPage'
+
+vi.mock('../../shipping/api', () => ({
+  generateShipmentLabel: vi.fn(),
+}))
 
 vi.mock('../api', () => ({
   cancelOrder: vi.fn(),
@@ -16,6 +21,8 @@ vi.mock('../api', () => ({
   restoreOrder: vi.fn(),
   reviewPaymentProof: vi.fn(),
   reissueBankTransferOffer: vi.fn(),
+  sendOfferLink: vi.fn(),
+  updateOrderBuyer: vi.fn(),
   salesKeys: {
     order: (id: string) => ['sales', 'order', id],
   },
@@ -49,15 +56,17 @@ const order = {
     email: 'camila@example.cl',
     phone: '',
     recipientName: '',
+    recipientTaxId: '',
     deliveryAddress: '',
     deliveryCommune: '',
-    deliveryCity: '',
+    deliveryRegion: '',
+    deliveryNotes: '',
     taxId: '',
     taxName: '',
     taxBusinessActivity: '',
     taxAddress: '',
     taxCommune: '',
-    taxCity: '',
+    taxRegion: '',
     taxEmail: '',
   },
   lines: [
@@ -113,7 +122,11 @@ const order = {
     sendOfferLink: false,
     reissueOffer: true,
     restore: false,
+    updateBuyer: true,
+    viewShipmentLabel: false,
   },
+  shipmentId: null,
+  latestLabel: null,
 }
 
 function renderPage() {
@@ -134,6 +147,10 @@ function renderPage() {
 describe('detalle de venta', () => {
   beforeEach(() => {
     mocked.fetchOrder.mockResolvedValue(order)
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+    })
   })
 
   it('respeta guards y bloquea una aprobación doble', async () => {
@@ -208,5 +225,167 @@ describe('detalle de venta', () => {
         idempotencyKey: expect.any(String),
       }),
     )
+  })
+
+  it('pide un correo si la venta no tiene uno al reenviar el enlace', async () => {
+    mocked.fetchOrder.mockResolvedValue({
+      ...order,
+      status: 'reserved',
+      buyer: null,
+      allowedActions: {
+        ...order.allowedActions,
+        approveProof: false,
+        rejectProof: false,
+        reissueOffer: false,
+        resendLink: true,
+        sendOfferLink: true,
+      },
+    })
+    mocked.sendOfferLink.mockResolvedValue({
+      replayed: false,
+      publicUrl: order.publicUrl,
+      order,
+    })
+
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Reenviar enlace' }))
+    expect(
+      screen.getByText('Ingresa el correo del comprador para enviarle el enlace.'),
+    ).toBeInTheDocument()
+    const confirm = screen.getByRole('button', { name: 'Confirmar' })
+    expect(confirm).toBeDisabled()
+    const email = screen.getByLabelText('Correo del comprador')
+    await userEvent.type(email, 'nueva@example.cl')
+    expect(email).toHaveValue('nueva@example.cl')
+    await userEvent.click(confirm)
+
+    await waitFor(() =>
+      expect(mocked.sendOfferLink).toHaveBeenCalledWith({
+        orderId: 'order-1',
+        email: 'nueva@example.cl',
+        idempotencyKey: expect.any(String),
+      }),
+    )
+  })
+
+  it('permite corregir el correo al reenviar el enlace', async () => {
+    mocked.fetchOrder.mockResolvedValue({
+      ...order,
+      status: 'reserved',
+      allowedActions: {
+        ...order.allowedActions,
+        approveProof: false,
+        rejectProof: false,
+        reissueOffer: false,
+        resendLink: true,
+        sendOfferLink: true,
+      },
+    })
+    mocked.sendOfferLink.mockResolvedValue({
+      replayed: false,
+      publicUrl: order.publicUrl,
+      order,
+    })
+
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Reenviar enlace' }))
+    const email = screen.getByLabelText('Correo del comprador')
+    expect(email).toHaveValue('camila@example.cl')
+    await userEvent.clear(email)
+    await userEvent.type(email, 'camila.ok@example.cl')
+    await userEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
+
+    await waitFor(() =>
+      expect(mocked.sendOfferLink).toHaveBeenCalledWith({
+        orderId: 'order-1',
+        email: 'camila.ok@example.cl',
+        idempotencyKey: expect.any(String),
+      }),
+    )
+
+    const copy = await screen.findByRole('button', { name: 'Copiar enlace' })
+    await userEvent.click(copy)
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(order.publicUrl)
+    expect(await screen.findByRole('button', { name: 'Copiado' })).toBeInTheDocument()
+  })
+
+  it('permite editar comprador y entrega desde el lápiz', async () => {
+    mocked.updateOrderBuyer.mockResolvedValue({
+      replayed: false,
+      order: {
+        ...order,
+        buyer: { ...order.buyer, fullName: 'Camila Rojas', recipientName: 'Pedro Soto' },
+      },
+    })
+
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Editar comprador' }))
+    const name = screen.getByLabelText('Nombre')
+    await userEvent.clear(name)
+    await userEvent.type(name, 'Camila Rojas')
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    await waitFor(() =>
+      expect(mocked.updateOrderBuyer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderId: 'order-1',
+          fullName: 'Camila Rojas',
+        }),
+      ),
+    )
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Editar entrega' }))
+    const recipient = screen.getByLabelText('Quién recibe')
+    await userEvent.clear(recipient)
+    await userEvent.type(recipient, 'Pedro Soto')
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    await waitFor(() =>
+      expect(mocked.updateOrderBuyer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          recipientName: 'Pedro Soto',
+        }),
+      ),
+    )
+  })
+
+  it('muestra Ver etiqueta junto a las acciones cuando la venta ya está validada', async () => {
+    const label = {
+      id: 'lab-1',
+      downloadUrl: 'https://signed.example.test/label.pdf',
+      expiresAt: '2026-08-27T12:00:00Z',
+      createdAt: '2026-08-26T14:00:00Z',
+      fileName: 'etiqueta-interna-ENV-ABC.pdf',
+    }
+    mocked.fetchOrder.mockResolvedValue({
+      ...order,
+      status: 'paid',
+      allowedActions: {
+        ...order.allowedActions,
+        approveProof: false,
+        rejectProof: false,
+        cancel: false,
+        reissueOffer: false,
+        refund: true,
+        viewShipmentLabel: true,
+      },
+      shipmentId: 'ship-1',
+      latestLabel: label,
+    })
+
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Ver etiqueta' }))
+    expect(
+      await screen.findByRole('heading', { name: 'Etiqueta interna Tenda' }),
+    ).toBeInTheDocument()
+    expect(screen.getByTitle('Vista previa de la etiqueta interna')).toHaveAttribute(
+      'src',
+      label.downloadUrl,
+    )
+    expect(screen.getByRole('link', { name: 'Descargar PDF' })).toHaveAttribute(
+      'href',
+      label.downloadUrl,
+    )
+    expect(vi.mocked(shippingApi.generateShipmentLabel)).not.toHaveBeenCalled()
   })
 })

@@ -14,16 +14,17 @@ fragment BuyerSnapshot on BuyerSnapshotType {
   email
   phone
   recipientName
+  recipientTaxId
   addressLine
-  municipality
-  city
+  commune
+  region
   deliveryNotes
   taxId
   taxName
   taxActivity
   taxAddress
-  taxMunicipality
-  taxCity
+  taxCommune
+  taxRegion
   taxEmail
 }
 
@@ -129,6 +130,12 @@ fragment SellerOrder on OrderType {
   }
   reconciliationIssues {
     ...ReconciliationIssue
+  }
+  shipment {
+    id
+    latestLabel {
+      ...ShipmentLabel
+    }
   }
 }
 
@@ -326,6 +333,23 @@ mutation SetBuyerDetails($token: String!, $input: BuyerDetailsInput!) {
   setBuyerDetails(token: $token, input: $input) {
     order {
       ...PublicOrder
+    }
+  }
+}
+
+mutation UpdateOrderBuyer(
+  $orderId: ID!
+  $input: BuyerDetailsInput!
+  $idempotencyKey: String!
+) {
+  updateOrderBuyer(
+    orderId: $orderId
+    input: $input
+    idempotencyKey: $idempotencyKey
+  ) {
+    replayed
+    order {
+      ...SellerOrder
     }
   }
 }

@@ -95,8 +95,8 @@ def render_internal_label_pdf(shipment: Shipment) -> bytes:
         part
         for part in (
             _text(shipment.address_line),
-            _text(shipment.municipality),
-            _text(shipment.city),
+            _text(shipment.commune),
+            _text(shipment.region),
         )
         if part
     )

@@ -10,6 +10,7 @@ import type {
   OperationSellerOrderFragment,
   OperationSellerOrderSummaryFragment,
 } from './generated/graphql.js'
+import { mapShipmentLabel, type ShipmentLabel } from './shipping-view.js'
 
 function asString(value: unknown, fallback = ''): string {
   if (value === null || value === undefined) return fallback
@@ -66,6 +67,8 @@ export type OrderAllowedActions = {
   sendOfferLink: boolean
   reissueOffer: boolean
   restore: boolean
+  updateBuyer: boolean
+  viewShipmentLabel: boolean
 }
 
 export type BuyerView = {
@@ -73,15 +76,17 @@ export type BuyerView = {
   email: string
   phone: string
   recipientName: string
+  recipientTaxId: string
   deliveryAddress: string
   deliveryCommune: string
-  deliveryCity: string
+  deliveryRegion: string
+  deliveryNotes: string
   taxId: string
   taxName: string
   taxBusinessActivity: string
   taxAddress: string
   taxCommune: string
-  taxCity: string
+  taxRegion: string
   taxEmail: string
 }
 
@@ -155,6 +160,8 @@ export type SellerOrder = OrderSummary & {
     createdAt: string
   }>
   allowedActions: OrderAllowedActions
+  shipmentId: string | null
+  latestLabel: ShipmentLabel | null
 }
 
 export type PublicOrder = {
@@ -306,19 +313,26 @@ export type SetBuyerDetailsRequest = {
   email?: string | null
   phone?: string | null
   recipientName?: string | null
+  recipientTaxId?: string | null
   deliveryAddress?: string | null
   deliveryCommune?: string | null
-  deliveryCity?: string | null
+  deliveryRegion?: string | null
+  deliveryNotes?: string | null
   taxId?: string | null
   taxName?: string | null
   taxBusinessActivity?: string | null
   taxAddress?: string | null
   taxCommune?: string | null
-  taxCity?: string | null
+  taxRegion?: string | null
   taxEmail?: string | null
   paymentMethod?: string | null
   idempotencyKey?: string | null
   turnstileToken?: string | null
+}
+
+export type UpdateOrderBuyerRequest = Omit<SetBuyerDetailsRequest, 'token'> & {
+  orderId: string
+  idempotencyKey: string
 }
 
 export type ReviewPaymentProofRequest = {
@@ -385,15 +399,17 @@ function mapBuyer(
     email: string
     phone: string
     recipientName: string
+    recipientTaxId: string
     addressLine: string
-    municipality: string
-    city: string
+    commune: string
+    region: string
+    deliveryNotes: string
     taxId: string
     taxName: string
     taxActivity: string
     taxAddress: string
-    taxMunicipality: string
-    taxCity: string
+    taxCommune: string
+    taxRegion: string
     taxEmail: string
   } | null,
 ): BuyerView | null {
@@ -403,15 +419,17 @@ function mapBuyer(
     email: buyer.email,
     phone: buyer.phone,
     recipientName: buyer.recipientName,
+    recipientTaxId: buyer.recipientTaxId,
     deliveryAddress: buyer.addressLine,
-    deliveryCommune: buyer.municipality,
-    deliveryCity: buyer.city,
+    deliveryCommune: buyer.commune,
+    deliveryRegion: buyer.region,
+    deliveryNotes: buyer.deliveryNotes,
     taxId: buyer.taxId,
     taxName: buyer.taxName,
     taxBusinessActivity: buyer.taxActivity,
     taxAddress: buyer.taxAddress,
-    taxCommune: buyer.taxMunicipality,
-    taxCity: buyer.taxCity,
+    taxCommune: buyer.taxCommune,
+    taxRegion: buyer.taxRegion,
     taxEmail: buyer.taxEmail,
   }
 }
@@ -429,6 +447,8 @@ function mapAllowedActions(actions: readonly string[]): OrderAllowedActions {
     sendOfferLink: set.has('sendOfferLink'),
     reissueOffer: set.has('reissueBankTransferOffer'),
     restore: set.has('restoreOrder'),
+    updateBuyer: set.has('updateOrderBuyer'),
+    viewShipmentLabel: set.has('viewShipmentLabel'),
   }
 }
 
@@ -526,6 +546,10 @@ export function mapSellerOrder(order: OperationSellerOrderFragment): SellerOrder
       createdAt: asString(event.createdAt),
     })),
     allowedActions: mapAllowedActions(order.allowedActions),
+    shipmentId: order.shipment?.id ?? null,
+    latestLabel: order.shipment?.latestLabel
+      ? mapShipmentLabel(order.shipment.latestLabel)
+      : null,
   }
 }
 
@@ -730,15 +754,17 @@ export function toBuyerDetailsInput(
     email: input.email ?? null,
     phone: input.phone ?? null,
     recipientName: input.recipientName ?? null,
+    recipientTaxId: input.recipientTaxId ?? null,
     addressLine: input.deliveryAddress ?? null,
-    municipality: input.deliveryCommune ?? null,
-    city: input.deliveryCity ?? null,
+    commune: input.deliveryCommune ?? null,
+    region: input.deliveryRegion ?? null,
+    deliveryNotes: input.deliveryNotes ?? null,
     taxId: input.taxId ?? null,
     taxName: input.taxName ?? null,
     taxActivity: input.taxBusinessActivity ?? null,
     taxAddress: input.taxAddress ?? null,
-    taxMunicipality: input.taxCommune ?? null,
-    taxCity: input.taxCity ?? null,
+    taxCommune: input.taxCommune ?? null,
+    taxRegion: input.taxRegion ?? null,
     taxEmail: input.taxEmail ?? null,
     turnstileToken: input.turnstileToken ?? null,
   }

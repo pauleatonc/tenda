@@ -364,6 +364,9 @@ export default function ShipmentDetailScreen() {
 
         <SectionCard title="Destino">
           <DetailRow label="Destinatario" value={detail.recipientName || '—'} />
+          {detail.recipientTaxId ? (
+            <DetailRow label="RUT de quien recibe" value={detail.recipientTaxId} />
+          ) : null}
           <DetailRow label="Dirección" value={place || '—'} />
           <DetailRow
             label="Modalidad"

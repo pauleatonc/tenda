@@ -22,6 +22,7 @@ from apps.sales.order_services import (
     restore_order,
     review_payment_proof,
     set_buyer_details,
+    update_order_buyer,
 )
 from apps.sales.uploads import (
     accept_fake_receipt_upload,
@@ -424,7 +425,16 @@ def test_public_receipt_is_order_scoped_and_approval_consumes_once() -> None:
     token = decrypt_credential(order.public_token_ciphertext)
     set_buyer_details(
         token=token,
-        details={"name": "Ana", "email": "ana@example.com"},
+        details={
+            "name": "Ana",
+            "email": "ana@example.com",
+            "phone": "+56911111111",
+            "recipientName": "Ana",
+            "recipientTaxId": "11.111.111-1",
+            "addressLine": "Los Aromos 123",
+            "commune": "Ñuñoa",
+            "region": "Región Metropolitana de Santiago",
+        },
     )
     prepared = prepare_receipt_upload(
         token=token,
@@ -500,6 +510,19 @@ def test_rejected_proof_requires_reason_and_releases_once() -> None:
         method=Order.PaymentMethod.BANK_TRANSFER,
     )
     token = decrypt_credential(order.public_token_ciphertext)
+    set_buyer_details(
+        token=token,
+        details={
+            "name": "Ana",
+            "email": "ana@example.com",
+            "phone": "+56911111111",
+            "recipientName": "Ana",
+            "recipientTaxId": "11.111.111-1",
+            "addressLine": "Los Aromos 123",
+            "commune": "Ñuñoa",
+            "region": "Región Metropolitana de Santiago",
+        },
+    )
     prepared = prepare_receipt_upload(
         token=token,
         original_name="proof.pdf",
@@ -534,3 +557,107 @@ def test_rejected_proof_requires_reason_and_releases_once() -> None:
     assert rejected.order.status == Order.Status.CANCELLED
     assert StockBalance.objects.get(product=product).reserved == 0
     assert StockReservation.objects.get(order=order).released_at is not None
+
+
+def test_seller_can_correct_buyer_and_delivery_details() -> None:
+    _user, context = identity("sales-seller-edit@example.com")
+    order, _product = order_for(
+        context,
+        product_name="Agenda",
+        method=Order.PaymentMethod.BANK_TRANSFER,
+    )
+    token = decrypt_credential(order.public_token_ciphertext)
+    set_buyer_details(
+        token=token,
+        details={
+            "name": "Ana",
+            "email": "ana@example.com",
+            "phone": "+56911111111",
+            "recipientName": "Ana",
+            "recipientTaxId": "11.111.111-1",
+            "addressLine": "Los Aromos 123",
+            "commune": "Ñuñoa",
+            "region": "Región Metropolitana de Santiago",
+        },
+    )
+    updated = update_order_buyer(
+        context=context,
+        order_id=order.public_id,
+        details={
+            "name": "Ana Pérez",
+            "email": "ana.ok@example.com",
+            "phone": "+56922222222",
+            "recipientName": "Pedro Soto",
+            "recipientTaxId": "11.111.111-1",
+            "addressLine": "Nueva 456",
+            "commune": "Providencia",
+            "region": "Región Metropolitana de Santiago",
+            "deliveryNotes": "Timbre 2",
+        },
+        idempotency_key="seller-edit-buyer",
+    )
+    replay = update_order_buyer(
+        context=context,
+        order_id=order.public_id,
+        details={
+            "name": "Ana Pérez",
+            "email": "ana.ok@example.com",
+            "phone": "+56922222222",
+            "recipientName": "Pedro Soto",
+            "recipientTaxId": "11.111.111-1",
+            "addressLine": "Nueva 456",
+            "commune": "Providencia",
+            "region": "Región Metropolitana de Santiago",
+            "deliveryNotes": "Timbre 2",
+        },
+        idempotency_key="seller-edit-buyer",
+    )
+    buyer = updated.order.buyer
+    assert buyer.name == "Ana Pérez"
+    assert buyer.email == "ana.ok@example.com"
+    assert buyer.recipient_name == "Pedro Soto"
+    assert buyer.address_line == "Nueva 456"
+    assert buyer.commune == "Providencia"
+    assert buyer.region == "Región Metropolitana de Santiago"
+    assert buyer.delivery_notes == "Timbre 2"
+    assert replay.replayed
+    cancel_order(
+        context=context,
+        order_id=order.public_id,
+        reason="Ya no interesa",
+        idempotency_key="cancel-after-edit",
+    )
+    with pytest.raises(DomainError) as error:
+        update_order_buyer(
+            context=context,
+            order_id=order.public_id,
+            details={"name": "Ana", "email": "ana@example.com", "phone": "+56911111111"},
+            idempotency_key="seller-edit-cancelled",
+        )
+    assert error.value.code == "ORDER_TRANSITION_NOT_ALLOWED"
+
+
+def test_buyer_details_reject_invalid_chile_location() -> None:
+    _user, context = identity("sales-bad-location@example.com")
+    order, _product = order_for(
+        context,
+        product_name="Libreta",
+        method=Order.PaymentMethod.BANK_TRANSFER,
+    )
+    token = decrypt_credential(order.public_token_ciphertext)
+    with pytest.raises(DomainError) as error:
+        set_buyer_details(
+            token=token,
+            details={
+                "name": "Ana",
+                "email": "ana@example.com",
+                "phone": "+56911111111",
+                "recipientName": "Ana",
+                "recipientTaxId": "11.111.111-1",
+                "addressLine": "Los Aromos 123",
+                "commune": "Ñuñoa",
+                "region": "Valparaíso",
+            },
+        )
+    assert error.value.code == "VALIDATION_ERROR"
+    assert "commune" in error.value.field_errors

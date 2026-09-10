@@ -43,21 +43,9 @@ type Query {
     after: String
   ): ProductConnectionType!
   product(id: ID!): ProductType
-  productStockBreakdown(
-    productId: ID!
-    first: Int
-    after: String
-  ): StockBreakdownType!
-  stockMovements(
-    productId: ID!
-    first: Int
-    after: String
-  ): StockMovementConnectionType!
-  productOrders(
-    productId: ID!
-    first: Int
-    after: String
-  ): ProductOrderConnectionType!
+  productStockBreakdown(productId: ID!, first: Int, after: String): StockBreakdownType!
+  stockMovements(productId: ID!, first: Int, after: String): StockMovementConnectionType!
+  productOrders(productId: ID!, first: Int, after: String): ProductOrderConnectionType!
   productShipments(
     productId: ID!
     first: Int
@@ -146,6 +134,7 @@ type OrderType {
   updatedAt: DateTime!
   paidAt: DateTime
   refundedAt: DateTime
+  shipment: OrderShipmentType
 }
 
 type OrderItemType {
@@ -165,16 +154,17 @@ type BuyerSnapshotType {
   email: String!
   phone: String!
   recipientName: String!
+  recipientTaxId: String!
   addressLine: String!
-  municipality: String!
-  city: String!
+  commune: String!
+  region: String!
   deliveryNotes: String!
   taxId: String!
   taxName: String!
   taxActivity: String!
   taxAddress: String!
-  taxMunicipality: String!
-  taxCity: String!
+  taxCommune: String!
+  taxRegion: String!
   taxEmail: String!
   completedAt: DateTime
 }
@@ -249,6 +239,19 @@ type ReconciliationIssueType {
   orderNumber: String
   providerReference: String
   canRetry: Boolean!
+}
+
+type OrderShipmentType {
+  id: ID!
+  latestLabel: LabelDocumentType
+}
+
+type LabelDocumentType {
+  id: ID!
+  downloadUrl: String
+  expiresAt: DateTime!
+  createdAt: DateTime!
+  fileName: String!
 }
 
 type PageInfoType {
@@ -433,9 +436,10 @@ type ShipmentType {
   statusLabel: String!
   deliveryMode: String!
   recipientName: String!
+  recipientTaxId: String!
   addressLine: String!
-  municipality: String!
-  city: String!
+  commune: String!
+  region: String!
   deliveryNotes: String!
   carrier: String!
   trackingCode: String!
@@ -474,14 +478,6 @@ type ShipmentEventType {
   isPublic: Boolean!
   actorName: String!
   createdAt: DateTime!
-}
-
-type LabelDocumentType {
-  id: ID!
-  downloadUrl: String
-  expiresAt: DateTime!
-  createdAt: DateTime!
-  fileName: String!
 }
 
 type DeliveryConfirmationType {
@@ -879,6 +875,11 @@ type Mutation {
   createOrder(idempotencyKey: String!, input: CreateOrderInput!): CreateOrder!
   publishOrderLink(idempotencyKey: String!, orderId: ID!): PublishOrderLink!
   setBuyerDetails(input: BuyerDetailsInput!, token: String!): SetBuyerDetails!
+  updateOrderBuyer(
+    idempotencyKey: String!
+    input: BuyerDetailsInput!
+    orderId: ID!
+  ): UpdateOrderBuyer!
   initiateMercadoPagoCheckout(
     idempotencyKey: String!
     token: String!
@@ -896,31 +897,16 @@ type Mutation {
     orderId: ID!
     paidAt: DateTime!
   ): ConfirmManualPayment!
-  cancelOrder(
-    idempotencyKey: String!
-    orderId: ID!
-    reason: String!
-  ): CancelOrder!
+  cancelOrder(idempotencyKey: String!, orderId: ID!, reason: String!): CancelOrder!
   restoreOrder(idempotencyKey: String!, orderId: ID!): RestoreOrder!
-  refundPayment(
-    idempotencyKey: String!
-    orderId: ID!
-    reason: String!
-  ): RefundPayment!
+  refundPayment(idempotencyKey: String!, orderId: ID!, reason: String!): RefundPayment!
   resendOrderLink(idempotencyKey: String!, orderId: ID!): ResendOrderLink!
-  sendOfferLink(
-    email: String!
-    idempotencyKey: String!
-    orderId: ID!
-  ): SendOfferLink!
+  sendOfferLink(email: String!, idempotencyKey: String!, orderId: ID!): SendOfferLink!
   reissueBankTransferOffer(
     idempotencyKey: String!
     orderId: ID!
   ): ReissueBankTransferOffer!
-  retryReconciliation(
-    idempotencyKey: String!
-    issueId: ID!
-  ): RetryReconciliation!
+  retryReconciliation(idempotencyKey: String!, issueId: ID!): RetryReconciliation!
   updateShipment(
     idempotencyKey: String!
     input: UpdateShipmentInput!
@@ -931,10 +917,7 @@ type Mutation {
     idempotencyKey: String!
     shipmentId: ID!
   ): MarkShipmentDispatched!
-  generateShipmentLabel(
-    idempotencyKey: String!
-    shipmentId: ID!
-  ): GenerateShipmentLabel!
+  generateShipmentLabel(idempotencyKey: String!, shipmentId: ID!): GenerateShipmentLabel!
   openPublicTicket(
     idempotencyKey: String!
     input: OpenPublicTicketInput!
@@ -947,11 +930,7 @@ type Mutation {
     token: String
     turnstileToken: String
   ): SendTicketMessage!
-  resolveTicket(
-    comment: String
-    idempotencyKey: String!
-    ticketId: ID!
-  ): ResolveTicket!
+  resolveTicket(comment: String, idempotencyKey: String!, ticketId: ID!): ResolveTicket!
   rescheduleFollowUp(
     dueAt: DateTime!
     followUpId: ID!
@@ -964,10 +943,7 @@ type Mutation {
     notes: String
     shipmentId: ID!
   ): RegisterReturnCase!
-  confirmReturnToStock(
-    idempotencyKey: String!
-    returnCaseId: ID!
-  ): ConfirmReturnToStock!
+  confirmReturnToStock(idempotencyKey: String!, returnCaseId: ID!): ConfirmReturnToStock!
   createCustomField(input: CreateCustomFieldInput!): CreateCustomField!
   updateCustomField(input: UpdateCustomFieldInput!): UpdateCustomField!
   reorderCustomFields(fieldIds: [ID!]!): ReorderCustomFields!
@@ -984,14 +960,8 @@ type Mutation {
   setPrimaryProductMedia(assetId: ID!, productId: ID!): SetPrimaryProductMedia!
   removeProductMedia(assetId: ID!, productId: ID!): RemoveProductMedia!
   startInventoryImport(assetId: ID!): StartInventoryImport!
-  previewInventoryImport(
-    importId: ID!
-    mapping: JSONString!
-  ): PreviewInventoryImport!
-  confirmInventoryImport(
-    idempotencyKey: String!
-    importId: ID!
-  ): ConfirmInventoryImport!
+  previewInventoryImport(importId: ID!, mapping: JSONString!): PreviewInventoryImport!
+  confirmInventoryImport(idempotencyKey: String!, importId: ID!): ConfirmInventoryImport!
   retryInventoryImport(importId: ID!): RetryInventoryImport!
   startInventoryExport(
     fileFormat: String!
@@ -999,9 +969,7 @@ type Mutation {
     idempotencyKey: String!
   ): StartInventoryExport!
   retryInventoryExport(exportId: ID!): RetryInventoryExport!
-  updateInventoryLowStockThreshold(
-    threshold: Int!
-  ): UpdateInventoryLowStockThreshold!
+  updateInventoryLowStockThreshold(threshold: Int!): UpdateInventoryLowStockThreshold!
   updateProductLowStockThreshold(
     clear: Boolean
     productId: ID!
@@ -1059,18 +1027,24 @@ input BuyerDetailsInput {
   email: String
   phone: String
   recipientName: String
+  recipientTaxId: String
   addressLine: String
-  municipality: String
-  city: String
+  commune: String
+  region: String
   deliveryNotes: String
   taxId: String
   taxName: String
   taxActivity: String
   taxAddress: String
-  taxMunicipality: String
-  taxCity: String
+  taxCommune: String
+  taxRegion: String
   taxEmail: String
   turnstileToken: String
+}
+
+type UpdateOrderBuyer {
+  order: OrderType!
+  replayed: Boolean!
 }
 
 type InitiateMercadoPagoCheckout {

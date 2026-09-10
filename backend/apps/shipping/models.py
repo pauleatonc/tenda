@@ -48,9 +48,10 @@ class Shipment(models.Model):
     )
     delivery_mode = models.CharField(max_length=16)
     recipient_name = models.CharField(max_length=160, blank=True)
+    recipient_tax_id = models.CharField(max_length=16, blank=True)
     address_line = models.CharField(max_length=240, blank=True)
-    municipality = models.CharField(max_length=120, blank=True)
-    city = models.CharField(max_length=120, blank=True)
+    commune = models.CharField(max_length=120, blank=True)
+    region = models.CharField(max_length=120, blank=True)
     delivery_notes = models.CharField(max_length=500, blank=True)
     carrier = models.CharField(max_length=120, blank=True)
     tracking_code = models.CharField(max_length=120, blank=True)
@@ -71,9 +72,10 @@ class Shipment(models.Model):
         "number",
         "delivery_mode",
         "recipient_name",
+        "recipient_tax_id",
         "address_line",
-        "municipality",
-        "city",
+        "commune",
+        "region",
         "delivery_notes",
         "public_token_hash",
         "public_token_ciphertext",

@@ -79,10 +79,15 @@ function renderPage() {
 async function completeContact() {
   await userEvent.type(screen.getByLabelText('Nombre'), 'Camila Rojas')
   await userEvent.type(screen.getByLabelText('Email'), 'camila@example.cl')
+  await userEvent.type(screen.getByLabelText('Teléfono'), '+56911111111')
   await userEvent.type(screen.getByLabelText('Destinatario'), 'Camila Rojas')
+  await userEvent.type(screen.getByLabelText('RUT de quien recibe'), '111111111')
   await userEvent.type(screen.getByLabelText('Dirección'), 'Los Aromos 123')
-  await userEvent.type(screen.getByLabelText('Comuna'), 'Ñuñoa')
-  await userEvent.type(screen.getByLabelText('Ciudad'), 'Santiago')
+  await userEvent.selectOptions(
+    screen.getByLabelText('Región'),
+    'Región Metropolitana de Santiago',
+  )
+  await userEvent.selectOptions(screen.getByLabelText('Comuna'), 'Ñuñoa')
   await userEvent.click(screen.getByRole('button', { name: 'Continuar al pago' }))
 }
 

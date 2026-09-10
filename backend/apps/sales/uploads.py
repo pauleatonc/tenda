@@ -14,8 +14,13 @@ from apps.media_assets.services import _validate_upload
 from apps.media_assets.storage import PresignedUpload, get_object_storage, uses_in_process_upload
 from tenda.errors import DomainError, ResourceNotFound
 
-from .models import Order, Payment, PaymentProof
-from .order_services import mark_payment_proof_ready, public_order_for_token
+from .models import BuyerSnapshot, Order, Payment, PaymentProof
+from .order_services import (
+    buyer_has_required_delivery,
+    mark_payment_proof_ready,
+    order_requires_delivery_details,
+    public_order_for_token,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +47,14 @@ def _require_transfer_upload(order: Order) -> None:
             "El pedido ya no permite cargar un comprobante.",
             status=409,
         )
+    if order_requires_delivery_details(order):
+        buyer = BuyerSnapshot.objects.filter(order=order).first()
+        if not buyer_has_required_delivery(buyer):
+            raise DomainError(
+                "DELIVERY_DETAILS_REQUIRED",
+                "Completa los datos de despacho antes de enviar el comprobante.",
+                status=409,
+            )
 
 
 @transaction.atomic

@@ -4,20 +4,21 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { EmptyState, Modal, StatusChip, Timeline } from '../components/ui'
 import { TendaApiError, newIdempotencyKey } from '../lib/http'
+import { generateShipmentLabel } from '../shipping/api'
 import {
   cancelOrder,
   confirmManualPayment,
   fetchOrder,
   refundPayment,
   reissueBankTransferOffer,
-  resendOrderLink,
   restoreOrder,
   reviewPaymentProof,
   salesKeys,
+  sendOfferLink,
   type SellerOrder,
 } from './api'
+import { SaleContactCards } from './SaleContactCards'
 import {
-  deliveryModeLabels,
   formatClp,
   formatDate,
   orderStatusLabels,
@@ -50,7 +51,7 @@ type ActionRequest =
   | { kind: 'cancel'; reason: string; idempotencyKey: string }
   | { kind: 'restore'; idempotencyKey: string }
   | { kind: 'refund'; reason: string; idempotencyKey: string }
-  | { kind: 'resend'; idempotencyKey: string }
+  | { kind: 'resend'; email: string; idempotencyKey: string }
   | { kind: 'reissue'; idempotencyKey: string }
 
 const actionTitles: Record<ActionKind, string> = {
@@ -60,8 +61,13 @@ const actionTitles: Record<ActionKind, string> = {
   cancel: 'Cancelar venta',
   restore: 'Restaurar venta',
   refund: 'Reembolsar pago completo',
-  resend: 'Obtener enlace para reenviar',
+  resend: 'Reenviar enlace',
   reissue: 'Enviar de nuevo',
+}
+
+function isValidEmail(value: string) {
+  const email = value.trim()
+  return Boolean(email) && email.includes('@') && !email.includes(' ')
 }
 
 export function SaleDetailPage() {
@@ -73,14 +79,42 @@ export function SaleDetailPage() {
   const [amount, setAmount] = useState('')
   const [paidAt, setPaidAt] = useState(() => new Date().toISOString().slice(0, 16))
   const [note, setNote] = useState('')
+  const [email, setEmail] = useState('')
   const [actionError, setActionError] = useState<Error | null>(null)
   const [idempotencyKey, setIdempotencyKey] = useState(newIdempotencyKey)
   const [resentUrl, setResentUrl] = useState('')
+  const [copied, setCopied] = useState(false)
+  const [labelOpen, setLabelOpen] = useState(false)
+  const [previewLabel, setPreviewLabel] = useState<SellerOrder['latestLabel']>(null)
+  const [labelKey, setLabelKey] = useState(newIdempotencyKey)
 
   const order = useQuery({
     queryKey: salesKeys.order(id),
     queryFn: () => fetchOrder(id),
     enabled: Boolean(id),
+  })
+
+  const generateLabel = useMutation({
+    mutationFn: () =>
+      generateShipmentLabel({
+        shipmentId: order.data?.shipmentId ?? '',
+        idempotencyKey: labelKey,
+      }),
+    onSuccess: (result) => {
+      const nextLabel = result.label ?? result.shipment.latestLabel
+      setPreviewLabel(nextLabel)
+      setLabelOpen(true)
+      setLabelKey(newIdempotencyKey())
+      setActionError(null)
+      if (order.data) {
+        queryClient.setQueryData(salesKeys.order(id), {
+          ...order.data,
+          latestLabel: nextLabel,
+        })
+      }
+      void queryClient.invalidateQueries({ queryKey: salesKeys.order(id) })
+    },
+    onError: (error: Error) => setActionError(error),
   })
 
   const performAction = useMutation({
@@ -120,8 +154,9 @@ export function SaleDetailPage() {
             idempotencyKey: request.idempotencyKey,
           })
         case 'resend':
-          return resendOrderLink({
+          return sendOfferLink({
             orderId: id,
+            email: request.email,
             idempotencyKey: request.idempotencyKey,
           })
         case 'reissue':
@@ -137,6 +172,7 @@ export function SaleDetailPage() {
         'publicUrl' in result
       ) {
         setResentUrl(String(result.publicUrl))
+        setCopied(false)
       }
       if (request.kind === 'reissue' && 'order' in result) {
         navigate(`/app/ventas/${result.order.id}`)
@@ -149,7 +185,10 @@ export function SaleDetailPage() {
       void queryClient.invalidateQueries({ queryKey: ['sales'] })
       void queryClient.invalidateQueries({ queryKey: ['inventory'] })
     },
-    onError: (error: Error) => setActionError(error),
+    onError: (error: Error, request) => {
+      setActionError(error)
+      if (request.kind === 'resend') setIdempotencyKey(newIdempotencyKey())
+    },
   })
 
   const closeActionModal = useCallback(() => {
@@ -161,12 +200,22 @@ export function SaleDetailPage() {
     setActionError(null)
     setReason('')
     setNote('')
+    setEmail(order.data?.buyer?.email ?? '')
     if (next === 'manual' && order.data) setAmount(order.data.total)
   }
 
   function submitAction() {
     if (!action) return
     if (['reject', 'cancel', 'refund'].includes(action) && !reason.trim()) return
+    if (action === 'resend') {
+      if (!isValidEmail(email)) return
+      performAction.mutate({
+        kind: 'resend',
+        email: email.trim(),
+        idempotencyKey,
+      })
+      return
+    }
     if (action === 'manual') {
       const numericAmount = Number(amount)
       if (!Number.isInteger(numericAmount) || numericAmount < 0 || !paidAt) return
@@ -179,7 +228,7 @@ export function SaleDetailPage() {
       })
       return
     }
-    if (action === 'resend' || action === 'reissue' || action === 'restore') {
+    if (action === 'reissue' || action === 'restore') {
       performAction.mutate({ kind: action, idempotencyKey })
       return
     }
@@ -246,6 +295,21 @@ export function SaleDetailPage() {
   const buyer = detail.buyer
   const payment = detail.payment
   const guards = detail.allowedActions
+  const canSendLink = guards.resendLink || guards.sendOfferLink
+  const canViewLabel = guards.viewShipmentLabel || Boolean(detail.latestLabel)
+  const savedLabel = previewLabel ?? detail.latestLabel
+
+  function openLabel() {
+    setActionError(null)
+    if (detail.latestLabel?.downloadUrl) {
+      setPreviewLabel(detail.latestLabel)
+      setLabelOpen(true)
+      return
+    }
+    if (detail.shipmentId) {
+      generateLabel.mutate()
+    }
+  }
 
   return (
     <>
@@ -281,14 +345,16 @@ export function SaleDetailPage() {
 
       {resentUrl ? (
         <div className="form-message form-message--success" role="status">
-          <strong>Enlace listo para reenviar</strong>
-          <span>Tenda no contactó automáticamente al comprador.</span>
+          <strong>Enlace enviado</strong>
+          <span>Lo enviamos al correo indicado. También puedes copiarlo.</span>
           <button
             className="button button--secondary"
             type="button"
-            onClick={() => void navigator.clipboard.writeText(resentUrl)}
+            onClick={() => {
+              void navigator.clipboard.writeText(resentUrl).then(() => setCopied(true))
+            }}
           >
-            Copiar enlace
+            {copied ? 'Copiado' : 'Copiar enlace'}
           </button>
         </div>
       ) : null}
@@ -354,7 +420,7 @@ export function SaleDetailPage() {
             Reembolso completo
           </button>
         ) : null}
-        {guards.resendLink ? (
+        {canSendLink ? (
           <button
             className="button button--secondary"
             type="button"
@@ -374,79 +440,23 @@ export function SaleDetailPage() {
             Enviar de nuevo
           </button>
         ) : null}
-        {!Object.values(guards).some(Boolean) ? (
+        {canViewLabel ? (
+          <button
+            className="button button--secondary"
+            type="button"
+            disabled={generateLabel.isPending}
+            onClick={openLabel}
+          >
+            {generateLabel.isPending ? 'Generando…' : 'Ver etiqueta'}
+          </button>
+        ) : null}
+        {!Object.values(guards).some(Boolean) && !canViewLabel ? (
           <p>No hay acciones disponibles para el estado actual.</p>
         ) : null}
       </section>
 
       <div className="sale-detail-grid">
-        <article className="detail-card">
-          <h2>Comprador</h2>
-          {buyer ? (
-            <dl>
-              <div>
-                <dt>Nombre</dt>
-                <dd>{buyer.fullName}</dd>
-              </div>
-              <div>
-                <dt>Email</dt>
-                <dd>{buyer.email || '—'}</dd>
-              </div>
-              <div>
-                <dt>Teléfono</dt>
-                <dd>{buyer.phone || '—'}</dd>
-              </div>
-              {buyer.taxId ? (
-                <>
-                  <div>
-                    <dt>RUT tributario</dt>
-                    <dd>{buyer.taxId}</dd>
-                  </div>
-                  <div>
-                    <dt>Razón social</dt>
-                    <dd>{buyer.taxName || '—'}</dd>
-                  </div>
-                  <div>
-                    <dt>Giro</dt>
-                    <dd>{buyer.taxBusinessActivity || '—'}</dd>
-                  </div>
-                </>
-              ) : null}
-            </dl>
-          ) : (
-            <p className="detail-card__empty">El comprador aún no completa sus datos.</p>
-          )}
-        </article>
-
-        <article className="detail-card">
-          <h2>Entrega</h2>
-          <dl>
-            <div>
-              <dt>Modalidad</dt>
-              <dd>{translated(deliveryModeLabels, detail.deliveryMode)}</dd>
-            </div>
-            {buyer?.recipientName ? (
-              <div>
-                <dt>Recibe</dt>
-                <dd>{buyer.recipientName}</dd>
-              </div>
-            ) : null}
-            {buyer?.deliveryAddress ? (
-              <div>
-                <dt>Dirección</dt>
-                <dd>
-                  {[buyer.deliveryAddress, buyer.deliveryCommune, buyer.deliveryCity]
-                    .filter(Boolean)
-                    .join(', ')}
-                </dd>
-              </div>
-            ) : null}
-            <div>
-              <dt>Reserva hasta</dt>
-              <dd>{formatDate(detail.expiresAt)}</dd>
-            </div>
-          </dl>
-        </article>
+        <SaleContactCards order={detail} />
 
         <article className="detail-card">
           <h2>Pago</h2>
@@ -484,7 +494,7 @@ export function SaleDetailPage() {
 
         {payment?.proof ? (
           <article className="detail-card payment-proof">
-            <h2>Comprobante privado</h2>
+            <h2>Comprobante de pago</h2>
             {payment.proof.contentType.startsWith('image/') ? (
               <img
                 src={payment.proof.privatePreviewUrl}
@@ -569,7 +579,9 @@ export function SaleDetailPage() {
               : action === 'refund'
                 ? 'El MVP realiza un reembolso completo. No repone stock automáticamente.'
                 : action === 'resend'
-                  ? 'Tenda preparará el enlace, pero no enviará un mensaje automáticamente.'
+                  ? buyer?.email
+                    ? 'Revisa el correo. Si lo anotaste mal, corrígelo antes de enviar el enlace.'
+                    : 'Ingresa el correo del comprador para enviarle el enlace.'
                   : action === 'reissue'
                     ? 'Se cancela esta venta, se suelta el stock y se crea un enlace nuevo.'
                     : action === 'restore'
@@ -593,6 +605,7 @@ export function SaleDetailPage() {
                 disabled={
                   performAction.isPending ||
                   (['reject', 'cancel', 'refund'].includes(action) && !reason.trim()) ||
+                  (action === 'resend' && !isValidEmail(email)) ||
                   (action === 'manual' &&
                     (!amount ||
                       !paidAt ||
@@ -613,6 +626,24 @@ export function SaleDetailPage() {
                   ? actionError.message
                   : 'No pudimos completar la acción. Inténtalo nuevamente.'}
               </span>
+            </div>
+          ) : null}
+
+          {action === 'resend' ? (
+            <div className="field">
+              <label htmlFor="sale-resend-email">Correo del comprador</label>
+              <input
+                id="sale-resend-email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                placeholder="correo@ejemplo.cl"
+                onChange={(event) => setEmail(event.target.value)}
+              />
+              {!isValidEmail(email) ? (
+                <small className="field__hint">Ingresa un correo válido.</small>
+              ) : null}
             </div>
           ) : null}
 
@@ -663,6 +694,64 @@ export function SaleDetailPage() {
               </div>
             </>
           ) : null}
+        </Modal>
+      ) : null}
+
+      {labelOpen ? (
+        <Modal
+          title="Etiqueta interna Tenda"
+          description="Este documento no es una etiqueta de transportista."
+          size="large"
+          onClose={() => setLabelOpen(false)}
+          footer={
+            <>
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={() => setLabelOpen(false)}
+              >
+                Cerrar
+              </button>
+              {savedLabel?.downloadUrl ? (
+                <a
+                  className="button button--primary"
+                  href={savedLabel.downloadUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Descargar PDF
+                </a>
+              ) : detail.shipmentId ? (
+                <button
+                  className="button button--primary"
+                  type="button"
+                  disabled={generateLabel.isPending}
+                  onClick={() => generateLabel.mutate()}
+                >
+                  {generateLabel.isPending ? 'Generando…' : 'Generar de nuevo'}
+                </button>
+              ) : null}
+            </>
+          }
+        >
+          <p className="shipping-warning">
+            <strong>Etiqueta interna Tenda</strong>
+            No simula un documento del transportista. El enlace de descarga expira.
+          </p>
+          {savedLabel?.downloadUrl ? (
+            <>
+              <iframe
+                className="shipping-label-preview"
+                title="Vista previa de la etiqueta interna"
+                src={savedLabel.downloadUrl}
+              />
+              <p className="shipping-label-meta">
+                Caduca {formatDate(savedLabel.expiresAt)} · {savedLabel.fileName}
+              </p>
+            </>
+          ) : (
+            <p>El enlace de esta etiqueta ya expiró. Genera una nueva para descargarla.</p>
+          )}
         </Modal>
       ) : null}
     </>

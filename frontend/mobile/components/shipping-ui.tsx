@@ -67,10 +67,10 @@ function statusTone(status: string): 'success' | 'warning' | 'neutral' {
 
 export function destinationLine(shipment: {
   addressLine?: string
-  municipality: string
-  city: string
+  commune: string
+  region: string
 }): string {
-  return [shipment.addressLine, shipment.municipality, shipment.city]
+  return [shipment.addressLine, shipment.commune, shipment.region]
     .map((part) => part?.trim())
     .filter(Boolean)
     .join(', ')

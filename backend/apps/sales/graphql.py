@@ -14,6 +14,8 @@ from apps.inventory.models import CustomFieldDefinition, ProductMediaAttachment
 from apps.media_assets.models import MediaAsset
 from apps.media_assets.services import private_download_url
 from apps.organisations.permissions import OrganisationPermission, require_permission
+from apps.shipping.graphql import LabelDocumentType
+from apps.shipping.models import LabelDocument, Shipment
 from apps.users.services import enforce_auth_rate_limit
 from tenda.antibot import verify_turnstile
 from tenda.errors import DomainError, ResourceNotFound
@@ -45,6 +47,7 @@ from .order_services import (
     review_payment_proof,
     send_offer_link,
     set_buyer_details,
+    update_order_buyer,
 )
 from .selectors import (
     STATUS_LABELS,
@@ -164,16 +167,17 @@ class BuyerSnapshotType(graphene.ObjectType):  # type: ignore[misc]
     email = graphene.String(required=True)
     phone = graphene.String(required=True)
     recipient_name = graphene.String(required=True)
+    recipient_tax_id = graphene.String(required=True)
     address_line = graphene.String(required=True)
-    municipality = graphene.String(required=True)
-    city = graphene.String(required=True)
+    commune = graphene.String(required=True)
+    region = graphene.String(required=True)
     delivery_notes = graphene.String(required=True)
     tax_id = graphene.String(required=True)
     tax_name = graphene.String(required=True)
     tax_activity = graphene.String(required=True)
     tax_address = graphene.String(required=True)
-    tax_municipality = graphene.String(required=True)
-    tax_city = graphene.String(required=True)
+    tax_commune = graphene.String(required=True)
+    tax_region = graphene.String(required=True)
     tax_email = graphene.String(required=True)
     completed_at = graphene.DateTime()
 
@@ -498,6 +502,25 @@ class OrderPermissionsType(graphene.ObjectType):  # type: ignore[misc]
     allowed_actions = graphene.List(graphene.NonNull(graphene.String), required=True)
 
 
+class OrderShipmentType(graphene.ObjectType):  # type: ignore[misc]
+    id = graphene.ID(required=True)
+    latest_label = graphene.Field(LabelDocumentType)
+
+    @staticmethod
+    def resolve_id(root: Shipment, _info: GraphQLResolveInfo) -> str:
+        return str(root.public_id)
+
+    @staticmethod
+    def resolve_latest_label(
+        root: Shipment,
+        _info: GraphQLResolveInfo,
+    ) -> LabelDocument | None:
+        prefetched = getattr(root, "_prefetched_objects_cache", {}).get("labels")
+        if prefetched is not None:
+            return prefetched[0] if prefetched else None
+        return root.labels.select_related("asset").first()
+
+
 class OrderType(graphene.ObjectType):  # type: ignore[misc]
     id = graphene.ID(required=True)
     number = graphene.String(required=True)
@@ -528,6 +551,7 @@ class OrderType(graphene.ObjectType):  # type: ignore[misc]
     updated_at = graphene.DateTime(required=True)
     paid_at = graphene.DateTime()
     refunded_at = graphene.DateTime()
+    shipment = graphene.Field(OrderShipmentType)
 
     @staticmethod
     def resolve_id(root: Order, _info: GraphQLResolveInfo) -> str:
@@ -605,6 +629,13 @@ class OrderType(graphene.ObjectType):  # type: ignore[misc]
         _info: GraphQLResolveInfo,
     ) -> list[ReconciliationIssue]:
         return list(root.reconciliation_issues.all())
+
+    @staticmethod
+    def resolve_shipment(root: Order, _info: GraphQLResolveInfo) -> Shipment | None:
+        try:
+            return root.shipment
+        except Shipment.DoesNotExist:
+            return None
 
 
 class OrderConnectionType(graphene.ObjectType):  # type: ignore[misc]
@@ -1044,16 +1075,17 @@ class BuyerDetailsInput(graphene.InputObjectType):  # type: ignore[misc]
     email = graphene.String()
     phone = graphene.String()
     recipient_name = graphene.String()
+    recipient_tax_id = graphene.String()
     address_line = graphene.String()
-    municipality = graphene.String()
-    city = graphene.String()
+    commune = graphene.String()
+    region = graphene.String()
     delivery_notes = graphene.String()
     tax_id = graphene.String()
     tax_name = graphene.String()
     tax_activity = graphene.String()
     tax_address = graphene.String()
-    tax_municipality = graphene.String()
-    tax_city = graphene.String()
+    tax_commune = graphene.String()
+    tax_region = graphene.String()
     tax_email = graphene.String()
     turnstile_token = graphene.String()
 
@@ -1184,6 +1216,36 @@ class SetBuyerDetails(graphene.Mutation):  # type: ignore[misc]
         except DomainError as exc:
             raise graphql_error(info, exc) from exc
         return SetBuyerDetails(order=order)
+
+
+class UpdateOrderBuyer(graphene.Mutation):  # type: ignore[misc]
+    class Arguments:
+        order_id = graphene.ID(required=True)
+        input = graphene.Argument(BuyerDetailsInput, required=True)
+        idempotency_key = graphene.String(required=True)
+
+    order = graphene.Field(OrderType, required=True)
+    replayed = graphene.Boolean(required=True)
+
+    @staticmethod
+    def mutate(
+        _root: object,
+        info: GraphQLResolveInfo,
+        order_id: str,
+        input: dict[str, Any],
+        idempotency_key: str,
+    ) -> UpdateOrderBuyer:
+        try:
+            result = update_order_buyer(
+                context=context_from_info(info),
+                order_id=_uuid_or_not_found(order_id),
+                details=input,
+                idempotency_key=idempotency_key,
+                correlation_id=_correlation_id(info),
+            )
+        except DomainError as exc:
+            raise graphql_error(info, exc) from exc
+        return UpdateOrderBuyer(order=result.order, replayed=result.replayed)
 
 
 class InitiateMercadoPagoCheckout(graphene.Mutation):  # type: ignore[misc]
@@ -1699,6 +1761,7 @@ class SalesMutation(graphene.ObjectType):  # type: ignore[misc]
     create_order = CreateOrder.Field(required=True)
     publish_order_link = PublishOrderLink.Field(required=True)
     set_buyer_details = SetBuyerDetails.Field(required=True)
+    update_order_buyer = UpdateOrderBuyer.Field(required=True)
     initiate_mercado_pago_checkout = InitiateMercadoPagoCheckout.Field(required=True)
     review_payment_proof = ReviewPaymentProof.Field(required=True)
     confirm_manual_payment = ConfirmManualPayment.Field(required=True)

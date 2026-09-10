@@ -2,6 +2,9 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
+import { formatChileAddress, formatRutInput } from '@tenda/api-client'
+
+import { ChileLocationFields } from '../components/ChileLocationFields'
 import { FormErrorSummary } from '../components/ui'
 import { TendaApiError } from '../lib/http'
 import {
@@ -18,6 +21,7 @@ import {
 } from '../sales/model'
 import {
   loadPublicCheckoutDraft,
+  requiresCheckoutDelivery,
   savePublicCheckoutDraft,
   validateContactAndDelivery,
   type CheckoutErrors,
@@ -55,9 +59,13 @@ export function PublicCheckoutPage() {
   const contactErrors = useMemo(
     () =>
       order.data
-        ? validateContactAndDelivery(draft, order.data.deliveryMode)
+        ? validateContactAndDelivery(
+            draft,
+            order.data.deliveryMode,
+            selectedPaymentMethod,
+          )
         : ({} as CheckoutErrors),
-    [draft, order.data],
+    [draft, order.data, selectedPaymentMethod],
   )
 
   const submit = useMutation({
@@ -73,9 +81,10 @@ export function PublicCheckoutPage() {
         email: draft.email.trim() || null,
         phone: draft.phone.trim() || null,
         recipientName: draft.recipientName.trim() || null,
+        recipientTaxId: draft.recipientTaxId.trim() || null,
         deliveryAddress: draft.deliveryAddress.trim() || null,
         deliveryCommune: draft.deliveryCommune.trim() || null,
-        deliveryCity: draft.deliveryCity.trim() || null,
+        deliveryRegion: draft.deliveryRegion.trim() || null,
         taxId: draft.wantsTaxData ? draft.taxId.trim() : null,
         taxName: draft.wantsTaxData ? draft.taxName.trim() : null,
         taxBusinessActivity: draft.wantsTaxData
@@ -83,7 +92,7 @@ export function PublicCheckoutPage() {
           : null,
         taxAddress: draft.wantsTaxData ? draft.taxAddress.trim() || null : null,
         taxCommune: draft.wantsTaxData ? draft.taxCommune.trim() || null : null,
-        taxCity: draft.wantsTaxData ? draft.taxCity.trim() || null : null,
+        taxRegion: draft.wantsTaxData ? draft.taxRegion.trim() || null : null,
         taxEmail: draft.wantsTaxData ? draft.taxEmail.trim() || null : null,
         paymentMethod: selectedPaymentMethod,
         idempotencyKey: draft.detailsIdempotencyKey,
@@ -241,6 +250,11 @@ export function PublicCheckoutPage() {
                     {errors.contact}
                   </small>
                 ) : null}
+                {errors.phone ? (
+                  <small className="field__error public-form-grid__wide">
+                    {errors.phone}
+                  </small>
+                ) : null}
 
                 <div className="public-form-grid__wide public-delivery-label">
                   <strong>
@@ -248,7 +262,7 @@ export function PublicCheckoutPage() {
                   </strong>
                 </div>
 
-                {detail.deliveryMode === 'shipping' ? (
+                {requiresCheckoutDelivery(detail.deliveryMode, selectedPaymentMethod) ? (
                   <>
                     <div className="field public-form-grid__wide">
                       <label htmlFor="recipient">Destinatario</label>
@@ -261,6 +275,21 @@ export function PublicCheckoutPage() {
                       />
                       {errors.recipientName ? (
                         <small className="field__error">{errors.recipientName}</small>
+                      ) : null}
+                    </div>
+                    <div className="field">
+                      <label htmlFor="recipient-tax-id">RUT de quien recibe</label>
+                      <input
+                        id="recipient-tax-id"
+                        autoComplete="off"
+                        value={draft.recipientTaxId}
+                        aria-invalid={Boolean(errors.recipientTaxId)}
+                        onChange={(event) =>
+                          update('recipientTaxId', formatRutInput(event.target.value))
+                        }
+                      />
+                      {errors.recipientTaxId ? (
+                        <small className="field__error">{errors.recipientTaxId}</small>
                       ) : null}
                     </div>
                     <div className="field public-form-grid__wide">
@@ -278,33 +307,18 @@ export function PublicCheckoutPage() {
                         <small className="field__error">{errors.deliveryAddress}</small>
                       ) : null}
                     </div>
-                    <div className="field">
-                      <label htmlFor="delivery-commune">Comuna</label>
-                      <input
-                        id="delivery-commune"
-                        value={draft.deliveryCommune}
-                        aria-invalid={Boolean(errors.deliveryCommune)}
-                        onChange={(event) =>
-                          update('deliveryCommune', event.target.value)
-                        }
-                      />
-                      {errors.deliveryCommune ? (
-                        <small className="field__error">{errors.deliveryCommune}</small>
-                      ) : null}
-                    </div>
-                    <div className="field">
-                      <label htmlFor="delivery-city">Ciudad</label>
-                      <input
-                        id="delivery-city"
-                        autoComplete="shipping address-level2"
-                        value={draft.deliveryCity}
-                        aria-invalid={Boolean(errors.deliveryCity)}
-                        onChange={(event) => update('deliveryCity', event.target.value)}
-                      />
-                      {errors.deliveryCity ? (
-                        <small className="field__error">{errors.deliveryCity}</small>
-                      ) : null}
-                    </div>
+                    <ChileLocationFields
+                      regionId="delivery-region"
+                      communeId="delivery-commune"
+                      region={draft.deliveryRegion}
+                      commune={draft.deliveryCommune}
+                      regionError={errors.deliveryRegion}
+                      communeError={errors.deliveryCommune}
+                      onChange={({ region, commune }) => {
+                        update('deliveryRegion', region)
+                        update('deliveryCommune', commune)
+                      }}
+                    />
                   </>
                 ) : null}
               </div>
@@ -370,22 +384,16 @@ export function PublicCheckoutPage() {
                         onChange={(event) => update('taxAddress', event.target.value)}
                       />
                     </div>
-                    <div className="field">
-                      <label htmlFor="tax-commune">Comuna</label>
-                      <input
-                        id="tax-commune"
-                        value={draft.taxCommune}
-                        onChange={(event) => update('taxCommune', event.target.value)}
-                      />
-                    </div>
-                    <div className="field">
-                      <label htmlFor="tax-city">Ciudad</label>
-                      <input
-                        id="tax-city"
-                        value={draft.taxCity}
-                        onChange={(event) => update('taxCity', event.target.value)}
-                      />
-                    </div>
+                    <ChileLocationFields
+                      regionId="tax-region"
+                      communeId="tax-commune"
+                      region={draft.taxRegion}
+                      commune={draft.taxCommune}
+                      onChange={({ region, commune }) => {
+                        update('taxRegion', region)
+                        update('taxCommune', commune)
+                      }}
+                    />
                   </div>
                 ) : null}
               </details>
@@ -482,13 +490,19 @@ export function PublicCheckoutPage() {
                   <dt>Entrega</dt>
                   <dd>
                     {translated(deliveryModeLabels, detail.deliveryMode)}
-                    {detail.deliveryMode === 'shipping' ? (
+                    {requiresCheckoutDelivery(
+                      detail.deliveryMode,
+                      selectedPaymentMethod,
+                    ) ? (
                       <small>
                         {[
                           draft.recipientName,
-                          draft.deliveryAddress,
-                          draft.deliveryCommune,
-                          draft.deliveryCity,
+                          draft.recipientTaxId,
+                          formatChileAddress(
+                            draft.deliveryAddress,
+                            draft.deliveryCommune,
+                            draft.deliveryRegion,
+                          ),
                         ]
                           .filter(Boolean)
                           .join(', ')}

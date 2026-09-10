@@ -80,10 +80,12 @@ def paid_order(context: TenantContext, *, name: str = "Velón") -> Order:
         details={
             "name": "Camila Soto",
             "email": "camila@example.cl",
+            "phone": "+56911111111",
             "recipientName": "Camila Soto",
+            "recipientTaxId": "11.111.111-1",
             "addressLine": "Los Aromos 123",
-            "municipality": "Ñuñoa",
-            "city": "Santiago",
+            "commune": "Ñuñoa",
+            "region": "Región Metropolitana de Santiago",
         },
         correlation_id="buyer",
     )

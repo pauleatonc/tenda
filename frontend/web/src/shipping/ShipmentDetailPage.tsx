@@ -306,6 +306,12 @@ export function ShipmentDetailPage() {
               <dt>Destinatario</dt>
               <dd>{detail.recipientName || '—'}</dd>
             </div>
+            {detail.recipientTaxId ? (
+              <div>
+                <dt>RUT de quien recibe</dt>
+                <dd>{detail.recipientTaxId}</dd>
+              </div>
+            ) : null}
             <div>
               <dt>Dirección</dt>
               <dd>{destination || '—'}</dd>

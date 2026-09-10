@@ -2,9 +2,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen } from '@testing-library/react-native'
 import { useLocalSearchParams } from 'expo-router'
 import type { ReactElement } from 'react'
+import { Alert } from 'react-native'
 
 import SaleDetailScreen from '../ventas/[orderId]'
 import * as api from '../../../lib/sales-api'
+
+jest.mock('../../../lib/shipping-api', () => ({
+  generateShipmentLabel: jest.fn(),
+}))
 
 jest.mock('../../../lib/sales-api', () => ({
   fetchOrder: jest.fn(),
@@ -16,6 +21,7 @@ jest.mock('../../../lib/sales-api', () => ({
   resendOrderLink: jest.fn(),
   reissueBankTransferOffer: jest.fn(),
   sendOfferLink: jest.fn(),
+  updateOrderBuyer: jest.fn(),
   salesKeys: {
     root: ['sales'],
     order: (id: string) => ['sales', 'order', id],
@@ -70,15 +76,17 @@ function sellerOrder() {
       email: 'camila@example.com',
       phone: '+56911111111',
       recipientName: '',
+      recipientTaxId: '',
       deliveryAddress: '',
       deliveryCommune: '',
-      deliveryCity: '',
+      deliveryRegion: '',
+      deliveryNotes: '',
       taxId: '',
       taxName: '',
       taxBusinessActivity: '',
       taxAddress: '',
       taxCommune: '',
-      taxCity: '',
+      taxRegion: '',
       taxEmail: '',
     },
     payment: {
@@ -115,7 +123,11 @@ function sellerOrder() {
       sendOfferLink: false,
       reissueOffer: true,
       restore: false,
+      updateBuyer: true,
+      viewShipmentLabel: false,
     },
+    shipmentId: null,
+    latestLabel: null,
   }
 }
 
@@ -214,5 +226,62 @@ describe('Detalle de venta mobile', () => {
       orderId: 'order-1',
       idempotencyKey: expect.any(String),
     })
+  })
+
+  it('pide un correo para reenviar el enlace y permite corregirlo', async () => {
+    mocked.sendOfferLink.mockResolvedValue({
+      replayed: false,
+      publicUrl: 'https://tenda.test/p/token',
+      order: sellerOrder(),
+    })
+
+    await renderScreen(<SaleDetailScreen />)
+    await screen.findByText('Venta V-0001')
+    await fireEvent.press(screen.getByRole('button', { name: 'Reenviar enlace' }))
+    const email = await screen.findByLabelText('Correo del comprador')
+    expect(email.props.value).toBe('camila@example.com')
+    await fireEvent.changeText(email, 'camila.ok@example.com')
+    const confirm = await screen.findAllByRole('button', { name: 'Reenviar enlace' })
+    await fireEvent.press(confirm[confirm.length - 1])
+
+    expect(mocked.sendOfferLink).toHaveBeenCalledWith({
+      orderId: 'order-1',
+      email: 'camila.ok@example.com',
+      idempotencyKey: expect.any(String),
+    })
+  })
+
+  it('muestra Ver etiqueta cuando la venta ya está validada', async () => {
+    jest.spyOn(Alert, 'alert')
+    mocked.fetchOrder.mockResolvedValue({
+      ...sellerOrder(),
+      status: 'paid',
+      allowedActions: {
+        ...sellerOrder().allowedActions,
+        approveProof: false,
+        rejectProof: false,
+        cancel: false,
+        reissueOffer: false,
+        refund: true,
+        viewShipmentLabel: true,
+      },
+      shipmentId: 'ship-1',
+      latestLabel: {
+        id: 'lab-1',
+        downloadUrl: 'https://signed.example.test/label.pdf',
+        expiresAt: '2026-08-27T12:00:00Z',
+        createdAt: '2026-08-26T14:00:00Z',
+        fileName: 'etiqueta-interna-ENV-ABC.pdf',
+      },
+    })
+
+    await renderScreen(<SaleDetailScreen />)
+    await screen.findByText('Venta V-0001')
+    await fireEvent.press(screen.getByRole('button', { name: 'Ver etiqueta' }))
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Etiqueta interna Tenda',
+      expect.stringContaining('no es una etiqueta de transportista'),
+      expect.any(Array),
+    )
   })
 })

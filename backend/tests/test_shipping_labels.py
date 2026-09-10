@@ -36,6 +36,36 @@ def _download_bytes(client, url: str) -> bytes:
     return response.content
 
 
+def test_paid_order_generates_internal_label() -> None:
+    client, context = signed_in("label-auto@example.com")
+    order = paid_order(context)
+    labels = list(LabelDocument.objects.filter(shipment=order.shipment))
+    assert len(labels) == 1
+    assert labels[0].expires_at > timezone.now()
+
+    payload = graphql(
+        client,
+        """
+        query ($id: ID!) {
+          order(id: $id) {
+            allowedActions
+            shipment {
+              id
+              latestLabel { id downloadUrl fileName }
+            }
+          }
+        }
+        """,
+        id=str(order.public_id),
+    )
+    assert "errors" not in payload, payload.get("errors")
+    data = payload["data"]["order"]
+    assert "viewShipmentLabel" in data["allowedActions"]
+    assert data["shipment"]["id"] == str(order.shipment.public_id)
+    assert data["shipment"]["latestLabel"]["id"] == str(labels[0].public_id)
+    assert data["shipment"]["latestLabel"]["downloadUrl"]
+
+
 def test_generate_label_renders_internal_pdf_with_expiring_url() -> None:
     client, context = signed_in("label-ok@example.com")
     order = paid_order(context)
@@ -80,20 +110,22 @@ def test_generate_label_rejects_unpaid_and_incomplete_data() -> None:
     Order.objects.filter(pk=order.pk).update(status=Order.Status.RESERVED, paid_at=None)
     unpaid = graphql(client, GENERATE, id=shipment_id, key="unpaid")
     assert unpaid["errors"][0]["extensions"]["code"] == "ORDER_NOT_PAID"
-    assert LabelDocument.objects.filter(shipment_id=order.shipment.pk).count() == 0
+    assert LabelDocument.objects.filter(shipment_id=order.shipment.pk).count() == 1
 
     Order.objects.filter(pk=order.pk).update(status=Order.Status.PAID, paid_at=timezone.now())
     Shipment.objects.filter(pk=order.shipment.pk).update(
         recipient_name="",
         address_line="",
-        city="",
+        commune="",
+        region="",
     )
     incomplete = graphql(client, GENERATE, id=shipment_id, key="incomplete")
     assert incomplete["errors"][0]["extensions"]["code"] == "VALIDATION_ERROR"
     fields = incomplete["errors"][0]["extensions"]["fieldErrors"]
     assert "recipientName" in fields
     assert "addressLine" in fields
-    assert "city" in fields
+    assert "region" in fields
+    assert "commune" in fields
 
 
 def test_label_download_expires_and_stays_tenant_safe() -> None:

@@ -17,12 +17,14 @@ import {
   SalesDashboardDocument,
   SellerPaymentConnectionDocument,
   StartMercadoPagoConnectionDocument,
+  UpdateOrderBuyerDocument,
   mapBalanceBreakdownRow,
   mapOrderSummary,
   mapSalesBalance,
   mapSalesDashboard,
   mapSellerOrder,
   toBalanceFilter,
+  toBuyerDetailsInput,
   toOrderFilter,
   type CancelOrderRequest,
   type ConfirmManualPaymentRequest,
@@ -34,6 +36,7 @@ import {
   type ResendOrderLinkRequest,
   type SendOfferLinkRequest,
   type ReviewPaymentProofRequest,
+  type UpdateOrderBuyerRequest,
   type SalesBalanceFilter,
   type SalesOrderFilter,
 } from '@tenda/api-client'
@@ -167,6 +170,18 @@ export async function resendOrderLink(input: ResendOrderLinkRequest) {
   }
 }
 
+export async function updateOrderBuyer(input: UpdateOrderBuyerRequest) {
+  const data = await graphqlRequest(UpdateOrderBuyerDocument, {
+    orderId: input.orderId,
+    input: toBuyerDetailsInput(input),
+    idempotencyKey: input.idempotencyKey,
+  })
+  return {
+    replayed: data.updateOrderBuyer.replayed,
+    order: mapSellerOrder(data.updateOrderBuyer.order),
+  }
+}
+
 export async function sendOfferLink(input: SendOfferLinkRequest) {
   const data = await graphqlRequest(SendOfferLinkDocument, {
     orderId: input.orderId,
@@ -175,6 +190,7 @@ export async function sendOfferLink(input: SendOfferLinkRequest) {
   })
   return {
     replayed: data.sendOfferLink.replayed,
+    publicUrl: data.sendOfferLink.order.publicUrl,
     order: mapSellerOrder(data.sendOfferLink.order),
   }
 }

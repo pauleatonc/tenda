@@ -93,8 +93,8 @@ export type ShipmentSummary = {
   statusLabel: string
   deliveryMode: string
   recipientName: string
-  municipality: string
-  city: string
+  commune: string
+  region: string
   carrier: string
   trackingCode: string
   trackingUrl: string
@@ -149,6 +149,7 @@ export type PublicBuyerContact = {
 }
 
 export type SellerShipment = ShipmentSummary & {
+  recipientTaxId: string
   addressLine: string
   deliveryNotes: string
   dispatchedAt: string | null
@@ -360,8 +361,8 @@ export function mapShipmentSummary(
     statusLabel: asString(shipment.statusLabel),
     deliveryMode: asString(shipment.deliveryMode),
     recipientName: asString(shipment.recipientName),
-    municipality: asString(shipment.municipality),
-    city: asString(shipment.city),
+    commune: asString(shipment.commune),
+    region: asString(shipment.region),
     carrier: asString(shipment.carrier),
     trackingCode: asString(shipment.trackingCode),
     trackingUrl: asString(shipment.trackingUrl),
@@ -373,9 +374,13 @@ export function mapShipmentSummary(
   }
 }
 
-function mapLabel(
-  label: NonNullable<OperationShipmentDetailFragment['latestLabel']>,
-): ShipmentLabel {
+export function mapShipmentLabel(label: {
+  id: string
+  downloadUrl?: string | null
+  expiresAt: unknown
+  createdAt: unknown
+  fileName: string
+}): ShipmentLabel {
   return {
     id: asString(label.id),
     downloadUrl: label.downloadUrl ? asString(label.downloadUrl) : null,
@@ -436,6 +441,7 @@ export function mapSellerShipment(
 ): SellerShipment {
   return {
     ...mapShipmentSummary(shipment),
+    recipientTaxId: asString(shipment.recipientTaxId),
     addressLine: asString(shipment.addressLine),
     deliveryNotes: asString(shipment.deliveryNotes),
     dispatchedAt: shipment.dispatchedAt ? asString(shipment.dispatchedAt) : null,
@@ -443,7 +449,7 @@ export function mapSellerShipment(
     updatedAt: asString(shipment.updatedAt),
     publicUrl: asString(shipment.publicUrl),
     confirmation: shipment.confirmation ? mapConfirmation(shipment.confirmation) : null,
-    latestLabel: shipment.latestLabel ? mapLabel(shipment.latestLabel) : null,
+    latestLabel: shipment.latestLabel ? mapShipmentLabel(shipment.latestLabel) : null,
     timeline: shipment.timeline.map((item) => ({
       id: asString(item.id),
       eventType: asString(item.eventType),

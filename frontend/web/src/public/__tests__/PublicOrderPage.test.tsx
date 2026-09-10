@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -8,6 +9,7 @@ import { PublicOrderPage } from '../PublicOrderPage'
 
 vi.mock('../../sales/api', () => ({
   fetchPublicOrder: vi.fn(),
+  setBuyerDetails: vi.fn(),
   uploadPublicPaymentProof: vi.fn(),
   salesKeys: {
     publicOrder: (token: string) => ['public-order', token],
@@ -123,10 +125,59 @@ describe('ficha pública de depósito', () => {
     expect(screen.getByText('12345678')).toBeInTheDocument()
     expect(screen.getByText('11.111.111-1')).toBeInTheDocument()
     expect(screen.getByText('pagos@taller.cl')).toBeInTheDocument()
+    expect(document.querySelector('.public-offer-split')).toBeInTheDocument()
+    expect(screen.getByLabelText('Quién recibe')).toBeInTheDocument()
+    expect(screen.getByLabelText('RUT de quien recibe')).toBeInTheDocument()
+    expect(screen.getByLabelText('Teléfono de contacto')).toBeInTheDocument()
+    expect(screen.getByLabelText('Dirección')).toBeInTheDocument()
     expect(
       screen.getByLabelText('Selecciona una foto o PDF del comprobante'),
-    ).toBeInTheDocument()
+    ).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Enviar comprobante' })).toBeDisabled()
     expect(screen.queryByRole('link', { name: 'Comprar' })).toBeNull()
+  })
+
+  it('habilita el comprobante después de guardar el despacho', async () => {
+    const savedBuyer = {
+      fullName: 'Camila Rojas',
+      email: '',
+      phone: '+56911111111',
+      recipientName: 'Camila Rojas',
+      recipientTaxId: '11.111.111-1',
+      deliveryAddress: 'Los Aromos 123',
+      deliveryCommune: 'Ñuñoa',
+      deliveryRegion: 'Región Metropolitana de Santiago',
+      deliveryNotes: '',
+      taxId: '',
+      taxName: '',
+      taxBusinessActivity: '',
+      taxAddress: '',
+      taxCommune: '',
+      taxRegion: '',
+      taxEmail: '',
+    }
+    mocked.setBuyerDetails.mockResolvedValue({ ...order, buyer: savedBuyer })
+    mocked.fetchPublicOrder
+      .mockResolvedValueOnce(order)
+      .mockResolvedValue({ ...order, buyer: savedBuyer })
+
+    renderPage()
+    await screen.findByLabelText('Quién recibe')
+    await userEvent.type(screen.getByLabelText('Quién recibe'), 'Camila Rojas')
+    await userEvent.type(screen.getByLabelText('RUT de quien recibe'), '111111111')
+    await userEvent.type(screen.getByLabelText('Teléfono de contacto'), '+56911111111')
+    await userEvent.type(screen.getByLabelText('Dirección'), 'Los Aromos 123')
+    await userEvent.selectOptions(
+      screen.getByLabelText('Región'),
+      'Región Metropolitana de Santiago',
+    )
+    await userEvent.selectOptions(screen.getByLabelText('Comuna'), 'Ñuñoa')
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar datos de despacho' }))
+
+    await waitFor(() => expect(mocked.setBuyerDetails).toHaveBeenCalledTimes(1))
+    expect(
+      await screen.findByLabelText('Selecciona una foto o PDF del comprobante'),
+    ).toBeEnabled()
   })
 
   it('oculta el plazo cuando la venta ya fue confirmada', async () => {

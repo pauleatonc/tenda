@@ -37,7 +37,12 @@ from .models import (
     Ticket,
     TicketMessage,
 )
-from .selectors import CONFIRMABLE_STATUSES, EDITABLE_STATUSES, shipment_label_field_errors
+from .selectors import (
+    CONFIRMABLE_STATUSES,
+    EDITABLE_STATUSES,
+    shipment_can_generate_label,
+    shipment_label_field_errors,
+)
 from .selectors import shipment_for_context as load_shipment
 
 TRANSITIONS: dict[str, frozenset[str]] = {
@@ -138,6 +143,11 @@ def ensure_shipment_for_paid_order(
     _require_paid(order)
     existing = Shipment.objects.filter(order=order).first()
     if existing is not None:
+        _ensure_internal_label(
+            existing,
+            actor=actor,
+            correlation_id=correlation_id,
+        )
         return ShipmentResult(shipment=existing, replayed=True)
 
     buyer = getattr(order, "buyer", None)
@@ -152,9 +162,10 @@ def ensure_shipment_for_paid_order(
         status=Shipment.Status.PENDING,
         delivery_mode=order.delivery_mode,
         recipient_name=recipient,
+        recipient_tax_id=str(getattr(buyer, "recipient_tax_id", "") or ""),
         address_line=str(getattr(buyer, "address_line", "") or ""),
-        municipality=str(getattr(buyer, "municipality", "") or ""),
-        city=str(getattr(buyer, "city", "") or ""),
+        commune=str(getattr(buyer, "commune", "") or ""),
+        region=str(getattr(buyer, "region", "") or ""),
         delivery_notes=str(getattr(buyer, "delivery_notes", "") or ""),
         public_token_hash=_token_digest(token),
         public_token_ciphertext=encrypt_credential(token),
@@ -178,6 +189,11 @@ def ensure_shipment_for_paid_order(
         object_public_id=str(shipment.public_id),
         correlation_id=correlation_id,
         metadata={"orderId": str(order.public_id)},
+    )
+    _ensure_internal_label(
+        shipment,
+        actor=actor,
+        correlation_id=correlation_id,
     )
     return ShipmentResult(shipment=shipment, replayed=False)
 
@@ -238,6 +254,52 @@ def public_shipment_for_token(token: str) -> Shipment:
             status=404,
         )
     return shipment
+
+
+def _tenant_context_for_label(shipment: Shipment, actor: Any) -> TenantContext | None:
+    if actor is not None:
+        membership = (
+            Membership.objects.filter(
+                user=actor,
+                organisation=shipment.organisation,
+                is_active=True,
+            )
+            .select_related("user", "organisation")
+            .first()
+        )
+        if membership is not None:
+            return TenantContext(
+                user=actor,
+                organisation=shipment.organisation,
+                membership=membership,
+                inventory=shipment.inventory,
+            )
+    try:
+        return _context_for_shipment(shipment)
+    except DomainError:
+        return None
+
+
+def _ensure_internal_label(
+    shipment: Shipment,
+    *,
+    actor: Any = None,
+    correlation_id: str = "",
+) -> None:
+    if not shipment_can_generate_label(shipment):
+        return
+    context = _tenant_context_for_label(shipment, actor)
+    if context is None:
+        return
+    try:
+        _apply_generate_label(
+            context,
+            shipment_id=shipment.public_id,
+            actor=context.user,
+            correlation_id=correlation_id,
+        )
+    except DomainError:
+        return
 
 
 def _context_for_shipment(shipment: Shipment) -> TenantContext:
@@ -693,6 +755,9 @@ def _apply_generate_label(
             "Completa los datos requeridos antes de generar la etiqueta.",
             field_errors=field_errors,
         )
+    latest = shipment.labels.select_related("asset").order_by("-created_at").first()
+    if latest is not None and latest.expires_at > timezone.now():
+        return latest
     pdf = render_internal_label_pdf(shipment)
     filename = f"etiqueta-interna-{shipment.number}.pdf"
     asset = create_generated_asset(

@@ -1,7 +1,9 @@
+import { formatChileAddress, formatRutInput } from '@tenda/api-client'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useRef, useState } from 'react'
 import {
+  Alert,
   Clipboard,
   Image,
   Linking,
@@ -16,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { MobileEmptyState } from '../../../components/app-ui'
 import { PrimaryButton, StatusMessage, colors } from '../../../components/auth-ui'
+import { ChileLocationFields } from '../../../components/chile-location-fields'
 import { SectionCard, Sheet, SheetField } from '../../../components/inventory-ui'
 import {
   DetailRow,
@@ -29,17 +32,18 @@ import {
 import { MobileApiError } from '../../../lib/auth-api'
 import { formatDate } from '../../../lib/format'
 import { newIdempotencyKey } from '../../../lib/graphql'
+import { generateShipmentLabel } from '../../../lib/shipping-api'
 import {
   cancelOrder,
   confirmManualPayment,
   fetchOrder,
   refundPayment,
   reissueBankTransferOffer,
-  resendOrderLink,
   restoreOrder,
   reviewPaymentProof,
   salesKeys,
   sendOfferLink,
+  updateOrderBuyer,
   type SellerOrder,
 } from '../../../lib/sales-api'
 
@@ -84,6 +88,12 @@ type ActionForm = {
   amount: string
   paidDate: string
   note: string
+  email: string
+}
+
+function isValidEmail(value: string) {
+  const email = value.trim()
+  return Boolean(email) && email.includes('@') && !email.includes(' ')
 }
 
 function SaleActionSheet({
@@ -91,6 +101,7 @@ function SaleActionSheet({
   isPending,
   actionError,
   defaultAmount,
+  defaultEmail,
   onClose,
   onConfirm,
 }: {
@@ -98,6 +109,7 @@ function SaleActionSheet({
   isPending: boolean
   actionError: string
   defaultAmount: string
+  defaultEmail: string
   onClose: () => void
   onConfirm: (form: ActionForm) => void
 }) {
@@ -105,6 +117,7 @@ function SaleActionSheet({
   const [amount, setAmount] = useState(defaultAmount)
   const [paidDate, setPaidDate] = useState(today)
   const [note, setNote] = useState('')
+  const [email, setEmail] = useState(defaultEmail)
 
   return (
     <Sheet
@@ -114,7 +127,9 @@ function SaleActionSheet({
         action === 'approve'
           ? 'Al validar, el pago se confirma y el stock reservado se descuenta una sola vez.'
           : action === 'resend'
-            ? 'Confirma que quieres reenviar el enlace vigente al comprador.'
+            ? defaultEmail
+              ? 'Revisa el correo. Si lo anotaste mal, corrígelo antes de enviar el enlace.'
+              : 'Ingresa el correo del comprador para enviarle el enlace.'
             : action === 'reissue'
               ? 'Se cancela esta venta y se crea un enlace nuevo con el mismo producto.'
               : action === 'restore'
@@ -136,7 +151,7 @@ function SaleActionSheet({
             <PrimaryButton
               label={action ? ACTION_CONFIRM_LABELS[action] : 'Confirmar'}
               loading={isPending}
-              onPress={() => onConfirm({ reason, amount, paidDate, note })}
+              onPress={() => onConfirm({ reason, amount, paidDate, note, email })}
             />
           </View>
         </>
@@ -180,6 +195,15 @@ function SaleActionSheet({
           />
         </>
       ) : null}
+      {action === 'resend' ? (
+        <SheetField
+          label="Correo del comprador"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          value={email}
+          onChangeText={setEmail}
+        />
+      ) : null}
       {action === 'approve' ? (
         <Text style={salesStyles.muted}>
           Esta confirmación no puede ejecutarse dos veces: Tenda conserva la misma
@@ -188,7 +212,7 @@ function SaleActionSheet({
       ) : null}
       {action === 'resend' ? (
         <Text style={salesStyles.muted}>
-          Solo se ejecutará después de esta confirmación explícita.
+          Enviaremos el enlace vigente a este correo.
         </Text>
       ) : null}
       {actionError ? <StatusMessage message={actionError} /> : null}
@@ -207,7 +231,20 @@ export default function SaleDetailScreen() {
   const [shareUrl, setShareUrl] = useState('')
   const [shareOrderId, setShareOrderId] = useState('')
   const [email, setEmail] = useState('')
+  const [editingContact, setEditingContact] = useState(false)
+  const [contactName, setContactName] = useState('')
+  const [contactEmail, setContactEmail] = useState('')
+  const [contactPhone, setContactPhone] = useState('')
+  const [recipientName, setRecipientName] = useState('')
+  const [recipientTaxId, setRecipientTaxId] = useState('')
+  const [deliveryAddress, setDeliveryAddress] = useState('')
+  const [deliveryCommune, setDeliveryCommune] = useState('')
+  const [deliveryRegion, setDeliveryRegion] = useState('')
+  const [deliveryNotes, setDeliveryNotes] = useState('')
+  const [contactKey, setContactKey] = useState(newIdempotencyKey)
+  const [labelKey, setLabelKey] = useState(newIdempotencyKey)
   const actionLock = useRef(false)
+  const labelLock = useRef(false)
 
   const order = useQuery({
     queryKey: salesKeys.order(orderId),
@@ -262,7 +299,11 @@ export default function SaleDetailScreen() {
       if (kind === 'reissue') {
         return reissueBankTransferOffer({ orderId, idempotencyKey: actionKey })
       }
-      return resendOrderLink({ orderId, idempotencyKey: actionKey })
+      return sendOfferLink({
+        orderId,
+        email: form.email.trim(),
+        idempotencyKey: actionKey,
+      })
     },
     onSuccess: (result, { kind }) => {
       if ((kind === 'resend' || kind === 'reissue') && 'publicUrl' in result) {
@@ -271,7 +312,7 @@ export default function SaleDetailScreen() {
       }
       setSuccess(
         kind === 'resend'
-          ? 'El enlace quedó listo para compartir.'
+          ? 'Enviamos el enlace al correo indicado.'
           : kind === 'reissue'
             ? 'Se creó un enlace nuevo. Compártelo con el comprador.'
             : kind === 'restore'
@@ -284,17 +325,119 @@ export default function SaleDetailScreen() {
         router.replace(`/ventas/${result.order.id}`)
       }
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown, { kind }) => {
       setActionError(
         error instanceof MobileApiError
           ? error.message
           : 'No pudimos completar la acción. Inténtalo otra vez.',
       )
+      if (kind === 'resend') setActionKey(newIdempotencyKey())
     },
     onSettled: () => {
       actionLock.current = false
     },
   })
+
+  const saveContact = useMutation({
+    mutationFn: () =>
+      updateOrderBuyer({
+        orderId,
+        fullName: contactName.trim() || recipientName.trim() || 'Comprador',
+        email: contactEmail.trim() || null,
+        phone: contactPhone.trim() || null,
+        recipientName: recipientName.trim() || null,
+        recipientTaxId: recipientTaxId.trim() || null,
+        deliveryAddress: deliveryAddress.trim() || null,
+        deliveryCommune: deliveryCommune.trim() || null,
+        deliveryRegion: deliveryRegion.trim() || null,
+        deliveryNotes: deliveryNotes.trim() || null,
+        taxId: order.data?.buyer?.taxId || null,
+        taxName: order.data?.buyer?.taxName || null,
+        taxBusinessActivity: order.data?.buyer?.taxBusinessActivity || null,
+        taxAddress: order.data?.buyer?.taxAddress || null,
+        taxCommune: order.data?.buyer?.taxCommune || null,
+        taxRegion: order.data?.buyer?.taxRegion || null,
+        taxEmail: order.data?.buyer?.taxEmail || null,
+        idempotencyKey: contactKey,
+      }),
+    onSuccess: () => {
+      setEditingContact(false)
+      setContactKey(newIdempotencyKey())
+      setSuccess('Datos de comprador y entrega actualizados.')
+      void queryClient.invalidateQueries({ queryKey: salesKeys.root })
+    },
+    onError: (error: unknown) => {
+      setActionError(
+        error instanceof MobileApiError
+          ? error.message
+          : 'No pudimos guardar los cambios. Inténtalo otra vez.',
+      )
+      setContactKey(newIdempotencyKey())
+    },
+  })
+
+  const generateLabel = useMutation({
+    mutationFn: () =>
+      generateShipmentLabel({
+        shipmentId: order.data?.shipmentId ?? '',
+        idempotencyKey: labelKey,
+      }),
+    onSuccess: (result) => {
+      const url = result.label?.downloadUrl ?? result.shipment.latestLabel?.downloadUrl
+      setLabelKey(newIdempotencyKey())
+      setActionError('')
+      labelLock.current = false
+      void queryClient.invalidateQueries({ queryKey: salesKeys.order(orderId) })
+      if (url) {
+        openLabelUrl(url)
+      }
+    },
+    onError: (error: unknown) => {
+      setActionError(
+        error instanceof MobileApiError
+          ? error.message
+          : 'No pudimos generar la etiqueta.',
+      )
+      labelLock.current = false
+    },
+  })
+
+  function openLabelUrl(url: string) {
+    Alert.alert(
+      'Etiqueta interna Tenda',
+      'Este documento no es una etiqueta de transportista. El enlace de descarga expira.',
+      [
+        { text: 'Cerrar', style: 'cancel' },
+        { text: 'Descargar PDF', onPress: () => void Linking.openURL(url) },
+      ],
+    )
+  }
+
+  function openLabel() {
+    const url = order.data?.latestLabel?.downloadUrl
+    if (url) {
+      openLabelUrl(url)
+      return
+    }
+    if (!order.data?.shipmentId || labelLock.current || generateLabel.isPending) return
+    labelLock.current = true
+    generateLabel.mutate()
+  }
+
+  function openContactEditor() {
+    const current = order.data?.buyer
+    setContactName(current?.fullName ?? '')
+    setContactEmail(current?.email ?? '')
+    setContactPhone(current?.phone ?? '')
+    setRecipientName(current?.recipientName ?? '')
+    setRecipientTaxId(current?.recipientTaxId ?? '')
+    setDeliveryAddress(current?.deliveryAddress ?? '')
+    setDeliveryCommune(current?.deliveryCommune ?? '')
+    setDeliveryRegion(current?.deliveryRegion ?? '')
+    setDeliveryNotes(current?.deliveryNotes ?? '')
+    setActionError('')
+    setEditingContact(true)
+  }
 
   function openAction(kind: ActionKind) {
     setAction(kind)
@@ -316,6 +459,10 @@ export default function SaleDetailScreen() {
     }
     if (action === 'refund' && !form.reason.trim()) {
       setActionError('Escribe el motivo del reembolso.')
+      return
+    }
+    if (action === 'resend' && !isValidEmail(form.email)) {
+      setActionError('Ingresa un correo válido.')
       return
     }
     if (action === 'manual') {
@@ -383,6 +530,8 @@ export default function SaleDetailScreen() {
   const payment = data.payment
   const proof = payment?.proof
   const allowed = data.allowedActions
+  const canSendLink = allowed.resendLink || allowed.sendOfferLink
+  const canViewLabel = allowed.viewShipmentLabel || Boolean(data.latestLabel)
 
   return (
     <SafeAreaView style={salesStyles.safeArea}>
@@ -491,27 +640,42 @@ export default function SaleDetailScreen() {
           <DetailRow label="Total" value={formatClp(data.total)} />
         </SectionCard>
 
-        <SectionCard title="Comprador y entrega">
+        <SectionCard
+          title="Comprador y entrega"
+          action={
+            allowed.updateBuyer ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Editar comprador y entrega"
+                onPress={openContactEditor}
+              >
+                <Text style={styles.editIcon}>✎</Text>
+              </Pressable>
+            ) : undefined
+          }
+        >
           <DetailRow label="Comprador" value={buyer?.fullName ?? 'Pendiente'} />
-          <DetailRow label="Email" value={buyer?.email ?? ''} />
+          <DetailRow label="Email" value={buyer?.email || 'Sin correo'} />
           <DetailRow label="Teléfono" value={buyer?.phone ?? ''} />
           <DetailRow
             label="Entrega"
             value={deliveryModeLabels[data.deliveryMode] ?? data.deliveryMode}
           />
-          {data.deliveryMode === 'shipping' ? (
+          {buyer?.recipientName || data.deliveryMode === 'shipping' ? (
             <>
               <DetailRow label="Destinatario" value={buyer?.recipientName ?? ''} />
+              <DetailRow label="RUT de quien recibe" value={buyer?.recipientTaxId ?? ''} />
               <DetailRow
                 label="Dirección"
-                value={[
-                  buyer?.deliveryAddress,
-                  buyer?.deliveryCommune,
-                  buyer?.deliveryCity,
-                ]
-                  .filter(Boolean)
-                  .join(', ')}
+                value={formatChileAddress(
+                  buyer?.deliveryAddress ?? '',
+                  buyer?.deliveryCommune ?? '',
+                  buyer?.deliveryRegion ?? '',
+                )}
               />
+              {buyer?.deliveryNotes ? (
+                <DetailRow label="Indicaciones" value={buyer.deliveryNotes} />
+              ) : null}
             </>
           ) : null}
           {buyer?.taxId ? (
@@ -566,7 +730,7 @@ export default function SaleDetailScreen() {
         </SectionCard>
 
         <SectionCard title="Acciones permitidas">
-          {!Object.values(allowed).some(Boolean) ? (
+          {!Object.values(allowed).some(Boolean) && !canViewLabel ? (
             <Text style={salesStyles.muted}>
               No hay acciones disponibles para el estado actual.
             </Text>
@@ -591,7 +755,7 @@ export default function SaleDetailScreen() {
                 onPress={() => openAction('manual')}
               />
             ) : null}
-            {allowed.resendLink ? (
+            {canSendLink ? (
               <PrimaryButton
                 label="Reenviar enlace"
                 variant="secondary"
@@ -625,6 +789,14 @@ export default function SaleDetailScreen() {
                 onPress={() => openAction('refund')}
               />
             ) : null}
+            {canViewLabel ? (
+              <PrimaryButton
+                label="Ver etiqueta"
+                variant="secondary"
+                loading={generateLabel.isPending}
+                onPress={openLabel}
+              />
+            ) : null}
           </View>
         </SectionCard>
 
@@ -654,9 +826,66 @@ export default function SaleDetailScreen() {
         isPending={executeAction.isPending}
         actionError={actionError}
         defaultAmount={data.payment?.amount ?? data.total}
+        defaultEmail={data.buyer?.email ?? ''}
         onClose={closeAction}
         onConfirm={confirmAction}
       />
+      <Sheet
+        visible={editingContact}
+        title="Editar comprador y entrega"
+        description="Corrige los datos si el comprador los anotó mal."
+        onClose={() => setEditingContact(false)}
+        footer={
+          <>
+            <View style={salesStyles.footerItem}>
+              <PrimaryButton
+                label="Cancelar"
+                variant="secondary"
+                disabled={saveContact.isPending}
+                onPress={() => setEditingContact(false)}
+              />
+            </View>
+            <View style={salesStyles.footerItem}>
+              <PrimaryButton
+                label="Guardar"
+                loading={saveContact.isPending}
+                onPress={() => saveContact.mutate()}
+              />
+            </View>
+          </>
+        }
+      >
+        <SheetField label="Nombre" value={contactName} onChangeText={setContactName} />
+        <SheetField
+          label="Email"
+          value={contactEmail}
+          onChangeText={setContactEmail}
+          keyboardType="email-address"
+        />
+        <SheetField
+          label="Teléfono"
+          value={contactPhone}
+          onChangeText={setContactPhone}
+          keyboardType="phone-pad"
+        />
+        <SheetField label="Quién recibe" value={recipientName} onChangeText={setRecipientName} />
+        <SheetField
+          label="RUT de quien recibe"
+          value={recipientTaxId}
+          onChangeText={(value) => setRecipientTaxId(formatRutInput(value))}
+        />
+        <SheetField label="Dirección" value={deliveryAddress} onChangeText={setDeliveryAddress} />
+        <ChileLocationFields
+          region={deliveryRegion}
+          commune={deliveryCommune}
+          onChange={({ region, commune }) => {
+            setDeliveryRegion(region)
+            setDeliveryCommune(commune)
+          }}
+        />
+        <SheetField label="Indicaciones" value={deliveryNotes} onChangeText={setDeliveryNotes} />
+        {actionError && editingContact ? <StatusMessage message={actionError} /> : null}
+      </Sheet>
     </SafeAreaView>
   )
 }
@@ -681,6 +910,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   title: { color: colors.ink, fontSize: 28, fontWeight: '800', letterSpacing: -1 },
+  editIcon: { color: colors.inkSoft, fontSize: 18, fontWeight: '700', padding: 4 },
   total: { color: colors.ink, fontSize: 24, fontWeight: '800' },
   line: {
     alignItems: 'center',

@@ -43,8 +43,8 @@ class ShipmentAdmin(MaintainerModelAdmin):
         "delivery_mode",
         "recipient_name",
         "address_line",
-        "municipality",
-        "city",
+        "commune",
+        "region",
         "delivery_notes",
     )
 

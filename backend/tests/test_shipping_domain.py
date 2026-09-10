@@ -60,10 +60,12 @@ def paid_order(context: TenantContext) -> Order:
         details={
             "name": "Camila Soto",
             "email": "camila@example.cl",
+            "phone": "+56911111111",
             "recipientName": "Camila Soto",
+            "recipientTaxId": "11.111.111-1",
             "addressLine": "Los Aromos 123",
-            "municipality": "Ñuñoa",
-            "city": "Santiago",
+            "commune": "Ñuñoa",
+            "region": "Región Metropolitana de Santiago",
         },
         correlation_id="buyer",
     )
@@ -102,23 +104,30 @@ def test_paid_order_creates_one_shipment_and_replays() -> None:
     assert second.replayed is True
     assert Shipment.objects.filter(order=order).count() == 1
     assert first.shipment.status == Shipment.Status.PENDING
-    assert ShipmentEvent.objects.filter(shipment=first.shipment).count() == 1
+    assert (
+        ShipmentEvent.objects.filter(
+            shipment=first.shipment,
+            event_type="shipment.created",
+        ).count()
+        == 1
+    )
+    assert first.shipment.labels.count() == 1
 
 
 def test_buyer_snapshot_edits_do_not_change_shipment_address() -> None:
     _user, context = identity("ship-snapshot@example.com")
     order = paid_order(context)
     shipment = order.shipment
-    original = (shipment.address_line, shipment.municipality, shipment.city)
+    original = (shipment.address_line, shipment.commune, shipment.region)
 
     buyer = order.buyer
     buyer.address_line = "Nueva 999"
-    buyer.municipality = "Providencia"
-    buyer.city = "Otra"
-    buyer.save(update_fields=("address_line", "municipality", "city", "updated_at"))
+    buyer.commune = "Providencia"
+    buyer.region = "Otra"
+    buyer.save(update_fields=("address_line", "commune", "region", "updated_at"))
     shipment.refresh_from_db()
 
-    assert (shipment.address_line, shipment.municipality, shipment.city) == original
+    assert (shipment.address_line, shipment.commune, shipment.region) == original
     with pytest.raises(ValidationError):
         shipment.address_line = "Nueva 999"
         shipment.save()
@@ -149,7 +158,11 @@ def test_repeated_transition_does_not_duplicate_event_or_notification() -> None:
     assert first.replayed is False
     assert second.replayed is True
     events = list(ShipmentEvent.objects.filter(shipment=shipment).order_by("created_at"))
-    assert [event.to_status for event in events] == ["pending", "preparing"]
+    assert [event.event_type for event in events] == [
+        "shipment.created",
+        "shipment.label_generated",
+        "shipment.preparing",
+    ]
     assert (
         OutboxEvent.objects.filter(
             aggregate_public_id=str(shipment.public_id),
