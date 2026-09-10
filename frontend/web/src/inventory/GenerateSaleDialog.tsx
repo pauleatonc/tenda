@@ -1,0 +1,259 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+
+import { BankDetailsRequiredNotice } from '../app/BankDetailsRequiredNotice'
+import { Modal } from '../components/ui'
+import { TendaApiError, newIdempotencyKey } from '../lib/http'
+import {
+  createOrder,
+  publishOrderLink,
+  sendOfferLink,
+} from '../sales/api'
+import { formatClp } from '../sales/model'
+import type { ProductRow } from './api'
+import { formatPrice, formatQuantity } from './format'
+
+const SALE_METHODS = [
+  {
+    id: 'deposit',
+    label: 'Depósito',
+    description: 'El comprador transfiere y sube el comprobante.',
+    enabled: true,
+  },
+  {
+    id: 'online',
+    label: 'Pago Online',
+    description: 'Próximamente',
+    enabled: false,
+  },
+  {
+    id: 'cash',
+    label: 'Efectivo',
+    description: 'Próximamente',
+    enabled: false,
+  },
+] as const
+
+export function GenerateSaleDialog({
+  product,
+  hasBankDetails,
+  onClose,
+}: {
+  product: ProductRow
+  hasBankDetails: boolean
+  onClose: () => void
+}) {
+  const queryClient = useQueryClient()
+  const available = product.stock.available
+  const [quantity, setQuantity] = useState(1)
+  const [email, setEmail] = useState('')
+  const [copied, setCopied] = useState(false)
+  const [emailSent, setEmailSent] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+  const [createKey] = useState(newIdempotencyKey)
+  const [publishKey] = useState(newIdempotencyKey)
+  const [emailKey, setEmailKey] = useState(newIdempotencyKey)
+  const [result, setResult] = useState<{ orderId: string; publicUrl: string } | null>(
+    null,
+  )
+
+  const publish = useMutation({
+    mutationFn: async () => {
+      const created = await createOrder({
+        lines: [
+          {
+            productId: product.id,
+            quantity,
+            unitSalePrice: product.salePrice ?? '0',
+          },
+        ],
+        deliveryMode: 'coordinated',
+        paymentMethod: 'bank_transfer',
+        idempotencyKey: createKey,
+      })
+      const published = await publishOrderLink({
+        orderId: created.order.id,
+        idempotencyKey: publishKey,
+      })
+      return { orderId: created.order.id, publicUrl: published.publicUrl }
+    },
+    onSuccess: (published) => {
+      setResult(published)
+      setError(null)
+      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
+      void queryClient.invalidateQueries({ queryKey: ['sales'] })
+    },
+    onError: (mutationError: Error) => setError(mutationError),
+  })
+
+  const sendEmail = useMutation({
+    mutationFn: () => {
+      if (!result) throw new Error('Falta el enlace publicado.')
+      return sendOfferLink({
+        orderId: result.orderId,
+        email: email.trim(),
+        idempotencyKey: emailKey,
+      })
+    },
+    onSuccess: () => {
+      setEmailSent(true)
+      setError(null)
+    },
+    onError: (mutationError: Error) => {
+      setError(mutationError)
+      setEmailKey(newIdempotencyKey())
+    },
+  })
+
+  async function copyUrl() {
+    if (!result) return
+    await navigator.clipboard.writeText(result.publicUrl)
+    setCopied(true)
+  }
+
+  return (
+    <Modal
+      title={result ? 'Enlace listo' : `Generar venta · ${product.name}`}
+      description={
+        result
+          ? 'Copia el enlace o envíalo por correo. El comprador abre la ficha en el navegador.'
+          : 'Elige el tipo de venta. Depósito reserva stock y comparte un enlace de transferencia.'
+      }
+      onClose={onClose}
+      footer={
+        result ? (
+          <button className="button button--secondary" type="button" onClick={onClose}>
+            Cerrar
+          </button>
+        ) : (
+          <>
+            <button className="button button--secondary" type="button" onClick={onClose}>
+              Cancelar
+            </button>
+            {hasBankDetails ? (
+              <button
+                className="button button--primary"
+                type="button"
+                disabled={publish.isPending}
+                onClick={() => publish.mutate()}
+              >
+                {publish.isPending ? 'Generando…' : 'Generar depósito'}
+              </button>
+            ) : null}
+          </>
+        )
+      }
+    >
+      {error ? (
+        <div className="form-message form-message--error" role="alert">
+          <span>
+            {error instanceof TendaApiError
+              ? error.message
+              : 'No pudimos completar la acción. Inténtalo nuevamente.'}
+          </span>
+        </div>
+      ) : null}
+
+      {!result && !hasBankDetails ? <BankDetailsRequiredNotice /> : null}
+
+      {result ? (
+        <div className="generate-sale-ready">
+          <label className="field">
+            <span>Enlace público</span>
+            <input readOnly value={result.publicUrl} />
+          </label>
+          <div className="row-actions">
+            <button className="button button--primary" type="button" onClick={() => void copyUrl()}>
+              {copied ? 'Copiado' : 'Copiar enlace'}
+            </button>
+            <Link className="button button--secondary" to={`/app/ventas/${result.orderId}`}>
+              Ver venta
+            </Link>
+          </div>
+          <form
+            className="generate-sale-email"
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (email.trim()) sendEmail.mutate()
+            }}
+          >
+            <label className="field">
+              <span>Enviar por correo</span>
+              <input
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value)
+                  setEmailSent(false)
+                }}
+                placeholder="correo@ejemplo.cl"
+              />
+            </label>
+            <button
+              className="button button--secondary"
+              type="submit"
+              disabled={!email.trim() || sendEmail.isPending}
+            >
+              {sendEmail.isPending ? 'Enviando…' : 'Enviar'}
+            </button>
+            {emailSent ? (
+              <p className="field__hint" role="status">
+                Correo enviado.
+              </p>
+            ) : null}
+          </form>
+        </div>
+      ) : (
+        <>
+          <div className="sale-method-list" role="list">
+            {SALE_METHODS.map((method) => (
+              <div
+                key={method.id}
+                className={`sale-method${method.enabled ? ' is-active' : ''}`}
+                role="listitem"
+              >
+                <strong>{method.label}</strong>
+                <span>{method.description}</span>
+              </div>
+            ))}
+          </div>
+          <p className="generate-sale-price">
+            Precio de venta: <strong>{formatPrice(product.salePrice)}</strong>
+          </p>
+          {available > 1 ? (
+            <div className="field">
+              <span id="generate-sale-qty">Cantidad</span>
+              <div className="qty-stepper">
+                <button
+                  type="button"
+                  aria-label="Quitar una unidad"
+                  disabled={quantity <= 1}
+                  onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+                >
+                  −
+                </button>
+                <output aria-labelledby="generate-sale-qty">{formatQuantity(quantity)}</output>
+                <button
+                  type="button"
+                  aria-label="Agregar una unidad"
+                  disabled={quantity >= available}
+                  onClick={() =>
+                    setQuantity((current) => Math.min(available, current + 1))
+                  }
+                >
+                  +
+                </button>
+              </div>
+              <small className="field__hint">
+                Total {formatClp(Number(product.salePrice ?? 0) * quantity)} · hasta{' '}
+                {formatQuantity(available)} disponibles
+              </small>
+            </div>
+          ) : null}
+        </>
+      )}
+    </Modal>
+  )
+}

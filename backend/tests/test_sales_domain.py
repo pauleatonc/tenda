@@ -19,6 +19,7 @@ from apps.sales.order_services import (
     create_order,
     expire_order,
     public_order_for_token,
+    restore_order,
     review_payment_proof,
     set_buyer_details,
 )
@@ -34,6 +35,24 @@ from tenda.errors import DomainError, ResourceNotFound
 pytestmark = pytest.mark.django_db(transaction=True)
 
 
+def seed_bank_details(organisation) -> None:
+    organisation.bank_name = "BancoEstado"
+    organisation.bank_account_type = "cuenta_corriente"
+    organisation.bank_account_number = "12345678"
+    organisation.bank_holder_tax_id = "11.111.111-1"
+    organisation.bank_confirmation_email = "pagos@example.com"
+    organisation.save(
+        update_fields=(
+            "bank_name",
+            "bank_account_type",
+            "bank_account_number",
+            "bank_holder_tax_id",
+            "bank_confirmation_email",
+            "updated_at",
+        )
+    )
+
+
 def identity(email: str) -> tuple[User, TenantContext]:
     user = User.objects.create_user(
         email=email,
@@ -41,7 +60,9 @@ def identity(email: str) -> tuple[User, TenantContext]:
         email_verified_at=timezone.now(),
     )
     create_organisation_for_owner(owner=user, name=f"Negocio {email}")
-    return user, resolve_tenant_context(user)
+    context = resolve_tenant_context(user)
+    seed_bank_details(context.organisation)
+    return user, context
 
 
 def order_for(
@@ -242,6 +263,84 @@ def test_cancel_then_expire_releases_once_and_keeps_valid_terminal_state() -> No
     reservation = StockReservation.objects.get(order=order)
     assert reservation.released_at is not None
     assert reservation.consumed_at is None
+
+
+def test_restore_cancelled_order_reserves_again_and_reopens_the_link() -> None:
+    _user, context = identity("sales-restore@example.com")
+    order, product = order_for(context, product_name="Cuaderno")
+    cancel_order(
+        context=context,
+        order_id=order.public_id,
+        reason="Cancelé por error",
+        idempotency_key="cancel-to-restore",
+    )
+    assert StockBalance.objects.get(product=product).reserved == 0
+
+    restored = restore_order(
+        context=context,
+        order_id=order.public_id,
+        idempotency_key="restore-order",
+    )
+    replay = restore_order(
+        context=context,
+        order_id=order.public_id,
+        idempotency_key="restore-order",
+    )
+
+    assert restored.order.status == replay.order.status == Order.Status.RESERVED
+    assert replay.replayed
+    assert restored.order.cancelled_at is None
+    assert restored.order.reservation_expires_at > timezone.now()
+    assert StockBalance.objects.get(product=product).reserved == 1
+    assert StockReservation.objects.filter(order=restored.order).count() == 1
+    reservation = StockReservation.objects.get(order=restored.order)
+    assert reservation.released_at is None
+    assert reservation.consumed_at is None
+    assert reservation.expires_at == restored.order.reservation_expires_at
+
+    already_open = restore_order(
+        context=context,
+        order_id=order.public_id,
+        idempotency_key="restore-already-open",
+    )
+    assert already_open.order.status == Order.Status.RESERVED
+
+
+def test_restore_cancelled_order_requires_available_stock() -> None:
+    _user, context = identity("sales-restore-stock@example.com")
+    order, product = order_for(
+        context,
+        product_name="Única unidad",
+        quantity=1,
+        requested=1,
+    )
+    cancel_order(
+        context=context,
+        order_id=order.public_id,
+        reason="Cancelé por error",
+        idempotency_key="cancel-stock",
+    )
+    create_order(
+        context=context,
+        lines=[
+            {
+                "productId": str(product.public_id),
+                "quantity": 1,
+                "unitSalePrice": "1000",
+            }
+        ],
+        delivery_mode=Order.DeliveryMode.PICKUP,
+        payment_method=Order.PaymentMethod.CASH,
+        idempotency_key="take-stock",
+    )
+    with pytest.raises(DomainError) as error:
+        restore_order(
+            context=context,
+            order_id=order.public_id,
+            idempotency_key="restore-no-stock",
+        )
+    assert error.value.code == "INSUFFICIENT_STOCK"
+    assert Order.objects.get(pk=order.pk).status == Order.Status.CANCELLED
 
 
 @pytest.mark.skipif(

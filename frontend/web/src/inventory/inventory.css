@@ -300,7 +300,68 @@
 .row-actions {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
+}
+
+.sale-method-list {
+  display: grid;
+  gap: 10px;
+}
+
+.sale-method {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+}
+
+.sale-method.is-active {
+  border-color: var(--green);
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+
+.sale-method strong {
+  font-size: 16px;
+}
+
+.sale-method span {
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.generate-sale-price {
+  margin: 16px 0 0;
+}
+
+.qty-stepper {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.qty-stepper button {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  height: 40px;
+  width: 40px;
+}
+
+.qty-stepper output {
+  font-weight: 800;
+  min-width: 2ch;
+  text-align: center;
+}
+
+.generate-sale-ready,
+.generate-sale-email {
+  display: grid;
+  gap: 12px;
+}
+
+.modal .bank-details-required {
+  margin: 4px 0 8px;
 }
 
 .button--compact {

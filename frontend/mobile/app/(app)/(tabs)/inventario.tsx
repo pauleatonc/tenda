@@ -15,8 +15,10 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { MobileEmptyState } from '../../../components/app-ui'
 import { PrimaryButton, colors } from '../../../components/auth-ui'
+import { GenerateSaleSheet } from '../../../components/generate-sale-sheet'
 import { InventoryChip, Sheet } from '../../../components/inventory-ui'
 import { StockAdjustSheet } from '../../../components/stock-adjust-sheet'
+import { canGenerateSale } from '../../../lib/can-generate-sale'
 import { MobileApiError } from '../../../lib/auth-api'
 import { catalogStatusLabels, formatPrice, formatQuantity } from '../../../lib/format'
 import {
@@ -105,11 +107,13 @@ function ProductListItem({
   expanded,
   onToggle,
   onAdjust,
+  onSell,
 }: {
   product: ProductCard
   expanded: boolean
   onToggle: () => void
   onAdjust: () => void
+  onSell: () => void
 }) {
   const { available, reserved, activeFulfilment } = product.stock
   return (
@@ -169,6 +173,22 @@ function ProductListItem({
       <View style={styles.cardActions}>
         <Pressable
           accessibilityRole="button"
+          accessibilityState={{ disabled: !canGenerateSale(product) }}
+          disabled={!canGenerateSale(product)}
+          onPress={onSell}
+          style={styles.secondaryAction}
+        >
+          <Text
+            style={[
+              styles.secondaryActionText,
+              !canGenerateSale(product) ? styles.actionDisabled : null,
+            ]}
+          >
+            Generar venta
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
           onPress={onAdjust}
           style={styles.secondaryAction}
         >
@@ -194,6 +214,7 @@ export default function InventoryScreen() {
   const [createOpen, setCreateOpen] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [adjusting, setAdjusting] = useState<ProductCard | null>(null)
+  const [selling, setSelling] = useState<ProductCard | null>(null)
 
   function openCreate(origen?: 'variante' | 'asistida') {
     setCreateOpen(false)
@@ -307,6 +328,7 @@ export default function InventoryScreen() {
               setExpandedId((current) => (current === item.id ? null : item.id))
             }
             onAdjust={() => setAdjusting(item)}
+            onSell={() => setSelling(item)}
           />
         )}
         ListEmptyComponent={
@@ -442,6 +464,13 @@ export default function InventoryScreen() {
           onClose={() => setAdjusting(null)}
         />
       ) : null}
+      {selling ? (
+        <GenerateSaleSheet
+          product={selling}
+          visible
+          onClose={() => setSelling(null)}
+        />
+      ) : null}
     </SafeAreaView>
   )
 }
@@ -500,7 +529,7 @@ const styles = StyleSheet.create({
   breakdownLabel: { color: colors.ink, fontSize: 14, fontWeight: '700' },
   breakdownValue: { color: colors.ink, fontSize: 15, fontWeight: '800' },
   errorLink: { color: colors.error, fontSize: 14, fontWeight: '700' },
-  cardActions: { flexDirection: 'row', gap: 10 },
+  cardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   secondaryAction: {
     alignItems: 'center',
     borderColor: colors.line,
@@ -511,6 +540,7 @@ const styles = StyleSheet.create({
     minHeight: 46,
   },
   secondaryActionText: { color: colors.green, fontSize: 14, fontWeight: '800' },
+  actionDisabled: { color: colors.inkMuted },
   filterHeading: { color: colors.ink, fontSize: 15, fontWeight: '800' },
   footerItem: { flex: 1 },
 })

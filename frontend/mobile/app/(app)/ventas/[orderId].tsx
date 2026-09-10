@@ -2,10 +2,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useRef, useState } from 'react'
 import {
+  Clipboard,
   Image,
   Linking,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -32,34 +34,166 @@ import {
   confirmManualPayment,
   fetchOrder,
   refundPayment,
+  reissueBankTransferOffer,
   resendOrderLink,
+  restoreOrder,
   reviewPaymentProof,
   salesKeys,
+  sendOfferLink,
   type SellerOrder,
 } from '../../../lib/sales-api'
 
-type ActionKind = 'approve' | 'reject' | 'manual' | 'cancel' | 'refund' | 'resend'
+type ActionKind =
+  | 'approve'
+  | 'reject'
+  | 'manual'
+  | 'cancel'
+  | 'restore'
+  | 'refund'
+  | 'resend'
+  | 'reissue'
 
 const ACTION_TITLES: Record<ActionKind, string> = {
-  approve: 'Aprobar comprobante',
+  approve: 'Validar comprobante',
   reject: 'Rechazar comprobante',
   manual: 'Registrar pago manual',
   cancel: 'Cancelar venta',
+  restore: 'Restaurar venta',
   refund: 'Reembolsar pago',
   resend: 'Reenviar enlace',
+  reissue: 'Enviar de nuevo',
 }
 
 const ACTION_CONFIRM_LABELS: Record<ActionKind, string> = {
-  approve: 'Aprobar y descontar stock',
+  approve: 'Validar y descontar stock',
   reject: 'Rechazar comprobante',
   manual: 'Confirmar pago',
   cancel: 'Cancelar venta',
+  restore: 'Restaurar venta',
   refund: 'Iniciar reembolso total',
   resend: 'Reenviar enlace',
+  reissue: 'Crear enlace nuevo',
 }
 
 function today(): string {
   return new Date().toISOString().slice(0, 10)
+}
+
+type ActionForm = {
+  reason: string
+  amount: string
+  paidDate: string
+  note: string
+}
+
+function SaleActionSheet({
+  action,
+  isPending,
+  actionError,
+  defaultAmount,
+  onClose,
+  onConfirm,
+}: {
+  action: ActionKind | null
+  isPending: boolean
+  actionError: string
+  defaultAmount: string
+  onClose: () => void
+  onConfirm: (form: ActionForm) => void
+}) {
+  const [reason, setReason] = useState('')
+  const [amount, setAmount] = useState(defaultAmount)
+  const [paidDate, setPaidDate] = useState(today)
+  const [note, setNote] = useState('')
+
+  return (
+    <Sheet
+      visible={action !== null}
+      title={action ? ACTION_TITLES[action] : 'Confirmar acción'}
+      description={
+        action === 'approve'
+          ? 'Al validar, el pago se confirma y el stock reservado se descuenta una sola vez.'
+          : action === 'resend'
+            ? 'Confirma que quieres reenviar el enlace vigente al comprador.'
+            : action === 'reissue'
+              ? 'Se cancela esta venta y se crea un enlace nuevo con el mismo producto.'
+              : action === 'restore'
+                ? 'Se vuelve a reservar el stock y el enlace público queda activo.'
+                : 'Revisa los datos antes de confirmar.'
+      }
+      onClose={onClose}
+      footer={
+        <>
+          <View style={salesStyles.footerItem}>
+            <PrimaryButton
+              label="Volver"
+              variant="secondary"
+              disabled={isPending}
+              onPress={onClose}
+            />
+          </View>
+          <View style={salesStyles.footerItem}>
+            <PrimaryButton
+              label={action ? ACTION_CONFIRM_LABELS[action] : 'Confirmar'}
+              loading={isPending}
+              onPress={() => onConfirm({ reason, amount, paidDate, note })}
+            />
+          </View>
+        </>
+      }
+    >
+      {action === 'reject' || action === 'cancel' || action === 'refund' ? (
+        <SheetField
+          label={
+            action === 'reject'
+              ? 'Motivo del rechazo'
+              : action === 'refund'
+                ? 'Motivo del reembolso'
+                : 'Motivo de cancelación (opcional)'
+          }
+          multiline
+          blurOnSubmit={false}
+          value={reason}
+          onChangeText={setReason}
+        />
+      ) : null}
+      {action === 'manual' ? (
+        <>
+          <SheetField
+            label="Monto pagado"
+            keyboardType="number-pad"
+            value={amount}
+            onChangeText={setAmount}
+          />
+          <SheetField
+            label="Fecha del pago"
+            placeholder="AAAA-MM-DD"
+            value={paidDate}
+            onChangeText={setPaidDate}
+          />
+          <SheetField
+            label="Nota (opcional)"
+            multiline
+            blurOnSubmit={false}
+            value={note}
+            onChangeText={setNote}
+          />
+        </>
+      ) : null}
+      {action === 'approve' ? (
+        <Text style={salesStyles.muted}>
+          Esta confirmación no puede ejecutarse dos veces: Tenda conserva la misma
+          clave si debes reintentar por una falla de red.
+        </Text>
+      ) : null}
+      {action === 'resend' ? (
+        <Text style={salesStyles.muted}>
+          Solo se ejecutará después de esta confirmación explícita.
+        </Text>
+      ) : null}
+      {actionError ? <StatusMessage message={actionError} /> : null}
+    </Sheet>
+  )
 }
 
 export default function SaleDetailScreen() {
@@ -67,13 +201,12 @@ export default function SaleDetailScreen() {
   const orderId = typeof params.orderId === 'string' ? params.orderId : ''
   const queryClient = useQueryClient()
   const [action, setAction] = useState<ActionKind | null>(null)
-  const [reason, setReason] = useState('')
-  const [amount, setAmount] = useState('')
-  const [paidDate, setPaidDate] = useState(today)
-  const [note, setNote] = useState('')
   const [actionError, setActionError] = useState('')
   const [success, setSuccess] = useState('')
   const [actionKey, setActionKey] = useState(newIdempotencyKey)
+  const [shareUrl, setShareUrl] = useState('')
+  const [shareOrderId, setShareOrderId] = useState('')
+  const [email, setEmail] = useState('')
   const actionLock = useRef(false)
 
   const order = useQuery({
@@ -83,7 +216,7 @@ export default function SaleDetailScreen() {
   })
 
   const executeAction = useMutation({
-    mutationFn: async (kind: ActionKind) => {
+    mutationFn: async ({ kind, form }: { kind: ActionKind; form: ActionForm }) => {
       if (kind === 'approve') {
         return reviewPaymentProof({
           orderId,
@@ -96,43 +229,60 @@ export default function SaleDetailScreen() {
         return reviewPaymentProof({
           orderId,
           decision: 'reject',
-          reason: reason.trim(),
+          reason: form.reason.trim(),
           idempotencyKey: actionKey,
         })
       }
       if (kind === 'manual') {
         return confirmManualPayment({
           orderId,
-          amount,
-          paidAt: `${paidDate}T12:00:00.000Z`,
-          note: note.trim() || null,
+          amount: form.amount,
+          paidAt: `${form.paidDate}T12:00:00.000Z`,
+          note: form.note.trim() || null,
           idempotencyKey: actionKey,
         })
       }
       if (kind === 'cancel') {
         return cancelOrder({
           orderId,
-          reason: reason.trim(),
+          reason: form.reason.trim(),
           idempotencyKey: actionKey,
         })
+      }
+      if (kind === 'restore') {
+        return restoreOrder({ orderId, idempotencyKey: actionKey })
       }
       if (kind === 'refund') {
         return refundPayment({
           orderId,
-          reason: reason.trim(),
+          reason: form.reason.trim(),
           idempotencyKey: actionKey,
         })
       }
+      if (kind === 'reissue') {
+        return reissueBankTransferOffer({ orderId, idempotencyKey: actionKey })
+      }
       return resendOrderLink({ orderId, idempotencyKey: actionKey })
     },
-    onSuccess: (_result, kind) => {
+    onSuccess: (result, { kind }) => {
+      if ((kind === 'resend' || kind === 'reissue') && 'publicUrl' in result) {
+        setShareUrl(String(result.publicUrl))
+        setShareOrderId(result.order.id)
+      }
       setSuccess(
         kind === 'resend'
-          ? 'El enlace fue reenviado por la operación solicitada.'
-          : 'La venta se actualizó correctamente.',
+          ? 'El enlace quedó listo para compartir.'
+          : kind === 'reissue'
+            ? 'Se creó un enlace nuevo. Compártelo con el comprador.'
+            : kind === 'restore'
+              ? 'La venta se restauró. El stock quedó reservado y el enlace quedó activo.'
+              : 'La venta se actualizó correctamente.',
       )
       closeAction()
       void queryClient.invalidateQueries({ queryKey: salesKeys.root })
+      if (kind === 'reissue' && 'order' in result) {
+        router.replace(`/ventas/${result.order.id}`)
+      }
     },
     onError: (error: unknown) => {
       setActionError(
@@ -147,12 +297,7 @@ export default function SaleDetailScreen() {
   })
 
   function openAction(kind: ActionKind) {
-    const current = order.data
     setAction(kind)
-    setReason('')
-    setNote('')
-    setAmount(current?.payment?.amount ?? current?.total ?? '')
-    setPaidDate(today())
     setActionError('')
     setSuccess('')
     setActionKey(newIdempotencyKey())
@@ -163,30 +308,30 @@ export default function SaleDetailScreen() {
     setActionError('')
   }
 
-  function confirmAction() {
+  function confirmAction(form: ActionForm) {
     if (!action || executeAction.isPending || actionLock.current) return
-    if (action === 'reject' && !reason.trim()) {
+    if (action === 'reject' && !form.reason.trim()) {
       setActionError('Escribe el motivo del rechazo.')
       return
     }
-    if (action === 'refund' && !reason.trim()) {
+    if (action === 'refund' && !form.reason.trim()) {
       setActionError('Escribe el motivo del reembolso.')
       return
     }
     if (action === 'manual') {
-      const numericAmount = Number(amount)
+      const numericAmount = Number(form.amount)
       if (!Number.isInteger(numericAmount) || numericAmount <= 0) {
         setActionError('Ingresa un monto CLP entero mayor que cero.')
         return
       }
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(paidDate)) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(form.paidDate)) {
         setActionError('Usa una fecha con formato AAAA-MM-DD.')
         return
       }
     }
     actionLock.current = true
     setActionError('')
-    executeAction.mutate(action)
+    executeAction.mutate({ kind: action, form })
   }
 
   if (order.isPending) {
@@ -262,6 +407,47 @@ export default function SaleDetailScreen() {
         </View>
 
         {success ? <StatusMessage kind="success" message={success} /> : null}
+        {shareUrl ? (
+          <View style={styles.shareBox}>
+            <Text selectable style={styles.shareUrl}>
+              {shareUrl}
+            </Text>
+            <PrimaryButton
+              label="Compartir"
+              onPress={() =>
+                void Share.share({
+                  title: `Venta ${data.number}`,
+                  message: shareUrl,
+                  url: shareUrl,
+                })
+              }
+            />
+            <PrimaryButton
+              label="Copiar"
+              variant="secondary"
+              onPress={() => Clipboard.setString(shareUrl)}
+            />
+            <SheetField
+              label="Enviar por correo"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+            />
+            <PrimaryButton
+              label="Enviar correo"
+              variant="secondary"
+              onPress={() => {
+                if (!email.trim() || !shareOrderId) return
+                void sendOfferLink({
+                  orderId: shareOrderId,
+                  email: email.trim(),
+                  idempotencyKey: newIdempotencyKey(),
+                })
+              }}
+            />
+          </View>
+        ) : null}
         {data.reconciliationRequired ? (
           <SalesBanner
             tone="error"
@@ -388,11 +574,11 @@ export default function SaleDetailScreen() {
           <View style={salesStyles.actions}>
             {allowed.approveProof ? (
               <PrimaryButton
-                label="Aprobar comprobante"
+                label="Validar"
                 onPress={() => openAction('approve')}
               />
             ) : null}
-            {allowed.rejectProof ? (
+            {allowed.rejectProof && data.paymentMethod !== 'bank_transfer' ? (
               <PrimaryButton
                 label="Rechazar comprobante"
                 variant="secondary"
@@ -412,11 +598,24 @@ export default function SaleDetailScreen() {
                 onPress={() => openAction('resend')}
               />
             ) : null}
+            {allowed.reissueOffer ? (
+              <PrimaryButton
+                label="Enviar de nuevo"
+                variant="secondary"
+                onPress={() => openAction('reissue')}
+              />
+            ) : null}
             {allowed.cancel ? (
               <PrimaryButton
                 label="Cancelar venta"
                 variant="secondary"
                 onPress={() => openAction('cancel')}
+              />
+            ) : null}
+            {allowed.restore ? (
+              <PrimaryButton
+                label="Restaurar venta"
+                onPress={() => openAction('restore')}
               />
             ) : null}
             {allowed.refund ? (
@@ -449,86 +648,15 @@ export default function SaleDetailScreen() {
         </SectionCard>
       </ScrollView>
 
-      <Sheet
-        visible={action !== null}
-        title={action ? ACTION_TITLES[action] : 'Confirmar acción'}
-        description={
-          action === 'approve'
-            ? 'Al aprobar, el pago se confirma y el stock reservado se descuenta una sola vez.'
-            : action === 'resend'
-              ? 'Confirma que quieres reenviar el enlace vigente al comprador.'
-              : 'Revisa los datos antes de confirmar.'
-        }
+      <SaleActionSheet
+        key={action ?? 'closed'}
+        action={action}
+        isPending={executeAction.isPending}
+        actionError={actionError}
+        defaultAmount={data.payment?.amount ?? data.total}
         onClose={closeAction}
-        footer={
-          <>
-            <View style={salesStyles.footerItem}>
-              <PrimaryButton
-                label="Volver"
-                variant="secondary"
-                disabled={executeAction.isPending}
-                onPress={closeAction}
-              />
-            </View>
-            <View style={salesStyles.footerItem}>
-              <PrimaryButton
-                label={action ? ACTION_CONFIRM_LABELS[action] : 'Confirmar'}
-                loading={executeAction.isPending}
-                onPress={confirmAction}
-              />
-            </View>
-          </>
-        }
-      >
-        {action === 'reject' || action === 'cancel' || action === 'refund' ? (
-          <SheetField
-            label={
-              action === 'reject'
-                ? 'Motivo del rechazo'
-                : action === 'refund'
-                  ? 'Motivo del reembolso'
-                  : 'Motivo de cancelación (opcional)'
-            }
-            multiline
-            value={reason}
-            onChangeText={setReason}
-          />
-        ) : null}
-        {action === 'manual' ? (
-          <>
-            <SheetField
-              label="Monto pagado"
-              keyboardType="number-pad"
-              value={amount}
-              onChangeText={setAmount}
-            />
-            <SheetField
-              label="Fecha del pago"
-              placeholder="AAAA-MM-DD"
-              value={paidDate}
-              onChangeText={setPaidDate}
-            />
-            <SheetField
-              label="Nota (opcional)"
-              multiline
-              value={note}
-              onChangeText={setNote}
-            />
-          </>
-        ) : null}
-        {action === 'approve' ? (
-          <Text style={salesStyles.muted}>
-            Esta confirmación no puede ejecutarse dos veces: Tenda conserva la misma
-            clave si debes reintentar por una falla de red.
-          </Text>
-        ) : null}
-        {action === 'resend' ? (
-          <Text style={salesStyles.muted}>
-            Solo se ejecutará después de esta confirmación explícita.
-          </Text>
-        ) : null}
-        {actionError ? <StatusMessage message={actionError} /> : null}
-      </Sheet>
+        onConfirm={confirmAction}
+      />
     </SafeAreaView>
   )
 }
@@ -567,6 +695,8 @@ const styles = StyleSheet.create({
   lineTitle: { color: colors.ink, fontSize: 15, fontWeight: '800' },
   lineTotal: { color: colors.ink, fontSize: 14, fontWeight: '800' },
   cost: { color: colors.inkSoft, fontSize: 12, lineHeight: 17 },
+  shareBox: { gap: 10 },
+  shareUrl: { color: colors.ink, fontSize: 14, fontWeight: '600' },
   proof: { gap: 10 },
   proofImage: {
     backgroundColor: colors.paper,

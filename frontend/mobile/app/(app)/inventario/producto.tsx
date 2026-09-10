@@ -437,7 +437,7 @@ export default function ProductFormScreen() {
                 label="Buscar producto existente"
                 value={pickerQuery}
                 onChangeText={setPickerQuery}
-                placeholder="Buscar por nombre…"
+                placeholder="Buscar producto por nombre…"
               />
               {picker.isPending ? <Text style={styles.muted}>Buscando productos…</Text> : null}
               {picker.data?.products.map((row) => (

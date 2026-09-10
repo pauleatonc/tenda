@@ -20,4 +20,9 @@ urlpatterns = [
         api.complete_public_receipt,
         name="complete-receipt",
     ),
+    path(
+        "orders/<str:token>/media/<str:asset_id>",
+        api.public_order_media,
+        name="order-media",
+    ),
 ]

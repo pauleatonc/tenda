@@ -1,0 +1,129 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+import * as salesApi from '../../sales/api'
+import type { ProductRow } from '../api'
+import { GenerateSaleDialog } from '../GenerateSaleDialog'
+
+vi.mock('../../sales/api', () => ({
+  createOrder: vi.fn(),
+  publishOrderLink: vi.fn(),
+  sendOfferLink: vi.fn(),
+}))
+
+const mocked = vi.mocked(salesApi)
+
+const product: ProductRow = {
+  id: 'product-1',
+  name: 'Velas de soya',
+  catalogStatus: 'active',
+  purchasePrice: '2000',
+  salePrice: '5000',
+  currency: 'CLP',
+  extraAttributes: {},
+  lowStockThreshold: null,
+  effectiveLowStockThreshold: 5,
+  archivedAt: null,
+  stock: { onHand: 12, reserved: 2, available: 10, activeFulfilment: 0 },
+}
+
+function renderDialog() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <GenerateSaleDialog
+          product={product}
+          hasBankDetails
+          onClose={vi.fn()}
+        />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+}
+
+describe('GenerateSaleDialog', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn().mockResolvedValue(undefined) },
+    })
+  })
+
+  it('genera una venta por depósito y no muta los otros medios', async () => {
+    mocked.createOrder.mockResolvedValue({
+      replayed: false,
+      order: { id: 'order-1' },
+    } as never)
+    mocked.publishOrderLink.mockResolvedValue({
+      replayed: false,
+      publicUrl: 'https://shop.test/p/token',
+      order: { id: 'order-1' },
+    } as never)
+
+    renderDialog()
+
+    expect(screen.getByText('Depósito')).toBeInTheDocument()
+    expect(screen.getByText('Pago Online')).toBeInTheDocument()
+    expect(screen.getByText('Efectivo')).toBeInTheDocument()
+    expect(screen.getAllByText('Próximamente')).toHaveLength(2)
+    expect(mocked.createOrder).not.toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Generar depósito' }))
+
+    await waitFor(() => expect(mocked.createOrder).toHaveBeenCalledTimes(1))
+    expect(mocked.createOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deliveryMode: 'coordinated',
+        paymentMethod: 'bank_transfer',
+        lines: [
+          expect.objectContaining({
+            productId: 'product-1',
+            quantity: 1,
+            unitSalePrice: '5000',
+          }),
+        ],
+      }),
+    )
+    expect(mocked.publishOrderLink).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: 'order-1' }),
+    )
+    expect(await screen.findByDisplayValue('https://shop.test/p/token')).toBeInTheDocument()
+  })
+
+  it('pide completar datos bancarios antes de generar un depósito', () => {
+    render(
+      <QueryClientProvider
+        client={
+          new QueryClient({
+            defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+          })
+        }
+      >
+        <MemoryRouter>
+          <GenerateSaleDialog
+            product={product}
+            hasBankDetails={false}
+            onClose={vi.fn()}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    )
+
+    expect(
+      screen.getByText('Para poder pedir depósitos debe agregar sus datos bancarios.'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Agregar datos bancarios' })).toHaveAttribute(
+      'href',
+      '/app/configuracion',
+    )
+    expect(screen.queryByRole('button', { name: 'Generar depósito' })).toBeNull()
+    expect(mocked.createOrder).not.toHaveBeenCalled()
+  })
+})

@@ -27,6 +27,12 @@ export type MobileViewer = {
     address: string
     description: string
     logoUrl: string | null
+    bankName?: string
+    bankAccountType?: string
+    bankAccountNumber?: string
+    bankHolderTaxId?: string
+    bankConfirmationEmail?: string
+    hasBankDetails?: boolean
   }
   inventory: { id: string; name: string }
   membership: {

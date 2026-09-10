@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useCallback, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { EmptyState, Modal, StatusChip, Timeline } from '../components/ui'
 import { TendaApiError, newIdempotencyKey } from '../lib/http'
@@ -9,7 +9,9 @@ import {
   confirmManualPayment,
   fetchOrder,
   refundPayment,
+  reissueBankTransferOffer,
   resendOrderLink,
+  restoreOrder,
   reviewPaymentProof,
   salesKeys,
   type SellerOrder,
@@ -25,7 +27,15 @@ import {
   translated,
 } from './model'
 
-type ActionKind = 'approve' | 'reject' | 'manual' | 'cancel' | 'refund' | 'resend'
+type ActionKind =
+  | 'approve'
+  | 'reject'
+  | 'manual'
+  | 'cancel'
+  | 'restore'
+  | 'refund'
+  | 'resend'
+  | 'reissue'
 
 type ActionRequest =
   | { kind: 'approve'; reason: string; idempotencyKey: string }
@@ -38,20 +48,25 @@ type ActionRequest =
       idempotencyKey: string
     }
   | { kind: 'cancel'; reason: string; idempotencyKey: string }
+  | { kind: 'restore'; idempotencyKey: string }
   | { kind: 'refund'; reason: string; idempotencyKey: string }
   | { kind: 'resend'; idempotencyKey: string }
+  | { kind: 'reissue'; idempotencyKey: string }
 
 const actionTitles: Record<ActionKind, string> = {
-  approve: 'Aprobar comprobante',
+  approve: 'Validar comprobante',
   reject: 'Rechazar comprobante',
   manual: 'Registrar pago manual',
   cancel: 'Cancelar venta',
+  restore: 'Restaurar venta',
   refund: 'Reembolsar pago completo',
   resend: 'Obtener enlace para reenviar',
+  reissue: 'Enviar de nuevo',
 }
 
 export function SaleDetailPage() {
   const { id = '' } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [action, setAction] = useState<ActionKind | null>(null)
   const [reason, setReason] = useState('')
@@ -93,6 +108,11 @@ export function SaleDetailPage() {
             reason: request.reason,
             idempotencyKey: request.idempotencyKey,
           })
+        case 'restore':
+          return restoreOrder({
+            orderId: id,
+            idempotencyKey: request.idempotencyKey,
+          })
         case 'refund':
           return refundPayment({
             orderId: id,
@@ -104,11 +124,22 @@ export function SaleDetailPage() {
             orderId: id,
             idempotencyKey: request.idempotencyKey,
           })
+        case 'reissue':
+          return reissueBankTransferOffer({
+            orderId: id,
+            idempotencyKey: request.idempotencyKey,
+          })
       }
     },
     onSuccess: (result, request) => {
-      if (request.kind === 'resend' && 'publicUrl' in result) {
+      if (
+        (request.kind === 'resend' || request.kind === 'reissue') &&
+        'publicUrl' in result
+      ) {
         setResentUrl(String(result.publicUrl))
+      }
+      if (request.kind === 'reissue' && 'order' in result) {
+        navigate(`/app/ventas/${result.order.id}`)
       }
       setAction(null)
       setReason('')
@@ -120,6 +151,10 @@ export function SaleDetailPage() {
     },
     onError: (error: Error) => setActionError(error),
   })
+
+  const closeActionModal = useCallback(() => {
+    if (!performAction.isPending) setAction(null)
+  }, [performAction.isPending])
 
   function openAction(next: ActionKind) {
     setAction(next)
@@ -144,8 +179,8 @@ export function SaleDetailPage() {
       })
       return
     }
-    if (action === 'resend') {
-      performAction.mutate({ kind: 'resend', idempotencyKey })
+    if (action === 'resend' || action === 'reissue' || action === 'restore') {
+      performAction.mutate({ kind: action, idempotencyKey })
       return
     }
     performAction.mutate({
@@ -266,10 +301,10 @@ export function SaleDetailPage() {
             disabled={performAction.isPending}
             onClick={() => openAction('approve')}
           >
-            Aprobar comprobante
+            Validar
           </button>
         ) : null}
-        {guards.rejectProof ? (
+        {guards.rejectProof && detail.paymentMethod !== 'bank_transfer' ? (
           <button
             className="button button--secondary"
             type="button"
@@ -299,6 +334,16 @@ export function SaleDetailPage() {
             Cancelar venta
           </button>
         ) : null}
+        {guards.restore ? (
+          <button
+            className="button button--primary"
+            type="button"
+            disabled={performAction.isPending}
+            onClick={() => openAction('restore')}
+          >
+            Restaurar venta
+          </button>
+        ) : null}
         {guards.refund ? (
           <button
             className="button button--secondary"
@@ -317,6 +362,16 @@ export function SaleDetailPage() {
             onClick={() => openAction('resend')}
           >
             Reenviar enlace
+          </button>
+        ) : null}
+        {guards.reissueOffer ? (
+          <button
+            className="button button--secondary"
+            type="button"
+            disabled={performAction.isPending}
+            onClick={() => openAction('reissue')}
+          >
+            Enviar de nuevo
           </button>
         ) : null}
         {!Object.values(guards).some(Boolean) ? (
@@ -510,23 +565,25 @@ export function SaleDetailPage() {
           title={actionTitles[action]}
           description={
             action === 'approve'
-              ? 'Aprobar confirma el pago y convierte la reserva en salida de stock una sola vez.'
+              ? 'Validar confirma el pago y convierte la reserva en salida de stock una sola vez.'
               : action === 'refund'
                 ? 'El MVP realiza un reembolso completo. No repone stock automáticamente.'
                 : action === 'resend'
                   ? 'Tenda preparará el enlace, pero no enviará un mensaje automáticamente.'
-                  : undefined
+                  : action === 'reissue'
+                    ? 'Se cancela esta venta, se suelta el stock y se crea un enlace nuevo.'
+                    : action === 'restore'
+                      ? 'Se vuelve a reservar el stock y el enlace público queda activo.'
+                      : undefined
           }
-          onClose={() => {
-            if (!performAction.isPending) setAction(null)
-          }}
+          onClose={closeActionModal}
           footer={
             <>
               <button
                 className="button button--secondary"
                 type="button"
                 disabled={performAction.isPending}
-                onClick={() => setAction(null)}
+                onClick={closeActionModal}
               >
                 Volver
               </button>

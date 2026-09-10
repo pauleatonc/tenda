@@ -93,6 +93,41 @@ def render_email(template: str, parameters: dict[str, Any]) -> RenderedEmail:
         text, html = _shell(title=title, body_html=html_body, body_text=text_body)
         return RenderedEmail(subject="Restablece tu contraseña de Tenda", text=text, html=html)
 
+    if template == "product_offer_link":
+        product_name = str(parameters.get("productName") or "un producto")
+        total = str(parameters.get("total") or "")
+        title = (
+            f"Pedido {order_number}: completa el pago"
+            if order_number
+            else "Completa el pago de tu pedido"
+        )
+        text_body = (
+            f"Hay un pedido pendiente de pago"
+            f"{f' ({order_number})' if order_number else ''}.\n"
+            f"{product_name}\n"
+        )
+        if total:
+            text_body += f"Total: {total}\n"
+        text_body += f"{action_url}\n"
+        if expires_at:
+            text_body += f"El enlace vence el {expires_at}.\n"
+        html_body = (
+            f"<p>Hay un pedido pendiente de pago"
+            f"{f' ({escape(order_number)})' if order_number else ''}.</p>"
+            f"<p><strong>{escape(product_name)}</strong></p>"
+        )
+        if total:
+            html_body += f"<p>Total: {escape(total)}</p>"
+        html_body += _button(action_url, "Abrir pedido y subir comprobante")
+        if expires_at:
+            html_body += f"<p>El enlace vence el {escape(expires_at)}.</p>"
+        text, html = _shell(title=title, body_html=html_body, body_text=text_body)
+        return RenderedEmail(
+            subject=f"Tenda · {title}",
+            text=text,
+            html=html,
+        )
+
     title = {
         "order_paid": "Tu pedido quedó pagado",
         "order_link": "Tu enlace de pedido",

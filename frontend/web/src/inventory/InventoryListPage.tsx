@@ -6,6 +6,7 @@ import {
   type ColumnDef,
   type ColumnVisibilityState,
 } from '@tanstack/react-table'
+import { organisationHasBankDetails } from '@tenda/api-client'
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
 
@@ -19,7 +20,9 @@ import {
   type CustomField,
   type ProductRow,
 } from './api'
+import { canGenerateSale } from './can-generate-sale'
 import { CustomFieldDialog } from './CustomFieldDialog'
+import { GenerateSaleDialog } from './GenerateSaleDialog'
 import { ProductRowExpansion } from './ProductRowExpansion'
 import { StockAdjustDialog } from './StockAdjustDialog'
 import { InventoryThresholdSetting } from './StockThresholdSettings'
@@ -103,6 +106,7 @@ function StockChips({ product }: { product: ProductRow }) {
 function buildColumns(
   customFields: CustomField[],
   onAdjust: (product: ProductRow) => void,
+  onSell: (product: ProductRow) => void,
 ): ColumnDef<typeof features, ProductRow, unknown>[] {
   const base: ColumnDef<typeof features, ProductRow, unknown>[] = [
     {
@@ -162,20 +166,36 @@ function buildColumns(
     id: 'actions',
     header: 'Acciones',
     enableHiding: false,
-    cell: ({ row }) => (
-      <div className="row-actions">
-        <button
-          className="button button--secondary button--compact"
-          type="button"
-          onClick={() => onAdjust(row.original)}
-        >
-          Ajustar stock
-        </button>
-        <Link className="text-link" to={`/app/inventario/${row.original.id}/editar`}>
-          Editar
-        </Link>
-      </div>
-    ),
+    cell: ({ row }) => {
+      const sellable = canGenerateSale(row.original)
+      return (
+        <div className="row-actions">
+          <button
+            className="button button--primary button--compact"
+            type="button"
+            disabled={!sellable}
+            title={
+              sellable
+                ? 'Generar venta por depósito'
+                : 'Requiere producto activo, stock disponible y precio de venta'
+            }
+            onClick={() => onSell(row.original)}
+          >
+            Generar venta
+          </button>
+          <button
+            className="button button--secondary button--compact"
+            type="button"
+            onClick={() => onAdjust(row.original)}
+          >
+            Ajustar stock
+          </button>
+          <Link className="text-link" to={`/app/inventario/${row.original.id}/editar`}>
+            Editar
+          </Link>
+        </div>
+      )
+    },
   }
 
   return [...base, ...dynamic, actions]
@@ -186,6 +206,7 @@ export function InventoryListPage() {
   const [params, setParams] = useSearchParams()
   const [expanded, setExpanded] = useState<string | null>(null)
   const [adjusting, setAdjusting] = useState<ProductRow | null>(null)
+  const [selling, setSelling] = useState<ProductRow | null>(null)
   const [showColumnDialog, setShowColumnDialog] = useState(false)
   const [columnVisibility, setColumnVisibility] =
     useState<ColumnVisibilityState>(loadVisibility)
@@ -244,7 +265,7 @@ export function InventoryListPage() {
 
   const rows = products.data?.products ?? []
   const columns = useMemo(
-    () => buildColumns(visibleFields, setAdjusting),
+    () => buildColumns(visibleFields, setAdjusting, setSelling),
     [visibleFields],
   )
 
@@ -334,7 +355,7 @@ export function InventoryListPage() {
         <SearchField
           value={search}
           label="Buscar productos"
-          placeholder="Buscar por nombre…"
+          placeholder="Buscar producto por nombre…"
           onChange={(value) =>
             updateParams((next) => {
               if (value) next.set('q', value)
@@ -546,6 +567,13 @@ export function InventoryListPage() {
 
       {adjusting ? (
         <StockAdjustDialog product={adjusting} onClose={() => setAdjusting(null)} />
+      ) : null}
+      {selling ? (
+        <GenerateSaleDialog
+          product={selling}
+          hasBankDetails={organisationHasBankDetails(viewer.organisation)}
+          onClose={() => setSelling(null)}
+        />
       ) : null}
       {showColumnDialog ? (
         <CustomFieldDialog onClose={() => setShowColumnDialog(false)} />

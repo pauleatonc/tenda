@@ -20,6 +20,7 @@ from django.utils import timezone
 
 from apps.audit.idempotency import execute_idempotent
 from apps.audit.services import record_audit_event
+from apps.configuration.services import parameter_value
 from apps.inventory.models import Product
 from apps.inventory.services import (
     StockRequest,
@@ -88,7 +89,13 @@ TRANSITIONS: dict[str, frozenset[str]] = {
         }
     ),
     Order.Status.PAID: frozenset({Order.Status.REFUNDED}),
-    Order.Status.CANCELLED: frozenset(),
+    Order.Status.CANCELLED: frozenset(
+        {
+            Order.Status.RESERVED,
+            Order.Status.PURCHASE_IN_PROGRESS,
+            Order.Status.PURCHASE_VALIDATION,
+        }
+    ),
     Order.Status.EXPIRED: frozenset(),
     Order.Status.REFUNDED: frozenset(),
 }
@@ -154,7 +161,18 @@ def _new_public_token() -> str:
     return secrets.token_urlsafe(32)
 
 
-def _reservation_ttl() -> timedelta:
+def _reservation_ttl(*, organisation=None) -> timedelta:
+    hours = parameter_value(
+        "sales.reservation_ttl_hours",
+        organisation=organisation,
+        default=0,
+    )
+    try:
+        hours_value = int(hours)
+    except (TypeError, ValueError):
+        hours_value = 0
+    if hours_value > 0:
+        return timedelta(hours=hours_value)
     seconds = int(getattr(settings, "SALES_RESERVATION_TTL_SECONDS", 8 * 60 * 60))
     return timedelta(seconds=max(seconds, 60))
 
@@ -166,6 +184,28 @@ def _public_origin() -> str:
 def public_order_url(order: Order) -> str:
     token = decrypt_credential(order.public_token_ciphertext)
     return f"{_public_origin()}/p/{token}"
+
+
+def _public_api_origin() -> str:
+    origin = str(getattr(settings, "PUBLIC_API_URL", "") or "").rstrip("/")
+    return origin or "http://localhost:8000"
+
+
+def public_order_token(order: Order) -> str:
+    return decrypt_credential(order.public_token_ciphertext)
+
+
+def public_order_media_url(
+    order: Order,
+    asset_id: uuid.UUID,
+    *,
+    variant: str = "medium",
+) -> str:
+    token = public_order_token(order)
+    url = f"{_public_api_origin()}/api/v1/public/orders/{token}/media/{asset_id}"
+    if variant:
+        return f"{url}?variant={variant}"
+    return url
 
 
 def _context_for_order(order: Order) -> TenantContext:
@@ -325,6 +365,12 @@ def _transition_order(
     elif target == Order.Status.REFUNDED:
         order.refunded_at = now
         update_fields.append("refunded_at")
+    if previous == Order.Status.CANCELLED:
+        order.cancelled_at = None
+        update_fields.append("cancelled_at")
+    if target in EXPIRABLE_ORDER_STATUSES:
+        order.expiry_paused_at = None
+        update_fields.append("expiry_paused_at")
     order.save(update_fields=tuple(update_fields))
     if target == Order.Status.PAID:
         from apps.shipping.services import ensure_shipment_for_paid_order
@@ -675,6 +721,10 @@ def _create_order(
             "Revisa los datos ingresados.",
             field_errors={"paymentMethod": ["Selecciona un medio de pago válido."]},
         )
+    if payment_method == Order.PaymentMethod.BANK_TRANSFER:
+        from apps.organisations.bank import require_bank_details_for_deposit
+
+        require_bank_details_for_deposit(context.organisation)
     if payment_method == Order.PaymentMethod.MERCADO_PAGO:
         connected = SellerPaymentConnection.objects.filter(
             organisation=context.organisation,
@@ -691,7 +741,7 @@ def _create_order(
     public_id = uuid.uuid4()
     token = _new_public_token()
     now = timezone.now()
-    expires_at = now + _reservation_ttl()
+    expires_at = now + _reservation_ttl(organisation=context.organisation)
     order = Order.objects.create(
         public_id=public_id,
         organisation=context.organisation,
@@ -1545,6 +1595,168 @@ def cancel_order(
     )
 
 
+def _restore_target_status(order: Order) -> str:
+    event = (
+        order.timeline.filter(event_type="order.cancelled")
+        .order_by("-created_at")
+        .first()
+    )
+    if event is None or event.from_status not in ACTIVE_ORDER_STATUSES:
+        raise DomainError(
+            "ORDER_TRANSITION_NOT_ALLOWED",
+            "Esta venta no se puede restaurar.",
+            status=409,
+        )
+    target = event.from_status
+    if target != Order.Status.PURCHASE_VALIDATION:
+        return target
+    payment = Payment.objects.filter(order=order).first()
+    proof = (
+        PaymentProof.objects.filter(payment=payment).first()
+        if payment is not None
+        else None
+    )
+    if proof is not None and proof.status == PaymentProof.Status.READY:
+        return Order.Status.PURCHASE_VALIDATION
+    if BuyerSnapshot.objects.filter(order=order).exists():
+        return Order.Status.PURCHASE_IN_PROGRESS
+    return Order.Status.RESERVED
+
+
+def _reopen_order_reservations(order: Order, expires_at: datetime) -> None:
+    active = _active_reservations(order)
+    if active:
+        StockReservation.objects.filter(pk__in=[row.pk for row in active]).update(
+            expires_at=expires_at
+        )
+        return
+    reservations = list(
+        StockReservation.objects.select_for_update()
+        .filter(order=order, consumed_at__isnull=True, released_at__isnull=False)
+        .select_related("product")
+        .order_by("product_id", "pk")
+    )
+    items = list(order.items.select_related("product").all())
+    if not reservations:
+        if not items:
+            return
+        reserve_stock(
+            context=_context_for_order(order),
+            requests=[
+                StockRequest(product=item.product, quantity=item.quantity)
+                for item in items
+            ],
+        )
+        StockReservation.objects.bulk_create(
+            [
+                StockReservation(
+                    order=order,
+                    order_item=item,
+                    inventory=order.inventory,
+                    product=item.product,
+                    quantity=item.quantity,
+                    expires_at=expires_at,
+                )
+                for item in items
+            ]
+        )
+        return
+    reserve_stock(
+        context=_context_for_order(order),
+        requests=[
+            StockRequest(product=reservation.product, quantity=reservation.quantity)
+            for reservation in reservations
+        ],
+    )
+    for reservation in reservations:
+        reservation.released_at = None
+        reservation.release_reason = ""
+        reservation.expires_at = expires_at
+        reservation.save(update_fields=("released_at", "release_reason", "expires_at"))
+
+
+def _restore_cancelled_payment(order: Order, target: str) -> None:
+    payment = Payment.objects.select_for_update().filter(order=order).first()
+    if payment is None or payment.status != Payment.Status.CANCELLED:
+        return
+    proof = PaymentProof.objects.filter(payment=payment).first()
+    payment.status = (
+        Payment.Status.VALIDATION
+        if target == Order.Status.PURCHASE_VALIDATION
+        and proof is not None
+        and proof.status == PaymentProof.Status.READY
+        else Payment.Status.PENDING
+    )
+    payment.save(update_fields=("status", "updated_at"))
+
+
+def restore_order(
+    *,
+    context: TenantContext,
+    order_id: uuid.UUID,
+    idempotency_key: str,
+    correlation_id: str = "",
+) -> OrderCommandResult:
+    def command() -> tuple[dict[str, Any], int]:
+        with transaction.atomic():
+            order = (
+                Order.objects.select_for_update()
+                .prefetch_related("items__product", "timeline")
+                .filter(
+                    organisation=context.organisation,
+                    inventory=context.inventory,
+                    public_id=order_id,
+                )
+                .first()
+            )
+            if order is None:
+                raise ResourceNotFound()
+            if order.status in ACTIVE_ORDER_STATUSES:
+                return {"orderId": str(order.public_id)}, 200
+            if order.status != Order.Status.CANCELLED:
+                raise DomainError(
+                    "ORDER_TRANSITION_NOT_ALLOWED",
+                    "Solo una venta cancelada se puede restaurar.",
+                    status=409,
+                )
+            target = _restore_target_status(order)
+            now = timezone.now()
+            expires_at = now + _reservation_ttl(organisation=context.organisation)
+            _reopen_order_reservations(order, expires_at)
+            _restore_cancelled_payment(order, target)
+            order.reservation_expires_at = expires_at
+            order.public_token_expires_at = expires_at
+            order.save(
+                update_fields=(
+                    "reservation_expires_at",
+                    "public_token_expires_at",
+                    "updated_at",
+                )
+            )
+            _transition_order(
+                order,
+                target,
+                event_type="order.restored",
+                title="Venta restaurada",
+                detail="Se volvió a reservar el stock y el enlace quedó activo.",
+                actor=context.user,
+                correlation_id=correlation_id,
+            )
+        return {"orderId": str(order.public_id)}, 200
+
+    outcome = execute_idempotent(
+        context=context,
+        scope="sales.restore_order",
+        key=idempotency_key,
+        request_payload={"orderId": str(order_id)},
+        command=command,
+    )
+    return OrderCommandResult(
+        order=order_for_context(context, uuid.UUID(str(outcome.payload["orderId"]))),
+        replayed=outcome.replayed,
+    )
+
+
 def refund_payment(
     *,
     context: TenantContext,
@@ -1715,6 +1927,217 @@ def resend_order_link(
     outcome = execute_idempotent(
         context=context,
         scope="sales.resend_order_link",
+        key=idempotency_key,
+        request_payload={"orderId": str(order_id)},
+        command=command,
+    )
+    return OrderCommandResult(
+        order=order_for_context(context, uuid.UUID(str(outcome.payload["orderId"]))),
+        replayed=outcome.replayed,
+    )
+
+
+def send_offer_link(
+    *,
+    context: TenantContext,
+    order_id: uuid.UUID,
+    email: str,
+    idempotency_key: str,
+    correlation_id: str = "",
+) -> OrderCommandResult:
+    clean_email = _clean_required_text(
+        email,
+        field="email",
+        maximum=254,
+        message="Ingresa un correo válido.",
+    ).lower()
+    try:
+        validate_email(clean_email)
+    except ValidationError as exc:
+        raise DomainError(
+            "VALIDATION_ERROR",
+            "Revisa los datos ingresados.",
+            field_errors={"email": ["Ingresa un correo válido."]},
+        ) from exc
+
+    def command() -> tuple[dict[str, Any], int]:
+        with transaction.atomic():
+            order = (
+                Order.objects.select_for_update(of=("self",))
+                .select_related("buyer")
+                .prefetch_related("items")
+                .filter(
+                    organisation=context.organisation,
+                    inventory=context.inventory,
+                    public_id=order_id,
+                )
+                .first()
+            )
+            if order is None:
+                raise ResourceNotFound()
+            if order.status not in ACTIVE_ORDER_STATUSES:
+                raise DomainError(
+                    "ORDER_TRANSITION_NOT_ALLOWED",
+                    "El enlace de este pedido ya no se puede enviar.",
+                    status=409,
+                )
+            buyer, _created = BuyerSnapshot.objects.get_or_create(
+                order=order,
+                defaults={"name": "Comprador", "email": clean_email},
+            )
+            updates: list[str] = []
+            if buyer.email != clean_email:
+                buyer.email = clean_email
+                updates.append("email")
+            if not buyer.name.strip():
+                buyer.name = "Comprador"
+                updates.append("name")
+            if updates:
+                buyer.save(update_fields=(*updates, "updated_at"))
+            order.buyer = buyer
+            first_item = next(iter(order.items.all()), None)
+            _enqueue_order_notification(
+                order=order,
+                template="product_offer_link",
+                deduplication_key=(
+                    "sales:product-offer:"
+                    f"{order.public_id}:{hashlib.sha256(idempotency_key.encode()).hexdigest()}"
+                ),
+                include_link=True,
+                parameters={
+                    "productName": first_item.product_name if first_item else "",
+                    "total": str(order.total_amount),
+                    "expiresAt": order.reservation_expires_at.isoformat(),
+                },
+            )
+            _append_event(
+                order=order,
+                event_type="order.offer_link_sent",
+                title="Enlace enviado por correo",
+                detail=clean_email,
+                actor=context.user,
+                correlation_id=correlation_id,
+            )
+            _audit_order(
+                order=order,
+                action="sales.offer_link_sent",
+                actor=context.user,
+                correlation_id=correlation_id,
+                metadata={"email": clean_email},
+            )
+        return {"orderId": str(order.public_id)}, 200
+
+    outcome = execute_idempotent(
+        context=context,
+        scope="sales.send_offer_link",
+        key=idempotency_key,
+        request_payload={"orderId": str(order_id), "email": clean_email},
+        command=command,
+    )
+    return OrderCommandResult(
+        order=order_for_context(context, uuid.UUID(str(outcome.payload["orderId"]))),
+        replayed=outcome.replayed,
+    )
+
+
+def reissue_bank_transfer_offer(
+    *,
+    context: TenantContext,
+    order_id: uuid.UUID,
+    idempotency_key: str,
+    correlation_id: str = "",
+) -> OrderCommandResult:
+    def command() -> tuple[dict[str, Any], int]:
+        with transaction.atomic():
+            order = (
+                Order.objects.select_for_update()
+                .prefetch_related("items__product")
+                .filter(
+                    organisation=context.organisation,
+                    inventory=context.inventory,
+                    public_id=order_id,
+                )
+                .first()
+            )
+            if order is None:
+                raise ResourceNotFound()
+            if order.payment_method != Order.PaymentMethod.BANK_TRANSFER:
+                raise DomainError(
+                    "PAYMENT_METHOD_NOT_ALLOWED",
+                    "Solo una venta por transferencia puede reenviarse.",
+                    status=409,
+                )
+            if order.status != Order.Status.PURCHASE_VALIDATION:
+                raise DomainError(
+                    "ORDER_TRANSITION_NOT_ALLOWED",
+                    "Esta venta ya no permite enviar de nuevo la solicitud.",
+                    status=409,
+                )
+            lines = [
+                {
+                    "product_id": str(item.product.public_id),
+                    "quantity": item.quantity,
+                    "unit_sale_price": item.unit_sale_price,
+                }
+                for item in order.items.all()
+            ]
+            _release_order_reservations(order, reason="Solicitud reenviada")
+            payment = Payment.objects.select_for_update().filter(order=order).first()
+            if payment is not None and payment.status in {
+                Payment.Status.PENDING,
+                Payment.Status.VALIDATION,
+            }:
+                payment.status = Payment.Status.CANCELLED
+                payment.save(update_fields=("status", "updated_at"))
+            proof = (
+                PaymentProof.objects.select_for_update().filter(payment=payment).first()
+                if payment is not None
+                else None
+            )
+            if proof is not None and proof.status == PaymentProof.Status.READY:
+                proof.status = PaymentProof.Status.REJECTED
+                proof.rejection_reason = "Se envió una nueva solicitud de compra."
+                proof.reviewed_at = timezone.now()
+                proof.reviewed_by = context.user
+                proof.save(
+                    update_fields=(
+                        "status",
+                        "rejection_reason",
+                        "reviewed_at",
+                        "reviewed_by",
+                        "updated_at",
+                    )
+                )
+            _transition_order(
+                order,
+                Order.Status.CANCELLED,
+                event_type="order.reissued",
+                title="Solicitud reenviada",
+                detail="Se canceló esta venta y se creó un enlace nuevo.",
+                actor=context.user,
+                correlation_id=correlation_id,
+            )
+            replacement = _create_order(
+                context=context,
+                lines=lines,
+                delivery_mode=order.delivery_mode,
+                payment_method=Order.PaymentMethod.BANK_TRANSFER,
+                correlation_id=correlation_id,
+            )
+            replacement.published_at = timezone.now()
+            replacement.save(update_fields=("published_at", "updated_at"))
+            _append_event(
+                order=replacement,
+                event_type="order.link_published",
+                title="Enlace publicado",
+                actor=context.user,
+                correlation_id=correlation_id,
+            )
+        return {"orderId": str(replacement.public_id)}, 201
+
+    outcome = execute_idempotent(
+        context=context,
+        scope="sales.reissue_bank_transfer_offer",
         key=idempotency_key,
         request_payload={"orderId": str(order_id)},
         command=command,

@@ -7,7 +7,10 @@ import {
   OrdersDocument,
   PublishOrderLinkDocument,
   RefundPaymentDocument,
+  RestoreOrderDocument,
+  ReissueBankTransferOfferDocument,
   ResendOrderLinkDocument,
+  SendOfferLinkDocument,
   ReviewPaymentProofDocument,
   SalesBalanceBreakdownDocument,
   SalesBalanceDocument,
@@ -26,7 +29,10 @@ import {
   type CreateOrderRequest,
   type PublishOrderLinkRequest,
   type RefundPaymentRequest,
+  type RestoreOrderRequest,
+  type ReissueBankTransferOfferRequest,
   type ResendOrderLinkRequest,
+  type SendOfferLinkRequest,
   type ReviewPaymentProofRequest,
   type SalesBalanceFilter,
   type SalesOrderFilter,
@@ -126,6 +132,17 @@ export async function cancelOrder(input: CancelOrderRequest) {
   }
 }
 
+export async function restoreOrder(input: RestoreOrderRequest) {
+  const data = await graphqlRequest(RestoreOrderDocument, {
+    orderId: input.orderId,
+    idempotencyKey: input.idempotencyKey,
+  })
+  return {
+    replayed: data.restoreOrder.replayed,
+    order: mapSellerOrder(data.restoreOrder.order),
+  }
+}
+
 export async function refundPayment(input: RefundPaymentRequest) {
   const data = await graphqlRequest(RefundPaymentDocument, {
     orderId: input.orderId,
@@ -147,6 +164,30 @@ export async function resendOrderLink(input: ResendOrderLinkRequest) {
     replayed: data.resendOrderLink.replayed,
     publicUrl: data.resendOrderLink.order.publicUrl,
     order: mapSellerOrder(data.resendOrderLink.order),
+  }
+}
+
+export async function sendOfferLink(input: SendOfferLinkRequest) {
+  const data = await graphqlRequest(SendOfferLinkDocument, {
+    orderId: input.orderId,
+    email: input.email,
+    idempotencyKey: input.idempotencyKey,
+  })
+  return {
+    replayed: data.sendOfferLink.replayed,
+    order: mapSellerOrder(data.sendOfferLink.order),
+  }
+}
+
+export async function reissueBankTransferOffer(input: ReissueBankTransferOfferRequest) {
+  const data = await graphqlRequest(ReissueBankTransferOfferDocument, {
+    orderId: input.orderId,
+    idempotencyKey: input.idempotencyKey,
+  })
+  return {
+    replayed: data.reissueBankTransferOffer.replayed,
+    publicUrl: data.reissueBankTransferOffer.publicUrl,
+    order: mapSellerOrder(data.reissueBankTransferOffer.order),
   }
 }
 

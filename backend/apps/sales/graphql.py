@@ -10,6 +10,8 @@ from typing import Any
 import graphene
 from graphql import GraphQLResolveInfo
 
+from apps.inventory.models import CustomFieldDefinition, ProductMediaAttachment
+from apps.media_assets.models import MediaAsset
 from apps.media_assets.services import private_download_url
 from apps.organisations.permissions import OrganisationPermission, require_permission
 from apps.users.services import enforce_auth_rate_limit
@@ -33,11 +35,15 @@ from .order_services import (
     create_order,
     initiate_mercado_pago_checkout,
     public_order_for_token,
+    public_order_media_url,
     public_order_url,
     publish_order_link,
     refund_payment,
+    reissue_bank_transfer_offer,
     resend_order_link,
+    restore_order,
     review_payment_proof,
+    send_offer_link,
     set_buyer_details,
 )
 from .selectors import (
@@ -210,6 +216,55 @@ class OrderItemType(graphene.ObjectType):  # type: ignore[misc]
         return str(root.line_total)
 
 
+class PublicProductAttributeType(graphene.ObjectType):  # type: ignore[misc]
+    label = graphene.String(required=True)
+    value = graphene.String(required=True)
+
+
+def _public_line_photos(item: OrderItem) -> list[str]:
+    attachments = list(
+        ProductMediaAttachment.objects.filter(
+            product=item.product,
+            asset__status=MediaAsset.Status.READY,
+        )
+        .select_related("asset")
+        .order_by("position", "id")
+    )
+    primary_id = getattr(item.product, "primary_image_id", None)
+    if primary_id:
+        attachments.sort(
+            key=lambda attachment: (
+                0 if attachment.asset_id == primary_id else 1,
+                attachment.position,
+                attachment.id,
+            )
+        )
+    return [
+        public_order_media_url(item.order, attachment.asset.public_id)
+        for attachment in attachments
+    ]
+
+
+def _public_line_attributes(item: OrderItem) -> list[dict[str, str]]:
+    extras = dict(item.product.extra_attributes or {})
+    fields = CustomFieldDefinition.objects.filter(
+        inventory_id=item.product.inventory_id,
+        is_active=True,
+        is_visible=True,
+    ).order_by("position", "id")
+    attributes: list[dict[str, str]] = []
+    for field in fields:
+        value = extras.get(field.key)
+        if value is None or value == "":
+            continue
+        if isinstance(value, bool):
+            display = "Sí" if value else "No"
+        else:
+            display = str(value)
+        attributes.append({"label": field.label, "value": display})
+    return attributes
+
+
 class PublicOrderItemType(graphene.ObjectType):  # type: ignore[misc]
     id = graphene.ID(required=True)
     line_number = graphene.Int(required=True)
@@ -218,6 +273,9 @@ class PublicOrderItemType(graphene.ObjectType):  # type: ignore[misc]
     unit_sale_price = graphene.String(required=True)
     line_total = graphene.String(required=True)
     currency = graphene.String(required=True)
+    image_url = graphene.String()
+    photos = graphene.List(graphene.NonNull(graphene.String), required=True)
+    attributes = graphene.List(graphene.NonNull(PublicProductAttributeType), required=True)
 
     @staticmethod
     def resolve_id(root: OrderItem, _info: GraphQLResolveInfo) -> str:
@@ -230,6 +288,22 @@ class PublicOrderItemType(graphene.ObjectType):  # type: ignore[misc]
     @staticmethod
     def resolve_line_total(root: OrderItem, _info: GraphQLResolveInfo) -> str:
         return str(root.line_total)
+
+    @staticmethod
+    def resolve_photos(root: OrderItem, _info: GraphQLResolveInfo) -> list[str]:
+        return _public_line_photos(root)
+
+    @staticmethod
+    def resolve_image_url(root: OrderItem, _info: GraphQLResolveInfo) -> str | None:
+        photos = _public_line_photos(root)
+        return photos[0] if photos else None
+
+    @staticmethod
+    def resolve_attributes(
+        root: OrderItem,
+        _info: GraphQLResolveInfo,
+    ) -> list[dict[str, str]]:
+        return _public_line_attributes(root)
 
 
 class PaymentProofType(graphene.ObjectType):  # type: ignore[misc]
@@ -543,6 +617,16 @@ class PublicSellerType(graphene.ObjectType):  # type: ignore[misc]
     name = graphene.String(required=True)
     phone = graphene.String(required=True)
     business_email = graphene.String(required=True)
+    logo_url = graphene.String()
+
+
+class PublicBankDetailsType(graphene.ObjectType):  # type: ignore[misc]
+    bank_name = graphene.String(required=True)
+    account_type = graphene.String(required=True)
+    account_type_label = graphene.String(required=True)
+    account_number = graphene.String(required=True)
+    tax_id = graphene.String(required=True)
+    confirmation_email = graphene.String(required=True)
 
 
 class PublicOrderType(graphene.ObjectType):  # type: ignore[misc]
@@ -570,6 +654,7 @@ class PublicOrderType(graphene.ObjectType):  # type: ignore[misc]
         required=True,
     )
     bank_transfer_instructions = graphene.String(required=True)
+    bank_details = graphene.Field(PublicBankDetailsType)
     rejection_reason = graphene.String()
 
     @staticmethod
@@ -605,11 +690,21 @@ class PublicOrderType(graphene.ObjectType):  # type: ignore[misc]
             return None
 
     @staticmethod
-    def resolve_seller(root: Order, _info: GraphQLResolveInfo) -> dict[str, str]:
+    def resolve_seller(root: Order, _info: GraphQLResolveInfo) -> dict[str, str | None]:
+        logo_id = root.organisation.logo_asset_id
+        logo_url = None
+        if logo_id is not None and MediaAsset.objects.filter(
+            public_id=logo_id,
+            organisation_id=root.organisation_id,
+            purpose=MediaAsset.Purpose.ORGANISATION_LOGO,
+            status=MediaAsset.Status.READY,
+        ).exists():
+            logo_url = public_order_media_url(root, logo_id, variant="thumbnail")
         return {
             "name": root.organisation.name,
             "phone": root.organisation.phone,
             "business_email": root.organisation.business_email,
+            "logo_url": logo_url,
         }
 
     @staticmethod
@@ -647,12 +742,25 @@ class PublicOrderType(graphene.ObjectType):  # type: ignore[misc]
         return [root.payment_method]
 
     @staticmethod
+    def resolve_bank_details(
+        root: Order,
+        _info: GraphQLResolveInfo,
+    ) -> dict[str, str] | None:
+        from apps.organisations.bank import public_bank_details
+
+        return public_bank_details(root.organisation)
+
+    @staticmethod
     def resolve_bank_transfer_instructions(
         root: Order,
         _info: GraphQLResolveInfo,
     ) -> str:
         from apps.configuration.services import parameter_value
+        from apps.organisations.bank import format_bank_instructions
 
+        structured = format_bank_instructions(root.organisation)
+        if structured:
+            return structured
         configured = str(
             parameter_value(
                 "bank_transfer_instructions",
@@ -1209,6 +1317,33 @@ class CancelOrder(graphene.Mutation):  # type: ignore[misc]
         return CancelOrder(order=result.order, replayed=result.replayed)
 
 
+class RestoreOrder(graphene.Mutation):  # type: ignore[misc]
+    class Arguments:
+        order_id = graphene.ID(required=True)
+        idempotency_key = graphene.String(required=True)
+
+    order = graphene.Field(OrderType, required=True)
+    replayed = graphene.Boolean(required=True)
+
+    @staticmethod
+    def mutate(
+        _root: object,
+        info: GraphQLResolveInfo,
+        order_id: str,
+        idempotency_key: str,
+    ) -> RestoreOrder:
+        try:
+            result = restore_order(
+                context=context_from_info(info),
+                order_id=_uuid_or_not_found(order_id),
+                idempotency_key=idempotency_key,
+                correlation_id=_correlation_id(info),
+            )
+        except DomainError as exc:
+            raise graphql_error(info, exc) from exc
+        return RestoreOrder(order=result.order, replayed=result.replayed)
+
+
 class RefundPayment(graphene.Mutation):  # type: ignore[misc]
     class Arguments:
         order_id = graphene.ID(required=True)
@@ -1264,6 +1399,68 @@ class ResendOrderLink(graphene.Mutation):  # type: ignore[misc]
         except DomainError as exc:
             raise graphql_error(info, exc) from exc
         return ResendOrderLink(order=result.order, replayed=result.replayed)
+
+
+class SendOfferLink(graphene.Mutation):  # type: ignore[misc]
+    class Arguments:
+        order_id = graphene.ID(required=True)
+        email = graphene.String(required=True)
+        idempotency_key = graphene.String(required=True)
+
+    order = graphene.Field(OrderType, required=True)
+    replayed = graphene.Boolean(required=True)
+
+    @staticmethod
+    def mutate(
+        _root: object,
+        info: GraphQLResolveInfo,
+        order_id: str,
+        email: str,
+        idempotency_key: str,
+    ) -> SendOfferLink:
+        try:
+            result = send_offer_link(
+                context=context_from_info(info),
+                order_id=_uuid_or_not_found(order_id),
+                email=email,
+                idempotency_key=idempotency_key,
+                correlation_id=_correlation_id(info),
+            )
+        except DomainError as exc:
+            raise graphql_error(info, exc) from exc
+        return SendOfferLink(order=result.order, replayed=result.replayed)
+
+
+class ReissueBankTransferOffer(graphene.Mutation):  # type: ignore[misc]
+    class Arguments:
+        order_id = graphene.ID(required=True)
+        idempotency_key = graphene.String(required=True)
+
+    order = graphene.Field(OrderType, required=True)
+    public_url = graphene.String(required=True)
+    replayed = graphene.Boolean(required=True)
+
+    @staticmethod
+    def mutate(
+        _root: object,
+        info: GraphQLResolveInfo,
+        order_id: str,
+        idempotency_key: str,
+    ) -> ReissueBankTransferOffer:
+        try:
+            result = reissue_bank_transfer_offer(
+                context=context_from_info(info),
+                order_id=_uuid_or_not_found(order_id),
+                idempotency_key=idempotency_key,
+                correlation_id=_correlation_id(info),
+            )
+        except DomainError as exc:
+            raise graphql_error(info, exc) from exc
+        return ReissueBankTransferOffer(
+            order=result.order,
+            public_url=public_order_url(result.order),
+            replayed=result.replayed,
+        )
 
 
 class SalesQuery(graphene.ObjectType):  # type: ignore[misc]
@@ -1506,6 +1703,9 @@ class SalesMutation(graphene.ObjectType):  # type: ignore[misc]
     review_payment_proof = ReviewPaymentProof.Field(required=True)
     confirm_manual_payment = ConfirmManualPayment.Field(required=True)
     cancel_order = CancelOrder.Field(required=True)
+    restore_order = RestoreOrder.Field(required=True)
     refund_payment = RefundPayment.Field(required=True)
     resend_order_link = ResendOrderLink.Field(required=True)
+    send_offer_link = SendOfferLink.Field(required=True)
+    reissue_bank_transfer_offer = ReissueBankTransferOffer.Field(required=True)
     retry_reconciliation = RetryReconciliation.Field(required=True)

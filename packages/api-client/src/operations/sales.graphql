@@ -96,6 +96,11 @@ fragment SellerOrderSummary on OrderType {
   buyer {
     name
   }
+  payment {
+    proof {
+      id
+    }
+  }
 }
 
 fragment SellerOrder on OrderType {
@@ -131,6 +136,7 @@ fragment PublicSeller on PublicSellerType {
   name
   phone
   businessEmail
+  logoUrl
 }
 
 fragment PublicOrderLine on PublicOrderItemType {
@@ -140,6 +146,12 @@ fragment PublicOrderLine on PublicOrderItemType {
   unitSalePrice
   currency
   lineTotal
+  imageUrl
+  photos
+  attributes {
+    label
+    value
+  }
 }
 
 fragment PublicOrder on PublicOrderType {
@@ -154,6 +166,14 @@ fragment PublicOrder on PublicOrderType {
   paymentMethod
   availablePaymentMethods
   bankTransferInstructions
+  bankDetails {
+    bankName
+    accountType
+    accountTypeLabel
+    accountNumber
+    taxId
+    confirmationEmail
+  }
   reservationExpiresAt
   createdAt
   rejectionReason
@@ -366,6 +386,15 @@ mutation CancelOrder($orderId: ID!, $reason: String!, $idempotencyKey: String!) 
   }
 }
 
+mutation RestoreOrder($orderId: ID!, $idempotencyKey: String!) {
+  restoreOrder(orderId: $orderId, idempotencyKey: $idempotencyKey) {
+    replayed
+    order {
+      ...SellerOrder
+    }
+  }
+}
+
 mutation RefundPayment($orderId: ID!, $reason: String!, $idempotencyKey: String!) {
   refundPayment(orderId: $orderId, reason: $reason, idempotencyKey: $idempotencyKey) {
     replayed
@@ -378,6 +407,25 @@ mutation RefundPayment($orderId: ID!, $reason: String!, $idempotencyKey: String!
 mutation ResendOrderLink($orderId: ID!, $idempotencyKey: String!) {
   resendOrderLink(orderId: $orderId, idempotencyKey: $idempotencyKey) {
     replayed
+    order {
+      ...SellerOrder
+    }
+  }
+}
+
+mutation SendOfferLink($orderId: ID!, $email: String!, $idempotencyKey: String!) {
+  sendOfferLink(orderId: $orderId, email: $email, idempotencyKey: $idempotencyKey) {
+    replayed
+    order {
+      ...SellerOrder
+    }
+  }
+}
+
+mutation ReissueBankTransferOffer($orderId: ID!, $idempotencyKey: String!) {
+  reissueBankTransferOffer(orderId: $orderId, idempotencyKey: $idempotencyKey) {
+    replayed
+    publicUrl
     order {
       ...SellerOrder
     }

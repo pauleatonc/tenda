@@ -92,7 +92,11 @@ export function SalesOrderCardView({
           <Text style={styles.orderNumber}>Venta {order.number}</Text>
           <Text style={styles.buyer}>{buyer}</Text>
         </View>
-        <OrderStatus status={order.status} />
+        {order.status === 'purchase_validation' ? (
+          <MobileStatusChip label="Por revisar" tone="warning" />
+        ) : (
+          <OrderStatus status={order.status} />
+        )}
       </View>
       <View style={styles.orderMeta}>
         <Text style={styles.total}>{formatClp(order.total)}</Text>

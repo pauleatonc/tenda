@@ -416,7 +416,7 @@ export function ProductFormPage({
           <SearchField
             value={pickerQuery}
             label="Buscar producto existente"
-            placeholder="Buscar por nombre…"
+            placeholder="Buscar producto por nombre…"
             onChange={setPickerQuery}
           />
           {errors.source ? <p className="field__error">{errors.source}</p> : null}

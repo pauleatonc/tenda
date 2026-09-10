@@ -91,6 +91,8 @@ describe('ProfilePage', () => {
     expect(screen.getByDisplayValue('Taller Ana')).toBeInTheDocument()
     expect(screen.getByText('titular')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Guardar tienda' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Datos para depósitos' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Guardar datos bancarios' })).toBeInTheDocument()
   })
 
   it('oculta la edición de tienda si no hay permiso', () => {
@@ -116,5 +118,34 @@ describe('ProfilePage', () => {
     renderPage(viewer(true))
     await userEvent.click(screen.getByRole('button', { name: 'Guardar perfil' }))
     expect(graphqlRequest).toHaveBeenCalled()
+  })
+
+  it('guarda los datos bancarios de la tienda', async () => {
+    graphqlRequest.mockResolvedValue({
+      updateOrganisation: { organisation: { id: 'org-1' } },
+    })
+    renderPage(viewer(true))
+    await userEvent.selectOptions(screen.getByLabelText('Banco'), 'BancoEstado')
+    await userEvent.selectOptions(screen.getByLabelText('Tipo de cuenta'), 'cuenta_corriente')
+    await userEvent.type(screen.getByLabelText('Número de cuenta'), '12345678')
+    await userEvent.type(screen.getByLabelText('RUT'), '111111111')
+    await userEvent.clear(screen.getByLabelText('Correo electrónico de confirmación'))
+    await userEvent.type(
+      screen.getByLabelText('Correo electrónico de confirmación'),
+      'pagos@taller.cl',
+    )
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar datos bancarios' }))
+    expect(graphqlRequest).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        input: expect.objectContaining({
+          bankName: 'BancoEstado',
+          bankAccountType: 'cuenta_corriente',
+          bankAccountNumber: '12345678',
+          bankHolderTaxId: '11.111.111-1',
+          bankConfirmationEmail: 'pagos@taller.cl',
+        }),
+      }),
+    )
   })
 })

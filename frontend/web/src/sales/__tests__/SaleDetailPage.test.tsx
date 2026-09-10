@@ -13,7 +13,9 @@ vi.mock('../api', () => ({
   fetchOrder: vi.fn(),
   refundPayment: vi.fn(),
   resendOrderLink: vi.fn(),
+  restoreOrder: vi.fn(),
   reviewPaymentProof: vi.fn(),
+  reissueBankTransferOffer: vi.fn(),
   salesKeys: {
     order: (id: string) => ['sales', 'order', id],
   },
@@ -34,6 +36,7 @@ const order = {
   nextAction: 'review_proof',
   reconciliationRequired: false,
   reconciliationMessage: null,
+  hasProof: true,
   expiresAt: '2026-08-26T01:00:00Z',
   confirmedAt: null,
   createdAt: '2026-08-25T17:00:00Z',
@@ -104,9 +107,12 @@ const order = {
     approveProof: true,
     rejectProof: true,
     confirmManualPayment: false,
-    cancel: false,
+    cancel: true,
     refund: false,
     resendLink: false,
+    sendOfferLink: false,
+    reissueOffer: true,
+    restore: false,
   },
 }
 
@@ -140,17 +146,15 @@ describe('detalle de venta', () => {
     )
 
     renderPage()
-    expect(
-      await screen.findByRole('button', { name: 'Aprobar comprobante' }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'Rechazar comprobante' }),
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Validar' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Rechazar comprobante' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Cancelar venta' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Enviar de nuevo' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Restaurar venta' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Registrar pago manual' })).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Cancelar venta' })).toBeNull()
     expect(screen.queryByText('Costo snapshot')).toBeNull()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Aprobar comprobante' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Validar' }))
     const confirm = screen.getByRole('button', { name: 'Confirmar' })
     await userEvent.dblClick(confirm)
 
@@ -159,7 +163,50 @@ describe('detalle de venta', () => {
 
     finish?.({ replayed: false, order })
     await waitFor(() =>
-      expect(screen.queryByRole('dialog', { name: 'Aprobar comprobante' })).toBeNull(),
+      expect(screen.queryByRole('dialog', { name: 'Validar comprobante' })).toBeNull(),
+    )
+  })
+
+  it('permite escribir el motivo de cancelación sin perder el foco', async () => {
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Cancelar venta' }))
+    const reason = screen.getByLabelText(/Motivo/)
+    await userEvent.type(reason, 'Ya no interesa')
+    expect(reason).toHaveValue('Ya no interesa')
+    expect(reason).toHaveFocus()
+  })
+
+  it('permite restaurar una venta cancelada por error', async () => {
+    mocked.fetchOrder.mockResolvedValue({
+      ...order,
+      status: 'cancelled',
+      allowedActions: {
+        ...order.allowedActions,
+        approveProof: false,
+        rejectProof: false,
+        cancel: false,
+        resendLink: false,
+        reissueOffer: false,
+        restore: true,
+      },
+    })
+    mocked.restoreOrder.mockResolvedValue({
+      replayed: false,
+      order: { ...order, status: 'reserved' },
+    })
+
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Restaurar venta' }))
+    expect(
+      screen.getByText('Se vuelve a reservar el stock y el enlace público queda activo.'),
+    ).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
+
+    await waitFor(() =>
+      expect(mocked.restoreOrder).toHaveBeenCalledWith({
+        orderId: 'order-1',
+        idempotencyKey: expect.any(String),
+      }),
     )
   })
 })

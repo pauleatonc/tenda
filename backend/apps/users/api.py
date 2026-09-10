@@ -24,6 +24,7 @@ from apps.audit.models import AuditEvent
 from apps.audit.services import record_audit_event
 from apps.media_assets.models import MediaAsset
 from apps.media_assets.services import asset_content_url
+from apps.organisations.bank import has_complete_bank_details
 from apps.organisations.selectors import TenantContext, resolve_tenant_context
 from tenda.antibot import require_turnstile
 from tenda.errors import (
@@ -194,6 +195,12 @@ def _context_payload(context: TenantContext) -> dict[str, object]:
             "address": organisation.address,
             "description": organisation.description,
             "logoUrl": _asset_url(organisation.pk, organisation.logo_asset_id),
+            "bankName": organisation.bank_name,
+            "bankAccountType": organisation.bank_account_type,
+            "bankAccountNumber": organisation.bank_account_number,
+            "bankHolderTaxId": organisation.bank_holder_tax_id,
+            "bankConfirmationEmail": organisation.bank_confirmation_email,
+            "hasBankDetails": has_complete_bank_details(organisation),
         },
         "inventory": {
             "id": str(context.inventory.public_id),

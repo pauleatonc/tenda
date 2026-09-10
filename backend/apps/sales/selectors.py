@@ -322,7 +322,7 @@ def seller_allowed_actions(order: Order) -> tuple[str, ...]:
         Order.Status.PURCHASE_IN_PROGRESS,
         Order.Status.PURCHASE_VALIDATION,
     }:
-        actions.extend(("cancelOrder", "resendOrderLink"))
+        actions.extend(("cancelOrder", "resendOrderLink", "sendOfferLink"))
     if order.published_at is None and order.status in {
         Order.Status.RESERVED,
         Order.Status.PURCHASE_IN_PROGRESS,
@@ -330,6 +330,8 @@ def seller_allowed_actions(order: Order) -> tuple[str, ...]:
         actions.append("publishOrderLink")
     if order.status == Order.Status.PURCHASE_VALIDATION:
         actions.append("reviewPaymentProof")
+        if order.payment_method == Order.PaymentMethod.BANK_TRANSFER:
+            actions.append("reissueBankTransferOffer")
     if order.status in {
         Order.Status.RESERVED,
         Order.Status.PURCHASE_IN_PROGRESS,
@@ -337,6 +339,10 @@ def seller_allowed_actions(order: Order) -> tuple[str, ...]:
         actions.append("confirmManualPayment")
     if order.status == Order.Status.PAID:
         actions.append("refundPayment")
+    if order.status == Order.Status.CANCELLED and order.timeline.filter(
+        event_type="order.cancelled"
+    ).exists():
+        actions.append("restoreOrder")
     return tuple(actions)
 
 

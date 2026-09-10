@@ -126,6 +126,36 @@ describe('InventoryListPage', () => {
     expect(await screen.findByRole('link', { name: 'Velas de soya' })).toBeInTheDocument()
     expect(screen.getByText('Disponible 10')).toBeInTheDocument()
     expect(screen.getByText('Reservado 2')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Generar venta' })).toBeEnabled()
+  })
+
+  it('deshabilita generar venta sin stock, precio o catálogo activo', async () => {
+    mocked.fetchProducts.mockResolvedValue({
+      totalCount: 3,
+      hasNextPage: false,
+      endCursor: '',
+      products: [
+        makeProduct({
+          id: 'no-stock',
+          name: 'Sin stock',
+          stock: { onHand: 0, reserved: 0, available: 0, activeFulfilment: 0 },
+        }),
+        makeProduct({ id: 'no-price', name: 'Sin precio', salePrice: null }),
+        makeProduct({
+          id: 'inactive',
+          name: 'Inactivo',
+          catalogStatus: 'inactive',
+        }),
+      ],
+    })
+
+    renderPage(makeViewer(true))
+    await screen.findByRole('link', { name: 'Sin stock' })
+    const buttons = screen.getAllByRole('button', { name: 'Generar venta' })
+    expect(buttons).toHaveLength(3)
+    for (const button of buttons) {
+      expect(button).toBeDisabled()
+    }
   })
 
   it('ofrece crear el primer producto cuando el inventario está vacío', async () => {

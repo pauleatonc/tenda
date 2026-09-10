@@ -63,6 +63,9 @@ export type OrderAllowedActions = {
   cancel: boolean
   refund: boolean
   resendLink: boolean
+  sendOfferLink: boolean
+  reissueOffer: boolean
+  restore: boolean
 }
 
 export type BuyerView = {
@@ -91,6 +94,7 @@ export type OrderSummary = {
   paymentMethod: string
   nextAction: string
   reconciliationRequired: boolean
+  hasProof: boolean
   expiresAt: string
   confirmedAt: string | null
   createdAt: string
@@ -166,6 +170,14 @@ export type PublicOrder = {
   paymentMethod: string
   availablePaymentMethods: string[]
   bankTransferInstructions: string
+  bankDetails: {
+    bankName: string
+    accountType: string
+    accountTypeLabel: string
+    accountNumber: string
+    taxId: string
+    confirmationEmail: string
+  } | null
   expiresAt: string
   createdAt: string
   rejectionReason: string | null
@@ -174,6 +186,7 @@ export type PublicOrder = {
     displayName: string
     contactEmail: string
     contactPhone: string
+    logoUrl: string | null
   }
   buyer: BuyerView | null
   lines: Array<{
@@ -181,6 +194,7 @@ export type PublicOrder = {
     name: string
     description: string
     imageUrl: string | null
+    photos: string[]
     attributes: Array<{ label: string; value: string }>
     quantity: number
     unitSalePrice: string
@@ -328,6 +342,11 @@ export type CancelOrderRequest = {
   idempotencyKey: string
 }
 
+export type RestoreOrderRequest = {
+  orderId: string
+  idempotencyKey: string
+}
+
 export type RefundPaymentRequest = {
   orderId: string
   reason: string
@@ -335,6 +354,17 @@ export type RefundPaymentRequest = {
 }
 
 export type ResendOrderLinkRequest = {
+  orderId: string
+  idempotencyKey: string
+}
+
+export type SendOfferLinkRequest = {
+  orderId: string
+  email: string
+  idempotencyKey: string
+}
+
+export type ReissueBankTransferOfferRequest = {
   orderId: string
   idempotencyKey: string
 }
@@ -396,6 +426,9 @@ function mapAllowedActions(actions: readonly string[]): OrderAllowedActions {
     cancel: set.has('cancelOrder'),
     refund: set.has('refundPayment'),
     resendLink: set.has('resendOrderLink'),
+    sendOfferLink: set.has('sendOfferLink'),
+    reissueOffer: set.has('reissueBankTransferOffer'),
+    restore: set.has('restoreOrder'),
   }
 }
 
@@ -427,6 +460,7 @@ export function mapOrderSummary(
     paymentMethod: order.paymentMethod,
     nextAction: order.nextAction,
     reconciliationRequired: order.reconciliationRequired,
+    hasProof: Boolean(order.payment?.proof?.id),
     expiresAt: asString(order.reservationExpiresAt),
     confirmedAt: order.paidAt ? asString(order.paidAt) : null,
     createdAt: asString(order.createdAt),
@@ -509,6 +543,16 @@ export function mapPublicOrder(order: OperationPublicOrderFragment): PublicOrder
     paymentMethod: order.paymentMethod,
     availablePaymentMethods: order.availablePaymentMethods,
     bankTransferInstructions: order.bankTransferInstructions,
+    bankDetails: order.bankDetails
+      ? {
+          bankName: order.bankDetails.bankName,
+          accountType: order.bankDetails.accountType,
+          accountTypeLabel: order.bankDetails.accountTypeLabel,
+          accountNumber: order.bankDetails.accountNumber,
+          taxId: order.bankDetails.taxId,
+          confirmationEmail: order.bankDetails.confirmationEmail,
+        }
+      : null,
     expiresAt: asString(order.reservationExpiresAt),
     createdAt: asString(order.createdAt),
     rejectionReason: order.rejectionReason,
@@ -517,14 +561,19 @@ export function mapPublicOrder(order: OperationPublicOrderFragment): PublicOrder
       displayName: order.seller.name,
       contactEmail: order.seller.businessEmail,
       contactPhone: order.seller.phone,
+      logoUrl: order.seller.logoUrl ?? null,
     },
     buyer: mapBuyer(order.buyer),
     lines: order.lines.map((line) => ({
       id: line.id,
       name: line.productName,
       description: '',
-      imageUrl: null,
-      attributes: [],
+      imageUrl: line.imageUrl ?? line.photos[0] ?? null,
+      photos: line.photos,
+      attributes: line.attributes.map((attribute) => ({
+        label: attribute.label,
+        value: attribute.value,
+      })),
       quantity: line.quantity,
       unitSalePrice: line.unitSalePrice,
       currency: line.currency,

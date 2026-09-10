@@ -20,6 +20,12 @@ query Viewer {
     address
     description
     logoUrl
+    bankName
+    bankAccountType
+    bankAccountNumber
+    bankHolderTaxId
+    bankConfirmationEmail
+    hasBankDetails
   }
   activeInventory {
     id
@@ -77,6 +83,12 @@ mutation UpdateOrganisation($input: UpdateOrganisationInput!) {
       address
       description
       logoUrl
+      bankName
+      bankAccountType
+      bankAccountNumber
+      bankHolderTaxId
+      bankConfirmationEmail
+      hasBankDetails
     }
   }
 }

@@ -1,7 +1,10 @@
+import { organisationHasBankDetails } from '@tenda/api-client'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 
+import { BankDetailsRequiredNotice } from '../app/BankDetailsRequiredNotice'
+import type { ViewerPayload } from '../auth/api'
 import { SearchField, StatusChip } from '../components/ui'
 import { fetchProducts, inventoryKeys, type ProductRow } from '../inventory/api'
 import { TendaApiError } from '../lib/http'
@@ -48,6 +51,10 @@ function lineFromProduct(product: ProductRow): SaleDraftLine {
 export function NewSalePage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const viewer = useOutletContext<ViewerPayload | undefined>()
+  const hasBankDetails = viewer
+    ? organisationHasBankDetails(viewer.organisation)
+    : true
   const [draft, setDraft] = useState<SaleDraft>(loadSaleDraft)
   const [search, setSearch] = useState('')
   const [submitError, setSubmitError] = useState<Error | null>(null)
@@ -88,6 +95,8 @@ export function NewSalePage() {
     draft.paymentMethod === 'mercado_pago' && !mercadoPagoActive
       ? 'bank_transfer'
       : draft.paymentMethod
+  const depositBlocked =
+    selectedPaymentMethod === 'bank_transfer' && !hasBankDetails
 
   function replaceDraft(update: (current: SaleDraft) => SaleDraft) {
     setDraft((current) => {
@@ -507,6 +516,8 @@ export function NewSalePage() {
             </p>
           ) : null}
 
+          {depositBlocked ? <BankDetailsRequiredNotice /> : null}
+
           <footer className="sale-wizard-footer">
             <button
               className="button button--secondary"
@@ -518,6 +529,7 @@ export function NewSalePage() {
             <button
               className="button button--primary"
               type="button"
+              disabled={depositBlocked}
               onClick={() => goToStep(3)}
             >
               Revisar venta
@@ -583,6 +595,8 @@ export function NewSalePage() {
             <p className="sale-review__total">Total {formatClp(total)}</p>
           </div>
 
+          {depositBlocked ? <BankDetailsRequiredNotice /> : null}
+
           <footer className="sale-wizard-footer">
             <button
               className="button button--secondary"
@@ -595,7 +609,7 @@ export function NewSalePage() {
             <button
               className="button button--primary"
               type="button"
-              disabled={submit.isPending || !validation.valid}
+              disabled={submit.isPending || !validation.valid || depositBlocked}
               onClick={() => {
                 setSubmitError(null)
                 submit.mutate()

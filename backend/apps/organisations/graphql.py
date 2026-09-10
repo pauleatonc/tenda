@@ -15,6 +15,7 @@ from apps.organisations.labels import role_label
 from tenda.errors import DomainError, ResourceNotFound
 from tenda.graphql import context_from_info, graphql_error
 
+from .bank import has_complete_bank_details
 from .models import Membership, Organisation
 from .permissions import OrganisationPermission, require_permission
 from .selectors import members_for_context
@@ -35,6 +36,12 @@ class OrganisationType(graphene.ObjectType):  # type: ignore[misc]
     address = graphene.String(required=True)
     description = graphene.String(required=True)
     logo_url = graphene.String()
+    bank_name = graphene.String(required=True)
+    bank_account_type = graphene.String(required=True)
+    bank_account_number = graphene.String(required=True)
+    bank_holder_tax_id = graphene.String(required=True)
+    bank_confirmation_email = graphene.String(required=True)
+    has_bank_details = graphene.Boolean(required=True)
 
     @staticmethod
     def resolve_id(root: Organisation, _info: GraphQLResolveInfo) -> str:
@@ -50,6 +57,10 @@ class OrganisationType(graphene.ObjectType):  # type: ignore[misc]
             status=MediaAsset.Status.READY,
         ).first()
         return asset_content_url(asset, variant="thumbnail")
+
+    @staticmethod
+    def resolve_has_bank_details(root: Organisation, _info: GraphQLResolveInfo) -> bool:
+        return has_complete_bank_details(root)
 
 
 class InventoryContextType(graphene.ObjectType):  # type: ignore[misc]
@@ -133,6 +144,11 @@ class UpdateOrganisationInput(graphene.InputObjectType):  # type: ignore[misc]
     address = graphene.String()
     description = graphene.String()
     logo_asset_id = graphene.ID()
+    bank_name = graphene.String()
+    bank_account_type = graphene.String()
+    bank_account_number = graphene.String()
+    bank_holder_tax_id = graphene.String()
+    bank_confirmation_email = graphene.String()
 
 
 class UpdateOrganisation(graphene.Mutation):  # type: ignore[misc]
@@ -149,6 +165,14 @@ class UpdateOrganisation(graphene.Mutation):  # type: ignore[misc]
     ) -> UpdateOrganisation:
         try:
             logo_raw = input.get("logo_asset_id")
+            bank_keys = (
+                "bank_name",
+                "bank_account_type",
+                "bank_account_number",
+                "bank_holder_tax_id",
+                "bank_confirmation_email",
+            )
+            update_bank = any(input.get(key) is not None for key in bank_keys)
             organisation = update_organisation(
                 context=context_from_info(info),
                 name=str(input.get("name", "")),
@@ -158,6 +182,12 @@ class UpdateOrganisation(graphene.Mutation):  # type: ignore[misc]
                 address=str(input.get("address") or ""),
                 description=str(input.get("description") or ""),
                 logo_asset_id=_uuid_or_not_found(logo_raw) if logo_raw else None,
+                bank_name=str(input.get("bank_name") or ""),
+                bank_account_type=str(input.get("bank_account_type") or ""),
+                bank_account_number=str(input.get("bank_account_number") or ""),
+                bank_holder_tax_id=str(input.get("bank_holder_tax_id") or ""),
+                bank_confirmation_email=str(input.get("bank_confirmation_email") or ""),
+                update_bank_details=update_bank,
             )
         except DomainError as exc:
             raise graphql_error(info, exc) from exc

@@ -14,7 +14,11 @@ from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.utils.html import escape
 from django.views.decorators.csrf import csrf_exempt
 
-from apps.media_assets.storage import uses_in_process_upload
+from apps.inventory.models import ProductMediaAttachment
+from apps.media_assets.images import variant_content_type
+from apps.media_assets.models import MediaAsset
+from apps.media_assets.services import _object_key_for_variant
+from apps.media_assets.storage import get_object_storage, uses_in_process_upload
 from apps.users.api import endpoint, success
 from apps.users.middleware import get_correlation_id
 from tenda.errors import DomainError
@@ -273,3 +277,49 @@ def complete_public_receipt(request: HttpRequest, token: str) -> HttpResponse:
             "orderStatus": proof.payment.order.status,
         }
     )
+
+
+def _public_order_asset(order: object, asset_id: uuid.UUID) -> MediaAsset | None:
+    attachment = (
+        ProductMediaAttachment.objects.filter(
+            product__order_items__order=order,
+            asset__public_id=asset_id,
+            asset__status=MediaAsset.Status.READY,
+        )
+        .select_related("asset")
+        .first()
+    )
+    if attachment is not None:
+        return attachment.asset
+    organisation = getattr(order, "organisation", None)
+    if organisation is None or organisation.logo_asset_id != asset_id:
+        return None
+    return MediaAsset.objects.filter(
+        public_id=asset_id,
+        organisation_id=organisation.pk,
+        purpose=MediaAsset.Purpose.ORGANISATION_LOGO,
+        status=MediaAsset.Status.READY,
+    ).first()
+
+
+@endpoint("GET")
+def public_order_media(request: HttpRequest, token: str, asset_id: str) -> HttpResponse:
+    order = public_order_for_token(token)
+    asset = _public_order_asset(order, _asset_id(asset_id))
+    if asset is None:
+        raise DomainError(
+            "NOT_FOUND",
+            "No encontramos el recurso solicitado.",
+            status=404,
+        )
+    variant = str(request.GET.get("variant") or "").strip() or None
+    content = get_object_storage().read_bytes(
+        key=_object_key_for_variant(asset, variant),
+    )
+    content_type = asset.content_type
+    if variant and dict(asset.variants or {}).get(variant):
+        content_type = variant_content_type()
+    response = HttpResponse(content, content_type=content_type)
+    response["Cache-Control"] = "private, max-age=300"
+    response["Content-Disposition"] = "inline"
+    return response

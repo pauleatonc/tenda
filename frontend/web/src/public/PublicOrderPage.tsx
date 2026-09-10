@@ -3,12 +3,14 @@ import { Link, useParams } from 'react-router-dom'
 
 import { TendaApiError } from '../lib/http'
 import { fetchPublicOrder, salesKeys } from '../sales/api'
-import { deliveryModeLabels, translated } from '../sales/model'
+import { deliveryModeLabels, formatDate, translated } from '../sales/model'
 import {
+  PublicOrderStatusPanel,
   PublicOrderSummary,
   PublicOrderUnavailable,
   PublicPage,
 } from './PublicOrderComponents'
+import { PublicProofUpload } from './PublicProofUpload'
 
 export function PublicOrderPage() {
   const { token = '' } = useParams<{ token: string }>()
@@ -49,6 +51,55 @@ export function PublicOrderPage() {
 
   const detail = order.data
   const terminal = ['paid', 'sold', 'cancelled', 'refunded'].includes(detail.status)
+  const isBankOffer = detail.paymentMethod === 'bank_transfer'
+  const awaitingProof =
+    isBankOffer && ['reserved', 'purchase_in_progress'].includes(detail.status)
+  const reviewingProof = isBankOffer && detail.status === 'purchase_validation'
+  const confirmed = ['paid', 'sold'].includes(detail.status)
+
+  if (isBankOffer) {
+    return (
+      <PublicPage seller={detail.seller}>
+        <section className="public-order-intro public-order-intro--offer">
+          <p className="eyebrow">{confirmed ? 'Compra confirmada' : 'Producto reservado'}</p>
+          <p>
+            {confirmed
+              ? 'El vendedor confirmó el pago de este producto.'
+              : `${detail.seller.displayName} te dejó este producto apartado.`}
+          </p>
+        </section>
+
+        {awaitingProof ? (
+          <aside className="public-deadline" role="status">
+            <p className="eyebrow">Plazo para pagar</p>
+            <p>
+              Transfiere el total y sube el comprobante antes de{' '}
+              <strong>{formatDate(detail.expiresAt)}</strong>.
+            </p>
+          </aside>
+        ) : null}
+
+        <PublicOrderSummary order={detail} />
+
+        {awaitingProof || reviewingProof ? (
+          <section className="public-proof-card">
+            <p className="eyebrow">Transferencia</p>
+            <h2>Paga por depósito</h2>
+            <PublicProofUpload token={token} order={detail} />
+          </section>
+        ) : (
+          <PublicOrderStatusPanel
+            number={detail.number}
+            status={detail.status}
+            paymentStatus={detail.paymentStatus}
+            expiresAt={detail.expiresAt}
+            rejectionReason={detail.rejectionReason}
+            embedded
+          />
+        )}
+      </PublicPage>
+    )
+  }
 
   return (
     <PublicPage seller={detail.seller}>

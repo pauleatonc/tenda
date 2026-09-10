@@ -321,6 +321,7 @@ export function SalesListPage() {
                 <th scope="col">Estado</th>
                 <th scope="col">Fecha</th>
                 <th scope="col">Próxima acción</th>
+                <th scope="col">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -348,6 +349,16 @@ export function SalesListPage() {
                     <Link to={`/app/ventas/${order.id}`}>
                       {translated(nextActionLabels, order.nextAction)}
                     </Link>
+                  </td>
+                  <td>
+                    {order.hasProof ? (
+                      <Link
+                        className="button button--secondary button--compact"
+                        to={`/app/ventas/${order.id}`}
+                      >
+                        Ver comprobante
+                      </Link>
+                    ) : null}
                   </td>
                 </tr>
               ))}

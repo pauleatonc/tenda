@@ -20,6 +20,24 @@ pytestmark = pytest.mark.django_db(transaction=True)
 PASSWORD = "Correct-Horse-Battery-42"
 
 
+def seed_bank_details(organisation) -> None:
+    organisation.bank_name = "BancoEstado"
+    organisation.bank_account_type = "cuenta_corriente"
+    organisation.bank_account_number = "12345678"
+    organisation.bank_holder_tax_id = "11.111.111-1"
+    organisation.bank_confirmation_email = "pagos@example.com"
+    organisation.save(
+        update_fields=(
+            "bank_name",
+            "bank_account_type",
+            "bank_account_number",
+            "bank_holder_tax_id",
+            "bank_confirmation_email",
+            "updated_at",
+        )
+    )
+
+
 def identity(email: str) -> tuple[User, TenantContext]:
     user = User.objects.create_user(
         email=email,
@@ -27,7 +45,9 @@ def identity(email: str) -> tuple[User, TenantContext]:
         email_verified_at=timezone.now(),
     )
     create_organisation_for_owner(owner=user, name=f"Negocio {email}")
-    return user, resolve_tenant_context(user)
+    context = resolve_tenant_context(user)
+    seed_bank_details(context.organisation)
+    return user, context
 
 
 def signed_in(email: str) -> tuple[Client, TenantContext]:
@@ -85,8 +105,11 @@ def test_graphql_exposes_exact_stage_two_query_and_mutation_names() -> None:
         "reviewPaymentProof",
         "confirmManualPayment",
         "cancelOrder",
+        "restoreOrder",
         "refundPayment",
         "resendOrderLink",
+        "sendOfferLink",
+        "reissueBankTransferOffer",
         "retryReconciliation",
     } <= mutation_names
 

@@ -11,6 +11,7 @@ import { PersonAvatar } from '../components/AuthenticatedImage'
 import { UploadField } from '../components/ui'
 import { graphqlRequest, TendaApiError } from '../lib/http'
 import { uploadPrivateFile } from '../inventory/api'
+import { BankDetailsSection } from './BankDetailsSection'
 
 export function ProfilePage() {
   const viewer = useOutletContext<ViewerPayload>()
@@ -233,6 +234,20 @@ export function ProfilePage() {
             ) : null}
           </form>
         </section>
+
+        <BankDetailsSection
+          viewer={viewer}
+          canManage={canManageStore}
+          onSaved={(status) => {
+            setMessage(status)
+            setError('')
+            refreshViewer()
+          }}
+          onError={(status) => {
+            setMessage('')
+            setError(status)
+          }}
+        />
       </div>
     </>
   )

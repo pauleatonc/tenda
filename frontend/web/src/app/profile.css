@@ -74,8 +74,101 @@
   margin: 0;
 }
 
+.profile-card--wide {
+  grid-column: 1 / -1;
+}
+
+.profile-card--wide .profile-card__intro {
+  align-items: start;
+}
+
+.profile-bank-mark {
+  align-items: center;
+  background: var(--green-pale);
+  border-radius: 16px;
+  display: grid;
+  font-size: 28px;
+  height: 72px;
+  justify-content: center;
+  width: 72px;
+}
+
+.profile-bank-status {
+  background: #fff4d6;
+  border-radius: 999px;
+  color: #6b5310;
+  font-size: 12px;
+  font-weight: 750;
+  margin-left: auto;
+  padding: 6px 12px;
+  white-space: nowrap;
+}
+
+.profile-bank-status.is-ready {
+  background: var(--green-pale);
+  color: var(--green);
+}
+
+.profile-bank-layout {
+  display: grid;
+  gap: 28px;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.9fr);
+}
+
+.profile-bank-preview {
+  background: #fbfaf6;
+  border: 1px dashed var(--line);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.profile-bank-preview .bank-instructions {
+  margin-bottom: 0;
+}
+
+.profile-form .field select {
+  appearance: none;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2317201d' d='M1 1l5 5 5-5'/%3E%3C/svg%3E") no-repeat right 14px center;
+  border: 1px solid #cbc8be;
+  border-radius: 12px;
+  color: var(--ink);
+  min-height: 50px;
+  padding: 0 40px 0 14px;
+  width: 100%;
+}
+
+.bank-details-required {
+  align-items: center;
+  background: #fff8e3;
+  border: 1px solid #dfc56d;
+  border-radius: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 18px;
+  padding: 16px 18px;
+}
+
+.bank-details-required strong {
+  color: #5d4a12;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.bank-details-required p {
+  color: #5d4a12;
+  margin: 0;
+}
+
+.bank-details-required .button {
+  margin-left: auto;
+}
+
 @media (max-width: 820px) {
   .profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-bank-layout {
     grid-template-columns: 1fr;
   }
 }

@@ -16,6 +16,8 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
+import { organisationHasBankDetails } from '@tenda/api-client'
+import { BankDetailsRequired } from '../../../components/bank-details-required'
 import { PrimaryButton, StatusMessage, colors } from '../../../components/auth-ui'
 import {
   InventoryChip,
@@ -29,7 +31,7 @@ import {
   paymentMethodLabels,
   salesStyles,
 } from '../../../components/sales-ui'
-import { MobileApiError } from '../../../lib/auth-api'
+import { MobileApiError, getMobileViewer } from '../../../lib/auth-api'
 import { formatPrice, formatQuantity } from '../../../lib/format'
 import { isOfflineError } from '../../../lib/graphql'
 import {
@@ -291,8 +293,18 @@ export default function NewSaleScreen() {
     queryKey: salesKeys.paymentConnection(),
     queryFn: fetchSellerPaymentConnection,
   })
+  const viewer = useQuery({
+    queryKey: ['mobile-viewer'],
+    queryFn: getMobileViewer,
+    retry: false,
+  })
+  const hasBankDetails = viewer.data
+    ? organisationHasBankDetails(viewer.data.organisation)
+    : true
   const mercadoPagoActive =
     paymentConnection.data?.sellerPaymentConnection?.status === 'connected'
+  const depositBlocked =
+    draft.paymentMethod === 'bank_transfer' && !hasBankDetails
 
   const validation = useMemo(
     () => validateSaleDraftLines(draft.lines),
@@ -363,6 +375,7 @@ export default function NewSaleScreen() {
       return
     }
     if (draft.step === 'terms') {
+      if (draft.paymentMethod === 'bank_transfer' && !hasBankDetails) return
       setDraft((current) => ({ ...current, step: 'review' }))
     }
   }
@@ -521,6 +534,7 @@ export default function NewSaleScreen() {
                     activa en Más › Pagos.
                   </Text>
                 ) : null}
+                {depositBlocked ? <BankDetailsRequired /> : null}
               </SectionCard>
               <View accessibilityRole="summary" style={styles.reserveNotice}>
                 <Text style={styles.reserveTitle}>Reserva por 8 horas</Text>
@@ -530,7 +544,11 @@ export default function NewSaleScreen() {
                 </Text>
               </View>
               <View style={salesStyles.actions}>
-                <PrimaryButton label="Revisar venta" onPress={goNext} />
+                <PrimaryButton
+                  label="Revisar venta"
+                  disabled={depositBlocked}
+                  onPress={goNext}
+                />
                 <PrimaryButton label="Volver" variant="secondary" onPress={goBack} />
               </View>
             </>
@@ -564,6 +582,7 @@ export default function NewSaleScreen() {
                 </Text>
                 <Text style={styles.total}>Total {formatClp(String(total))}</Text>
               </SectionCard>
+              {depositBlocked ? <BankDetailsRequired /> : null}
               <Text style={salesStyles.muted}>
                 Crear reserva stock y publica un enlace opaco. No se enviará a ningún
                 contacto automáticamente.
@@ -572,8 +591,9 @@ export default function NewSaleScreen() {
                 <PrimaryButton
                   label="Crear venta y enlace"
                   loading={submit.isPending}
+                  disabled={depositBlocked}
                   onPress={() => {
-                    if (submitLock.current || submit.isPending) return
+                    if (depositBlocked || submitLock.current || submit.isPending) return
                     submitLock.current = true
                     setApiError(null)
                     submit.mutate()

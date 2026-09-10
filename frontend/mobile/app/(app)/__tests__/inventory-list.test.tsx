@@ -5,6 +5,7 @@ import type { ReactElement } from 'react'
 
 import InventoryScreen from '../(tabs)/inventario'
 import * as api from '../../../lib/inventory-api'
+import * as sales from '../../../lib/sales-api'
 import type { ProductCard } from '../../../lib/inventory-api'
 
 jest.mock('../../../lib/inventory-api', () => ({
@@ -13,7 +14,14 @@ jest.mock('../../../lib/inventory-api', () => ({
   fetchProductBreakdown: jest.fn(),
 }))
 
+jest.mock('../../../lib/sales-api', () => ({
+  createOrder: jest.fn(),
+  publishOrderLink: jest.fn(),
+  sendOfferLink: jest.fn(),
+}))
+
 const mocked = api as jest.Mocked<typeof api>
+const mockedSales = sales as jest.Mocked<typeof sales>
 
 function makeProduct(overrides: Partial<ProductCard> = {}): ProductCard {
   return {
@@ -136,5 +144,42 @@ describe('Inventario mobile', () => {
 
     await fireEvent.press(screen.getByText('Carga manual'))
     expect(router.push).toHaveBeenCalledWith('/inventario/producto')
+  })
+
+  it('abre el sheet de depósito y no muta Online ni Efectivo', async () => {
+    mocked.fetchProducts.mockResolvedValue({
+      totalCount: 1,
+      hasNextPage: false,
+      endCursor: '',
+      products: [makeProduct()],
+    })
+
+    await renderScreen(<InventoryScreen />)
+    mockedSales.createOrder.mockResolvedValue({
+      replayed: false,
+      order: { id: 'order-1' },
+    } as never)
+    mockedSales.publishOrderLink.mockResolvedValue({
+      replayed: false,
+      publicUrl: 'https://tenda.test/p/token',
+      order: { id: 'order-1' },
+    } as never)
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Generar venta' }))
+
+    expect(screen.getByText('Depósito')).toBeOnTheScreen()
+    expect(screen.getByText('Pago Online')).toBeOnTheScreen()
+    expect(screen.getByText('Efectivo')).toBeOnTheScreen()
+    expect(screen.getAllByText('Próximamente').length).toBeGreaterThan(0)
+    expect(mockedSales.createOrder).not.toHaveBeenCalled()
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Generar depósito' }))
+    await waitFor(() => expect(mockedSales.createOrder).toHaveBeenCalledTimes(1))
+    expect(mockedSales.createOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deliveryMode: 'coordinated',
+        paymentMethod: 'bank_transfer',
+      }),
+    )
   })
 })

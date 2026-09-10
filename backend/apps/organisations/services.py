@@ -13,6 +13,7 @@ from apps.media_assets.services import ready_asset
 from apps.users.models import User
 from tenda.errors import DomainError, PermissionDenied
 
+from .bank import BANK_FIELDS, cleaned_bank_details
 from .models import Membership, Organisation
 from .permissions import OrganisationPermission, require_permission
 from .selectors import TenantContext, member_for_context
@@ -71,6 +72,12 @@ def update_organisation(
     address: str = "",
     description: str = "",
     logo_asset_id: uuid.UUID | None = None,
+    bank_name: str | None = None,
+    bank_account_type: str | None = None,
+    bank_account_number: str | None = None,
+    bank_holder_tax_id: str | None = None,
+    bank_confirmation_email: str | None = None,
+    update_bank_details: bool = False,
 ) -> Organisation:
     require_permission(
         context.membership,
@@ -90,6 +97,21 @@ def update_organisation(
     organisation.timezone = timezone_name.strip() or "America/Santiago"
     organisation.address = address.strip()
     organisation.description = description.strip()
+    if update_bank_details:
+        bank = cleaned_bank_details(
+            {
+                "bank_name": bank_name,
+                "bank_account_type": bank_account_type,
+                "bank_account_number": bank_account_number,
+                "bank_holder_tax_id": bank_holder_tax_id,
+                "bank_confirmation_email": bank_confirmation_email,
+            }
+        )
+        organisation.bank_name = bank["bank_name"]
+        organisation.bank_account_type = bank["bank_account_type"]
+        organisation.bank_account_number = bank["bank_account_number"]
+        organisation.bank_holder_tax_id = bank["bank_holder_tax_id"]
+        organisation.bank_confirmation_email = bank["bank_confirmation_email"]
     if logo_asset_id is not None:
         ready_asset(
             context=context,
@@ -105,18 +127,19 @@ def update_organisation(
             "Revisa los datos ingresados.",
             field_errors={"organisation": ["Los datos del negocio no son válidos."]},
         ) from exc
-    organisation.save(
-        update_fields=(
-            "name",
-            "phone",
-            "business_email",
-            "timezone",
-            "address",
-            "description",
-            "logo_asset_id",
-            "updated_at",
-        )
-    )
+    update_fields = [
+        "name",
+        "phone",
+        "business_email",
+        "timezone",
+        "address",
+        "description",
+        "logo_asset_id",
+        "updated_at",
+    ]
+    if update_bank_details:
+        update_fields.extend(BANK_FIELDS)
+    organisation.save(update_fields=tuple(update_fields))
     return organisation
 
 

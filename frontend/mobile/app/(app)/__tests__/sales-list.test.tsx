@@ -48,6 +48,7 @@ describe('Listado de ventas mobile', () => {
           paymentMethod: 'bank_transfer',
           nextAction: 'review_payment_proof',
           reconciliationRequired: false,
+          hasProof: true,
           expiresAt: '2026-08-25T20:00:00Z',
           confirmedAt: null,
           createdAt: '2026-08-25T12:00:00Z',
@@ -64,6 +65,7 @@ describe('Listado de ventas mobile', () => {
     expect(screen.getByText('Camila Soto')).toBeOnTheScreen()
     expect(screen.getByText('$10.000 CLP')).toBeOnTheScreen()
     expect(screen.getByText('Transferencia')).toBeOnTheScreen()
+    expect(screen.getByText('Por revisar')).toBeOnTheScreen()
     expect(screen.getByText('Revisar comprobante')).toBeOnTheScreen()
 
     // A phone gets one vertical card, not desktop column headers or horizontal scroll.

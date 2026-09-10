@@ -212,6 +212,9 @@ export function Modal({
 
   useEffect(() => {
     panelRef.current?.focus()
+  }, [])
+
+  useEffect(() => {
     function handleKey(event: KeyboardEvent) {
       if (event.key === 'Escape') onClose()
     }

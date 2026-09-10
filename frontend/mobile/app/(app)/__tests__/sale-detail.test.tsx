@@ -11,8 +11,11 @@ jest.mock('../../../lib/sales-api', () => ({
   reviewPaymentProof: jest.fn(),
   confirmManualPayment: jest.fn(),
   cancelOrder: jest.fn(),
+  restoreOrder: jest.fn(),
   refundPayment: jest.fn(),
   resendOrderLink: jest.fn(),
+  reissueBankTransferOffer: jest.fn(),
+  sendOfferLink: jest.fn(),
   salesKeys: {
     root: ['sales'],
     order: (id: string) => ['sales', 'order', id],
@@ -48,6 +51,7 @@ function sellerOrder() {
     updatedAt: '2026-08-25T13:00:00Z',
     costsVisible: false,
     reconciliationMessage: '',
+    hasProof: false,
     lines: [
       {
         id: 'line-1',
@@ -105,9 +109,12 @@ function sellerOrder() {
       approveProof: true,
       rejectProof: true,
       confirmManualPayment: false,
-      cancel: false,
+      cancel: true,
       refund: false,
       resendLink: true,
+      sendOfferLink: false,
+      reissueOffer: true,
+      restore: false,
     },
   }
 }
@@ -130,16 +137,16 @@ describe('Detalle de venta mobile', () => {
     await renderScreen(<SaleDetailScreen />)
     expect(await screen.findByText('Venta V-0001')).toBeOnTheScreen()
 
-    expect(screen.getByRole('button', { name: 'Aprobar comprobante' })).toBeOnTheScreen()
-    expect(screen.getByRole('button', { name: 'Rechazar comprobante' })).toBeOnTheScreen()
-    expect(screen.queryByRole('button', { name: 'Cancelar venta' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Validar' })).toBeOnTheScreen()
+    expect(screen.queryByRole('button', { name: 'Rechazar comprobante' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Cancelar venta' })).toBeOnTheScreen()
+    expect(screen.getByRole('button', { name: 'Enviar de nuevo' })).toBeOnTheScreen()
+    expect(screen.queryByRole('button', { name: 'Restaurar venta' })).toBeNull()
     expect(screen.queryByText(/Costo snapshot/)).toBeNull()
 
-    await fireEvent.press(
-      screen.getByRole('button', { name: 'Aprobar comprobante' }),
-    )
+    await fireEvent.press(screen.getByRole('button', { name: 'Validar' }))
     const confirm = await screen.findByRole('button', {
-      name: 'Aprobar y descontar stock',
+      name: 'Validar y descontar stock',
     })
     await fireEvent.press(confirm)
     await fireEvent.press(confirm)
@@ -153,19 +160,59 @@ describe('Detalle de venta mobile', () => {
     )
   })
 
-  it('exige motivo antes de rechazar un comprobante', async () => {
+  it('permite cancelar la venta desde el detalle', async () => {
     await renderScreen(<SaleDetailScreen />)
     await screen.findByText('Venta V-0001')
 
-    await fireEvent.press(
-      screen.getByRole('button', { name: 'Rechazar comprobante' }),
-    )
-    const rejectButtons = await screen.findAllByRole('button', {
-      name: 'Rechazar comprobante',
+    await fireEvent.press(screen.getByRole('button', { name: 'Cancelar venta' }))
+    const confirmButtons = await screen.findAllByRole('button', {
+      name: 'Cancelar venta',
     })
-    await fireEvent.press(rejectButtons[rejectButtons.length - 1])
+    await fireEvent.press(confirmButtons[confirmButtons.length - 1])
 
-    expect(await screen.findByText('Escribe el motivo del rechazo.')).toBeOnTheScreen()
-    expect(mocked.reviewPaymentProof).not.toHaveBeenCalled()
+    expect(mocked.cancelOrder).toHaveBeenCalled()
+  })
+
+  it('permite escribir el motivo de cancelación', async () => {
+    await renderScreen(<SaleDetailScreen />)
+    await screen.findByText('Venta V-0001')
+    await fireEvent.press(screen.getByRole('button', { name: 'Cancelar venta' }))
+    const reason = await screen.findByLabelText('Motivo de cancelación (opcional)')
+    await fireEvent.changeText(reason, 'Ya no interesa')
+    expect(reason.props.value).toBe('Ya no interesa')
+  })
+
+  it('permite restaurar una venta cancelada por error', async () => {
+    mocked.fetchOrder.mockResolvedValue({
+      ...sellerOrder(),
+      status: 'cancelled',
+      allowedActions: {
+        ...sellerOrder().allowedActions,
+        approveProof: false,
+        rejectProof: false,
+        cancel: false,
+        resendLink: false,
+        reissueOffer: false,
+        restore: true,
+      },
+    })
+    mocked.restoreOrder.mockResolvedValue({
+      replayed: false,
+      order: { ...sellerOrder(), status: 'reserved' },
+    })
+
+    await renderScreen(<SaleDetailScreen />)
+    await screen.findByText('Venta V-0001')
+    await fireEvent.press(screen.getByRole('button', { name: 'Restaurar venta' }))
+    expect(
+      screen.getByText('Se vuelve a reservar el stock y el enlace público queda activo.'),
+    ).toBeOnTheScreen()
+    const confirm = await screen.findAllByRole('button', { name: 'Restaurar venta' })
+    await fireEvent.press(confirm[confirm.length - 1])
+
+    expect(mocked.restoreOrder).toHaveBeenCalledWith({
+      orderId: 'order-1',
+      idempotencyKey: expect.any(String),
+    })
   })
 })

@@ -22,6 +22,11 @@ export async function updateMobileOrganisation(input: {
   address: string
   description: string
   logoAssetId?: string
+  bankName?: string
+  bankAccountType?: string
+  bankAccountNumber?: string
+  bankHolderTaxId?: string
+  bankConfirmationEmail?: string
 }) {
   const data = await graphqlRequest(UpdateOrganisationDocument, { input })
   return data.updateOrganisation.organisation

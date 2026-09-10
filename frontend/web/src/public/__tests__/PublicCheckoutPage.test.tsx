@@ -31,6 +31,7 @@ const publicOrder = {
   paymentMethod: 'bank_transfer',
   availablePaymentMethods: ['bank_transfer'],
   bankTransferInstructions: 'Banco Estado',
+  bankDetails: null,
   expiresAt: '2026-08-26T01:00:00Z',
   createdAt: '2026-08-25T17:00:00Z',
   rejectionReason: null,
@@ -39,6 +40,7 @@ const publicOrder = {
     displayName: 'Taller Ana',
     contactEmail: 'ventas@example.cl',
     contactPhone: '+56911111111',
+    logoUrl: null,
   },
   buyer: null,
   lines: [
@@ -47,6 +49,7 @@ const publicOrder = {
       name: 'Vela de soya',
       description: 'Lavanda',
       imageUrl: null,
+      photos: [],
       attributes: [],
       quantity: 2,
       unitSalePrice: '5000',
