@@ -117,6 +117,24 @@ def _order_items_block(items: list[dict[str, str]]) -> tuple[list[str], str]:
     return text_lines, html
 
 
+def _append_order_detail(
+    *,
+    text_lines: list[str],
+    html_body: str,
+    parameters: Mapping[str, Any],
+) -> tuple[list[str], str]:
+    """Line items + total, without product photos."""
+    item_lines, items_html = _order_items_block(_order_items(parameters))
+    next_lines = [*text_lines, *item_lines]
+    next_html = html_body + items_html
+    raw_total = parameters.get("total")
+    if raw_total not in (None, ""):
+        formatted_total = _format_clp(raw_total)
+        next_lines.append(f"Total: {formatted_total}")
+        next_html += f"<p><strong>Total: {escape(formatted_total)}</strong></p>"
+    return next_lines, next_html
+
+
 def _button(url: str, label: str) -> str:
     safe = escape(url, quote=True)
     return (
@@ -160,34 +178,38 @@ def render_email(template: str, parameters: dict[str, Any]) -> RenderedEmail:
         return RenderedEmail(subject="Restablece tu contraseña de Tenda", text=text, html=html)
 
     if template == "product_offer_link":
-        product_name = str(parameters.get("productName") or "un producto")
-        total = str(parameters.get("total") or "")
         title = (
             f"Pedido {order_number}: completa el pago"
             if order_number
             else "Completa el pago de tu pedido"
         )
-        text_body = (
-            f"Hay un pedido pendiente de pago"
-            f"{f' ({order_number})' if order_number else ''}.\n"
-            f"{product_name}\n"
+        heading = (
+            f"Hay un pedido pendiente de pago ({order_number})."
+            if order_number
+            else "Hay un pedido pendiente de pago."
         )
-        if total:
-            text_body += f"Total: {total}\n"
-        text_body += f"{action_url}\n"
-        if expires_at:
-            text_body += f"El enlace vence el {expires_at}.\n"
-        html_body = (
-            f"<p>Hay un pedido pendiente de pago"
-            f"{f' ({escape(order_number)})' if order_number else ''}.</p>"
-            f"<p><strong>{escape(product_name)}</strong></p>"
+        text_lines = [heading]
+        html_body = f"<p>{escape(heading)}</p>"
+        text_lines, html_body = _append_order_detail(
+            text_lines=text_lines,
+            html_body=html_body,
+            parameters=parameters,
         )
-        if total:
-            html_body += f"<p>Total: {escape(total)}</p>"
+        if not _order_items(parameters):
+            product_name = str(parameters.get("productName") or "").strip()
+            if product_name:
+                text_lines.append(product_name)
+                html_body += f"<p><strong>{escape(product_name)}</strong></p>"
+        text_lines.append(action_url)
         html_body += _button(action_url, "Abrir pedido y subir comprobante")
         if expires_at:
+            text_lines.append(f"El enlace vence el {expires_at}.")
             html_body += f"<p>El enlace vence el {escape(expires_at)}.</p>"
-        text, html = _shell(title=title, body_html=html_body, body_text=text_body)
+        text, html = _shell(
+            title=title,
+            body_html=html_body,
+            body_text="\n".join(text_lines),
+        )
         return RenderedEmail(
             subject=f"Tenda · {title}",
             text=text,
@@ -196,9 +218,6 @@ def render_email(template: str, parameters: dict[str, Any]) -> RenderedEmail:
 
     if template == "order_expired":
         title = "Tu pedido venció"
-        items = _order_items(parameters)
-        raw_total = parameters.get("total")
-        formatted_total = _format_clp(raw_total) if raw_total not in (None, "") else ""
         heading = (
             f"El pedido {order_number} venció y ya no está reservado."
             if order_number
@@ -206,12 +225,11 @@ def render_email(template: str, parameters: dict[str, Any]) -> RenderedEmail:
         )
         text_lines = [heading]
         html_body = f"<p>{escape(heading)}</p>"
-        item_lines, items_html = _order_items_block(items)
-        text_lines.extend(item_lines)
-        html_body += items_html
-        if formatted_total:
-            text_lines.append(f"Total: {formatted_total}")
-            html_body += f"<p><strong>Total: {escape(formatted_total)}</strong></p>"
+        text_lines, html_body = _append_order_detail(
+            text_lines=text_lines,
+            html_body=html_body,
+            parameters=parameters,
+        )
         if action_url:
             text_lines.append(action_url)
             html_body += _button(action_url, "Abrir en Tenda")
@@ -239,8 +257,6 @@ def render_email(template: str, parameters: dict[str, Any]) -> RenderedEmail:
             )
             if part
         )
-        raw_total = parameters.get("total")
-        formatted_total = _format_clp(raw_total) if raw_total not in (None, "") else ""
         if dispatched:
             heading = (
                 f"Tu pedido {order_number} fue entregado al transportista."
@@ -275,12 +291,11 @@ def render_email(template: str, parameters: dict[str, Any]) -> RenderedEmail:
         if note:
             text_lines.append(f"Nota del vendedor: {note}")
             html_body += f"<p>Nota del vendedor: {escape(note)}</p>"
-        item_lines, items_html = _order_items_block(_order_items(parameters))
-        text_lines.extend(item_lines)
-        html_body += items_html
-        if formatted_total:
-            text_lines.append(f"Total: {formatted_total}")
-            html_body += f"<p><strong>Total: {escape(formatted_total)}</strong></p>"
+        text_lines, html_body = _append_order_detail(
+            text_lines=text_lines,
+            html_body=html_body,
+            parameters=parameters,
+        )
         text, html = _shell(
             title=title,
             body_html=html_body,
@@ -296,16 +311,34 @@ def render_email(template: str, parameters: dict[str, Any]) -> RenderedEmail:
         "payment_proof_received": "Recibimos tu comprobante",
         "payment_proof_rejected": "No pudimos validar el comprobante",
     }.get(template, "Novedad de Tenda")
-    details = []
+    text_lines: list[str] = []
+    html_body = ""
     if order_number:
-        details.append(f"Pedido {order_number}")
-    if action_url:
-        details.append(action_url)
-    text_body = "\n".join(details) or "Tienes una actualización en Tenda."
-    html_body = "".join(f"<p>{escape(item)}</p>" for item in details) or (
-        "<p>Tienes una actualización en Tenda.</p>"
+        text_lines.append(f"Pedido {order_number}")
+        html_body += f"<p>Pedido {escape(order_number)}</p>"
+    reason = str(parameters.get("reason") or "").strip()
+    if reason:
+        text_lines.append(f"Motivo: {reason}")
+        html_body += f"<p>Motivo: {escape(reason)}</p>"
+    refund_amount = parameters.get("amount")
+    if template == "order_refunded" and refund_amount not in (None, ""):
+        formatted_refund = _format_clp(refund_amount)
+        text_lines.append(f"Monto reembolsado: {formatted_refund}")
+        html_body += f"<p>Monto reembolsado: {escape(formatted_refund)}</p>"
+    if not text_lines:
+        text_lines.append("Tienes una actualización en Tenda.")
+        html_body = "<p>Tienes una actualización en Tenda.</p>"
+    text_lines, html_body = _append_order_detail(
+        text_lines=text_lines,
+        html_body=html_body,
+        parameters=parameters,
     )
     if action_url:
+        text_lines.append(action_url)
         html_body += _button(action_url, "Abrir en Tenda")
-    text, html = _shell(title=title, body_html=html_body, body_text=text_body)
+    text, html = _shell(
+        title=title,
+        body_html=html_body,
+        body_text="\n".join(text_lines),
+    )
     return RenderedEmail(subject=f"Tenda · {title}", text=text, html=html)

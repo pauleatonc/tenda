@@ -342,6 +342,33 @@ def test_expired_order_email_includes_order_items() -> None:
     assert "<img" not in rendered.html
 
 
+def test_cancelled_order_email_includes_order_items() -> None:
+    rendered = render_email(
+        "order_cancelled",
+        {
+            "orderNumber": "VEN-E2403CDD1D",
+            "reason": "Solicitud del vendedor",
+            "total": "15000",
+            "items": [
+                {
+                    "productName": "Jabón de lavanda",
+                    "quantity": 3,
+                    "unitSalePrice": "5000",
+                    "lineTotal": "15000",
+                }
+            ],
+        },
+    )
+
+    assert rendered.subject == "Tenda · Tu pedido fue cancelado"
+    assert "Pedido VEN-E2403CDD1D" in rendered.text
+    assert "Motivo: Solicitud del vendedor" in rendered.text
+    assert "Jabón de lavanda × 3 · $15.000" in rendered.text
+    assert "Total: $15.000" in rendered.text
+    assert "Jabón de lavanda" in rendered.html
+    assert "<img" not in rendered.html
+
+
 def test_shipment_dispatched_email_includes_carrier_tracking_and_items() -> None:
     rendered = render_email(
         "shipment.dispatched",

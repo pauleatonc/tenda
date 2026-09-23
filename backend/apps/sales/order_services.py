@@ -470,6 +470,8 @@ def _enqueue_order_notification(
             "orderNumber": order.number,
             "status": order.status,
             **dict(parameters or {}),
+            "total": str(order.total_amount),
+            "items": _order_notification_items(order),
         },
     }
     if include_link:
@@ -2365,10 +2367,6 @@ def expire_order(order_pk: int) -> bool:
         order=order,
         template="order_expired",
         deduplication_key=f"sales:expired:{order.public_id}",
-        parameters={
-            "total": str(order.total_amount),
-            "items": _order_notification_items(order),
-        },
     )
     return True
 
