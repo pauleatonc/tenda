@@ -320,6 +320,8 @@ def test_expired_order_email_includes_order_items() -> None:
         "order_expired",
         {
             "orderNumber": "TN-1042",
+            "storeName": "Velas del Sur",
+            "storeLogoUrl": "https://api.test/logo.png",
             "total": "10000",
             "items": [
                 {
@@ -332,14 +334,18 @@ def test_expired_order_email_includes_order_items() -> None:
         },
     )
 
-    assert rendered.subject == "Tenda · Tu pedido venció"
+    assert rendered.subject == "Velas del Sur · Tu pedido venció"
+    assert rendered.text.startswith("Velas del Sur\n")
+    assert "https://api.test/logo.png" in rendered.html
+    assert "alt=\"Velas del Sur\"" in rendered.html
     assert "El pedido TN-1042 venció" in rendered.text
     assert "Vela de soya × 2 · $10.000" in rendered.text
     assert "Total: $10.000" in rendered.text
     assert "Vela de soya" in rendered.html
     assert "× 2" in rendered.html
     assert "$10.000" in rendered.html
-    assert "<img" not in rendered.html
+    assert "<img" in rendered.html
+    assert rendered.html.count("<img") == 1
 
 
 def test_cancelled_order_email_includes_order_items() -> None:
@@ -347,6 +353,7 @@ def test_cancelled_order_email_includes_order_items() -> None:
         "order_cancelled",
         {
             "orderNumber": "VEN-E2403CDD1D",
+            "storeName": "Tienda Demo",
             "reason": "Solicitud del vendedor",
             "total": "15000",
             "items": [
@@ -360,7 +367,8 @@ def test_cancelled_order_email_includes_order_items() -> None:
         },
     )
 
-    assert rendered.subject == "Tenda · Tu pedido fue cancelado"
+    assert rendered.subject == "Tienda Demo · Tu pedido fue cancelado"
+    assert rendered.text.startswith("Tienda Demo\n")
     assert "Pedido VEN-E2403CDD1D" in rendered.text
     assert "Motivo: Solicitud del vendedor" in rendered.text
     assert "Jabón de lavanda × 3 · $15.000" in rendered.text
@@ -374,6 +382,7 @@ def test_shipment_dispatched_email_includes_carrier_tracking_and_items() -> None
         "shipment.dispatched",
         {
             "orderNumber": "TN-2001",
+            "storeName": "Velas del Sur",
             "shipmentNumber": "ENV-2001",
             "carrier": "Chilexpress",
             "trackingCode": "CX-99",
@@ -396,7 +405,7 @@ def test_shipment_dispatched_email_includes_carrier_tracking_and_items() -> None
         },
     )
 
-    assert rendered.subject == "Tenda · Tu pedido va en camino"
+    assert rendered.subject == "Velas del Sur · Tu pedido va en camino"
     assert "Tu pedido TN-2001 fue entregado al transportista." in rendered.text
     assert "Transportista: Chilexpress" in rendered.text
     assert "Código de seguimiento: CX-99" in rendered.text
@@ -415,6 +424,7 @@ def test_shipment_delivered_email_omits_carrier_and_button() -> None:
         "shipment.delivered",
         {
             "orderNumber": "TN-2002",
+            "storeName": "Tienda Demo",
             "carrier": "",
             "trackingCode": "",
             "actionUrl": "",
@@ -432,7 +442,7 @@ def test_shipment_delivered_email_omits_carrier_and_button() -> None:
         },
     )
 
-    assert rendered.subject == "Tenda · Tu pedido fue entregado"
+    assert rendered.subject == "Tienda Demo · Tu pedido fue entregado"
     assert "Tu pedido TN-2002 fue entregado." in rendered.text
     assert "Transportista" not in rendered.text
     assert "Seguir envío" not in rendered.html

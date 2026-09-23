@@ -19,7 +19,29 @@ class RenderedEmail:
     html: str
 
 
-def _shell(*, title: str, body_html: str, body_text: str) -> tuple[str, str]:
+def _shell(
+    *,
+    title: str,
+    body_html: str,
+    body_text: str,
+    brand_name: str = "Tenda",
+    logo_url: str = "",
+) -> tuple[str, str]:
+    brand = brand_name.strip() or "Tenda"
+    if logo_url.strip():
+        brand_block = (
+            f'<img src="{escape(logo_url.strip(), quote=True)}" alt="{escape(brand)}" '
+            f'width="48" height="48" '
+            f'style="display:block;border:0;border-radius:10px;object-fit:cover;'
+            f'margin:0 0 12px">'
+            f'<div style="font-size:22px;font-weight:700;letter-spacing:-0.4px">'
+            f"{escape(brand)}</div>"
+        )
+    else:
+        brand_block = (
+            f'<div style="font-size:22px;font-weight:700;letter-spacing:-0.4px">'
+            f"{escape(brand)}</div>"
+        )
     html = f"""<!doctype html>
 <html lang="es">
   <body style="margin:0;background:#f7f5ef;font-family:Arial,sans-serif;color:#17201d">
@@ -28,7 +50,7 @@ def _shell(*, title: str, body_html: str, body_text: str) -> tuple[str, str]:
         <td align="center" style="padding:32px 16px">
           <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #dedbd1;border-radius:16px">
             <tr>
-              <td style="padding:28px 28px 8px;font-size:22px;font-weight:700;letter-spacing:-0.4px">tenda</td>
+              <td style="padding:28px 28px 8px">{brand_block}</td>
             </tr>
             <tr>
               <td style="padding:0 28px 8px;font-size:18px;font-weight:700">{escape(title)}</td>
@@ -44,8 +66,36 @@ def _shell(*, title: str, body_html: str, body_text: str) -> tuple[str, str]:
     </table>
   </body>
 </html>"""
-    text = f"Tenda\n\n{title}\n\n{body_text}\n"
+    text = f"{brand}\n\n{title}\n\n{body_text}\n"
     return text, html
+
+
+def _branding(parameters: Mapping[str, Any]) -> tuple[str, str]:
+    name = str(parameters.get("storeName") or "").strip() or "Tenda"
+    logo = str(parameters.get("storeLogoUrl") or "").strip()
+    return name, logo
+
+
+def _branded_subject(title: str, parameters: Mapping[str, Any]) -> str:
+    brand, _logo = _branding(parameters)
+    return f"{brand} · {title}"
+
+
+def _render_shell(
+    *,
+    title: str,
+    body_html: str,
+    body_text: str,
+    parameters: Mapping[str, Any],
+) -> tuple[str, str]:
+    brand, logo = _branding(parameters)
+    return _shell(
+        title=title,
+        body_html=body_html,
+        body_text=body_text,
+        brand_name=brand,
+        logo_url=logo,
+    )
 
 
 def _format_clp(value: Any) -> str:
@@ -205,13 +255,14 @@ def render_email(template: str, parameters: dict[str, Any]) -> RenderedEmail:
         if expires_at:
             text_lines.append(f"El enlace vence el {expires_at}.")
             html_body += f"<p>El enlace vence el {escape(expires_at)}.</p>"
-        text, html = _shell(
+        text, html = _render_shell(
             title=title,
             body_html=html_body,
             body_text="\n".join(text_lines),
+            parameters=parameters,
         )
         return RenderedEmail(
-            subject=f"Tenda · {title}",
+            subject=_branded_subject(title, parameters),
             text=text,
             html=html,
         )
@@ -232,13 +283,14 @@ def render_email(template: str, parameters: dict[str, Any]) -> RenderedEmail:
         )
         if action_url:
             text_lines.append(action_url)
-            html_body += _button(action_url, "Abrir en Tenda")
-        text, html = _shell(
+            html_body += _button(action_url, "Abrir pedido")
+        text, html = _render_shell(
             title=title,
             body_html=html_body,
             body_text="\n".join(text_lines),
+            parameters=parameters,
         )
-        return RenderedEmail(subject=f"Tenda · {title}", text=text, html=html)
+        return RenderedEmail(subject=_branded_subject(title, parameters), text=text, html=html)
 
     if template in {"shipment.dispatched", "shipment.delivered"}:
         dispatched = template == "shipment.dispatched"
@@ -296,12 +348,13 @@ def render_email(template: str, parameters: dict[str, Any]) -> RenderedEmail:
             html_body=html_body,
             parameters=parameters,
         )
-        text, html = _shell(
+        text, html = _render_shell(
             title=title,
             body_html=html_body,
             body_text="\n".join(text_lines),
+            parameters=parameters,
         )
-        return RenderedEmail(subject=f"Tenda · {title}", text=text, html=html)
+        return RenderedEmail(subject=_branded_subject(title, parameters), text=text, html=html)
 
     title = {
         "order_paid": "Tu pedido quedó pagado",
@@ -310,7 +363,7 @@ def render_email(template: str, parameters: dict[str, Any]) -> RenderedEmail:
         "order_refunded": "Tu pedido fue reembolsado",
         "payment_proof_received": "Recibimos tu comprobante",
         "payment_proof_rejected": "No pudimos validar el comprobante",
-    }.get(template, "Novedad de Tenda")
+    }.get(template, "Novedad de tu pedido")
     text_lines: list[str] = []
     html_body = ""
     if order_number:
@@ -326,8 +379,8 @@ def render_email(template: str, parameters: dict[str, Any]) -> RenderedEmail:
         text_lines.append(f"Monto reembolsado: {formatted_refund}")
         html_body += f"<p>Monto reembolsado: {escape(formatted_refund)}</p>"
     if not text_lines:
-        text_lines.append("Tienes una actualización en Tenda.")
-        html_body = "<p>Tienes una actualización en Tenda.</p>"
+        text_lines.append("Tienes una actualización de tu pedido.")
+        html_body = "<p>Tienes una actualización de tu pedido.</p>"
     text_lines, html_body = _append_order_detail(
         text_lines=text_lines,
         html_body=html_body,
@@ -335,10 +388,11 @@ def render_email(template: str, parameters: dict[str, Any]) -> RenderedEmail:
     )
     if action_url:
         text_lines.append(action_url)
-        html_body += _button(action_url, "Abrir en Tenda")
-    text, html = _shell(
+        html_body += _button(action_url, "Abrir pedido")
+    text, html = _render_shell(
         title=title,
         body_html=html_body,
         body_text="\n".join(text_lines),
+        parameters=parameters,
     )
-    return RenderedEmail(subject=f"Tenda · {title}", text=text, html=html)
+    return RenderedEmail(subject=_branded_subject(title, parameters), text=text, html=html)

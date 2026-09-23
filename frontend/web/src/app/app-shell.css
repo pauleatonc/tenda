@@ -253,8 +253,25 @@
   padding: 44px clamp(20px, 4vw, 52px) 80px;
 }
 
-.app-content:has(.inventory-page) {
+.app-content:has(.inventory-page),
+.app-content:has(.list-page) {
   max-width: none;
+  width: 100%;
+}
+
+.list-page__chrome {
+  margin-inline: auto;
+  max-width: 1240px;
+}
+
+.list-page .table-wrapper,
+.list-page .table-skeleton {
+  width: 100%;
+}
+
+.list-page .data-table {
+  min-width: 100%;
+  table-layout: auto;
   width: 100%;
 }
 

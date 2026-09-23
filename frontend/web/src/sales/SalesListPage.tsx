@@ -157,7 +157,8 @@ export function SalesListPage() {
   ).length
 
   return (
-    <>
+    <div className="list-page">
+      <div className="list-page__chrome">
       <header className="page-heading page-heading--split">
         <div>
           <p className="eyebrow">Operación comercial</p>
@@ -272,15 +273,6 @@ export function SalesListPage() {
         />
       ) : null}
 
-      {orders.isPending ? (
-        <div className="table-skeleton" aria-live="polite" aria-busy="true">
-          <span className="sr-only">Cargando ventas…</span>
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} />
-          ))}
-        </div>
-      ) : null}
-
       {!orders.isPending && !orders.isError && rows.length === 0 ? (
         activeFilters ? (
           <EmptyState
@@ -307,6 +299,16 @@ export function SalesListPage() {
             }
           />
         )
+      ) : null}
+      </div>
+
+      {orders.isPending ? (
+        <div className="table-skeleton" aria-live="polite" aria-busy="true">
+          <span className="sr-only">Cargando ventas…</span>
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} />
+          ))}
+        </div>
       ) : null}
 
       {!orders.isPending && rows.length > 0 ? (
@@ -383,6 +385,6 @@ export function SalesListPage() {
           </button>
         </div>
       ) : null}
-    </>
+    </div>
   )
 }

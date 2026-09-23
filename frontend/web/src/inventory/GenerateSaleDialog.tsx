@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 import { BankDetailsRequiredNotice } from '../app/BankDetailsRequiredNotice'
 import { Modal } from '../components/ui'
@@ -268,9 +268,14 @@ export function GenerateSaleDialog({
             <button className="button button--primary" type="button" onClick={() => void copyUrl()}>
               {copied ? 'Copiado' : 'Copiar enlace'}
             </button>
-            <Link className="button button--secondary" to={`/app/ventas/${result.orderId}`}>
+            <a
+              className="button button--secondary"
+              href={result.publicUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
               Ver venta
-            </Link>
+            </a>
           </div>
           <form
             className="generate-sale-email"
@@ -333,42 +338,33 @@ export function GenerateSaleDialog({
                   </label>
                 ))}
               </fieldset>
-              <div className="sale-method-list" role="list">
-                {SALE_METHODS.map((item) => {
-                  const className = `sale-method${
-                    item.enabled && method === item.id ? ' is-active' : ''
-                  }`
-                  if (!item.enabled) {
-                    return (
-                      <div
-                        key={item.id}
-                        className={className}
-                        role="listitem"
-                        aria-disabled="true"
-                      >
-                        <strong>{item.label}</strong>
-                        <span>{item.description}</span>
-                      </div>
-                    )
-                  }
-                  return (
-                    <button
-                      key={item.id}
-                      className={className}
-                      type="button"
-                      aria-pressed={method === item.id}
-                      onClick={() => {
+              <fieldset className="choice-cards">
+                <legend>Tipo de venta</legend>
+                {SALE_METHODS.map((item) => (
+                  <label
+                    key={item.id}
+                    className={item.enabled ? undefined : 'is-disabled'}
+                  >
+                    <input
+                      type="radio"
+                      name="generate-sale-method"
+                      value={item.id}
+                      checked={method === item.id}
+                      disabled={!item.enabled}
+                      onChange={() => {
+                        if (!item.enabled || item.id === 'online') return
                         setError(null)
                         setConfirmCash(false)
-                        setMethod(item.id === 'cash' ? 'cash' : 'deposit')
+                        setMethod(item.id)
                       }}
-                    >
+                    />
+                    <span>
                       <strong>{item.label}</strong>
-                      <span>{item.description}</span>
-                    </button>
-                  )
-                })}
-              </div>
+                      <small>{item.description}</small>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
             </>
           )}
           {confirmCash ? null : (

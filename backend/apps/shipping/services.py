@@ -203,6 +203,8 @@ def _order_lines(order: Order) -> list[dict[str, Any]]:
 
 
 def _enqueue_dispatch_notification(shipment: Shipment) -> None:
+    from apps.sales.order_services import _store_branding_parameters
+
     recipient = buyer_email_for(shipment)
     if not recipient:
         return
@@ -228,6 +230,7 @@ def _enqueue_dispatch_notification(shipment: Shipment) -> None:
             "region": shipment.region,
             "total": str(order.total_amount),
             "items": _order_lines(order),
+            **_store_branding_parameters(order),
         },
     }
     enqueue_outbox_event(
@@ -250,13 +253,13 @@ def _apply_register_dispatch(
     correlation_id: str,
 ) -> Shipment:
     shipment = (
-        Shipment.objects.select_for_update()
+        Shipment.objects.select_for_update(of=("self",))
         .filter(
             public_id=shipment_id,
             organisation=context.organisation,
             inventory=context.inventory,
         )
-        .select_related("order", "order__buyer", "organisation")
+        .select_related("order", "order__buyer", "order__organisation", "organisation")
         .prefetch_related("order__items")
         .first()
     )
@@ -389,7 +392,7 @@ def _apply_generate_label(
     correlation_id: str,
 ) -> LabelDocument:
     shipment = (
-        Shipment.objects.select_for_update()
+        Shipment.objects.select_for_update(of=("self",))
         .filter(
             public_id=shipment_id,
             organisation=context.organisation,

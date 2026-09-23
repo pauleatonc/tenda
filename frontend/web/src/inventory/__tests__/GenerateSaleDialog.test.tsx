@@ -103,6 +103,11 @@ describe('GenerateSaleDialog', () => {
       expect.objectContaining({ orderId: 'order-1' }),
     )
     expect(await screen.findByDisplayValue('https://shop.test/p/token')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Ver venta' })).toHaveAttribute(
+      'href',
+      'https://shop.test/p/token',
+    )
+    expect(screen.getByRole('link', { name: 'Ver venta' })).toHaveAttribute('target', '_blank')
   })
 
   it('pide completar datos bancarios antes de generar un depósito', () => {
@@ -142,7 +147,7 @@ describe('GenerateSaleDialog', () => {
     } as never)
 
     renderDialog()
-    await userEvent.click(screen.getByRole('button', { name: /Efectivo/ }))
+    await userEvent.click(screen.getByRole('radio', { name: /Efectivo/ }))
     await userEvent.click(screen.getByRole('button', { name: 'Continuar' }))
     expect(
       screen.getByRole('heading', { name: 'Confirmar venta en efectivo' }),
@@ -163,20 +168,20 @@ describe('GenerateSaleDialog', () => {
   it('permite elegir depósito y efectivo como métodos', async () => {
     renderDialog()
 
-    const deposit = screen.getByRole('button', { name: /Depósito/ })
-    const cash = screen.getByRole('button', { name: /Efectivo/ })
-    expect(deposit).toHaveAttribute('aria-pressed', 'true')
-    expect(cash).toHaveAttribute('aria-pressed', 'false')
+    const deposit = screen.getByRole('radio', { name: /Depósito/ })
+    const cash = screen.getByRole('radio', { name: /Efectivo/ })
+    expect(deposit).toBeChecked()
+    expect(cash).not.toBeChecked()
     expect(screen.getByRole('button', { name: 'Generar depósito' })).toBeInTheDocument()
 
     await userEvent.click(cash)
-    expect(deposit).toHaveAttribute('aria-pressed', 'false')
-    expect(cash).toHaveAttribute('aria-pressed', 'true')
+    expect(deposit).not.toBeChecked()
+    expect(cash).toBeChecked()
     expect(screen.getByRole('button', { name: 'Continuar' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Generar depósito' })).toBeNull()
 
     await userEvent.click(deposit)
-    expect(deposit).toHaveAttribute('aria-pressed', 'true')
+    expect(deposit).toBeChecked()
     expect(screen.getByRole('button', { name: 'Generar depósito' })).toBeInTheDocument()
   })
 

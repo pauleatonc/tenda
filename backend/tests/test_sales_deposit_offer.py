@@ -304,6 +304,7 @@ def test_send_offer_link_enqueues_product_offer_template() -> None:
     assert event.payload["recipient"] == "comprador@example.cl"
     assert event.payload["parameters"]["items"]
     assert event.payload["parameters"]["total"]
+    assert event.payload["parameters"]["storeName"]
 
     rendered = render_email(
         "product_offer_link",
@@ -313,13 +314,15 @@ def test_send_offer_link_enqueues_product_offer_template() -> None:
             "total": "5000",
             "expiresAt": "10 sept 2026",
             "orderNumber": order.number,
+            "storeName": event.payload["parameters"]["storeName"],
             "items": event.payload["parameters"]["items"],
         },
     )
-    assert rendered.subject == f"Tenda · Pedido {order.number}: completa el pago"
+    store_name = event.payload["parameters"]["storeName"]
+    assert rendered.subject == f"{store_name} · Pedido {order.number}: completa el pago"
+    assert rendered.text.startswith(f"{store_name}\n")
     assert "Abrir pedido y subir comprobante" in rendered.html
     assert "Detalle:" in rendered.text
-    assert "<img" not in rendered.html
 
 
 def test_public_order_exposes_photos_and_media_route() -> None:

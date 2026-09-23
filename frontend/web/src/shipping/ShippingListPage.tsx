@@ -137,7 +137,8 @@ export function ShippingListPage() {
   const rows = shipments.data?.nodes ?? []
 
   return (
-    <>
+    <div className="list-page">
+      <div className="list-page__chrome">
       <header className="page-heading page-heading--split">
         <div>
           <p className="eyebrow">Operación de entrega</p>
@@ -206,15 +207,6 @@ export function ShippingListPage() {
         />
       ) : null}
 
-      {shipments.isPending ? (
-        <div className="table-skeleton" aria-live="polite" aria-busy="true">
-          <span className="sr-only">Cargando despachos…</span>
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} />
-          ))}
-        </div>
-      ) : null}
-
       {!shipments.isPending && !shipments.isError && rows.length === 0 ? (
         activeFilters ? (
           <EmptyState
@@ -236,6 +228,16 @@ export function ShippingListPage() {
             description="Cuando una venta se pague, Tenda crea el envío para que registres el despacho o la entrega."
           />
         )
+      ) : null}
+      </div>
+
+      {shipments.isPending ? (
+        <div className="table-skeleton" aria-live="polite" aria-busy="true">
+          <span className="sr-only">Cargando despachos…</span>
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} />
+          ))}
+        </div>
       ) : null}
 
       {!shipments.isPending && rows.length > 0 ? (
@@ -298,6 +300,6 @@ export function ShippingListPage() {
           </button>
         </div>
       ) : null}
-    </>
+    </div>
   )
 }

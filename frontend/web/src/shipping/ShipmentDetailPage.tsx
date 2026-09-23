@@ -369,16 +369,6 @@ export function ShipmentDetailPage() {
                       >
                         {copied ? 'Copiado' : 'Copiar tracking'}
                       </button>
-                      {detail.trackingUrl ? (
-                        <a
-                          className="button button--secondary"
-                          href={detail.trackingUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Abrir seguimiento
-                        </a>
-                      ) : null}
                     </div>
                   </dd>
                 </div>
