@@ -20,6 +20,7 @@ vi.mock('../api', () => ({
   createOrder: vi.fn(),
   fetchPaymentConnection: vi.fn(),
   publishOrderLink: vi.fn(),
+  sendOfferLink: vi.fn(),
   salesKeys: {
     paymentConnection: () => ['sales', 'payment-connection'],
   },
@@ -61,6 +62,7 @@ function renderPage() {
       <MemoryRouter initialEntries={['/app/ventas/nueva']}>
         <Routes>
           <Route path="/app/ventas/nueva" element={<NewSalePage />} />
+          <Route path="/app/ventas/:id" element={<p>Ficha de venta</p>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -94,7 +96,7 @@ describe('envío idempotente de nueva venta', () => {
     renderPage()
 
     await userEvent.click(
-      await screen.findByRole('button', { name: 'Crear y obtener enlace' }),
+      await screen.findByRole('button', { name: 'Generar venta' }),
     )
 
     expect(
@@ -112,7 +114,7 @@ describe('envío idempotente de nueva venta', () => {
     renderPage()
 
     const submit = await screen.findByRole('button', {
-      name: 'Crear y obtener enlace',
+      name: 'Generar venta',
     })
     await userEvent.click(submit)
     await screen.findByText(/Conservamos el borrador y la clave de envío/)
@@ -121,5 +123,64 @@ describe('envío idempotente de nueva venta', () => {
     await waitFor(() => expect(mocked.createOrder).toHaveBeenCalledTimes(2))
     expect(mocked.createOrder.mock.calls[0][0].idempotencyKey).toBe('stable-create-key')
     expect(mocked.createOrder.mock.calls[1][0].idempotencyKey).toBe('stable-create-key')
+  })
+
+  it('pide confirmación en efectivo y abre la ficha sin publicar enlace', async () => {
+    const draft = seedReviewDraft()
+    saveSaleDraft({ ...draft, paymentMethod: 'cash' })
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: true })
+    mocked.createOrder.mockResolvedValue({
+      replayed: false,
+      order: { id: 'order-cash', number: 'V-9' },
+    } as never)
+
+    renderPage()
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Crear venta en efectivo' }),
+    )
+    expect(
+      screen.getByRole('heading', { name: 'Confirmar venta en efectivo' }),
+    ).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Crear venta' }))
+
+    await waitFor(() => expect(mocked.createOrder).toHaveBeenCalledTimes(1))
+    expect(mocked.createOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ paymentMethod: 'cash' }),
+    )
+    expect(mocked.publishOrderLink).not.toHaveBeenCalled()
+    expect(await screen.findByText('Ficha de venta')).toBeInTheDocument()
+  })
+
+  it('envía el enlace por correo desde la pantalla de enlace listo', async () => {
+    saveSaleDraft({
+      ...seedReviewDraft(),
+      step: 4,
+      createdOrderId: 'order-1',
+      publicUrl: 'https://shop.test/p/token',
+    })
+    mocked.sendOfferLink.mockResolvedValue({
+      replayed: false,
+      publicUrl: 'https://shop.test/p/token',
+      order: { id: 'order-1' },
+    } as never)
+
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Enviar por correo' }))
+    expect(
+      screen.getByText('Ingresa el correo del comprador para enviarle el enlace.'),
+    ).toBeInTheDocument()
+    const confirm = screen.getByRole('button', { name: 'Enviar' })
+    expect(confirm).toBeDisabled()
+    await userEvent.type(screen.getByLabelText('Correo del comprador'), 'camila@example.cl')
+    await userEvent.click(confirm)
+
+    await waitFor(() =>
+      expect(mocked.sendOfferLink).toHaveBeenCalledWith({
+        orderId: 'order-1',
+        email: 'camila@example.cl',
+        idempotencyKey: expect.any(String),
+      }),
+    )
+    expect(await screen.findByText('Enlace enviado')).toBeInTheDocument()
   })
 })

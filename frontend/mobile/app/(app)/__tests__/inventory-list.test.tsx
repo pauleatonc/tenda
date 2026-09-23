@@ -146,7 +146,7 @@ describe('Inventario mobile', () => {
     expect(router.push).toHaveBeenCalledWith('/inventario/producto')
   })
 
-  it('abre el sheet de depósito y no muta Online ni Efectivo', async () => {
+  it('abre el sheet de depósito y deja Online como próximamente', async () => {
     mocked.fetchProducts.mockResolvedValue({
       totalCount: 1,
       hasNextPage: false,
@@ -170,7 +170,7 @@ describe('Inventario mobile', () => {
     expect(screen.getByText('Depósito')).toBeOnTheScreen()
     expect(screen.getByText('Pago Online')).toBeOnTheScreen()
     expect(screen.getByText('Efectivo')).toBeOnTheScreen()
-    expect(screen.getAllByText('Próximamente').length).toBeGreaterThan(0)
+    expect(screen.getByText('Próximamente')).toBeOnTheScreen()
     expect(mockedSales.createOrder).not.toHaveBeenCalled()
 
     await fireEvent.press(screen.getByRole('button', { name: 'Generar depósito' }))
@@ -181,5 +181,34 @@ describe('Inventario mobile', () => {
         paymentMethod: 'bank_transfer',
       }),
     )
+  })
+
+  it('confirma efectivo y abre la ficha de la venta', async () => {
+    mocked.fetchProducts.mockResolvedValue({
+      totalCount: 1,
+      hasNextPage: false,
+      endCursor: '',
+      products: [makeProduct()],
+    })
+    mockedSales.createOrder.mockResolvedValue({
+      replayed: false,
+      order: { id: 'order-cash' },
+    } as never)
+
+    await renderScreen(<InventoryScreen />)
+    await fireEvent.press(await screen.findByRole('button', { name: 'Generar venta' }))
+    await fireEvent.press(screen.getByRole('button', { name: 'Efectivo' }))
+    expect(await screen.findByText('Confirmar venta en efectivo')).toBeOnTheScreen()
+    await fireEvent.press(screen.getByRole('button', { name: 'Crear venta' }))
+
+    await waitFor(() => expect(mockedSales.createOrder).toHaveBeenCalledTimes(1))
+    expect(mockedSales.createOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deliveryMode: 'coordinated',
+        paymentMethod: 'cash',
+      }),
+    )
+    expect(mockedSales.publishOrderLink).not.toHaveBeenCalled()
+    expect(router.push).toHaveBeenCalledWith('/ventas/order-cash')
   })
 })

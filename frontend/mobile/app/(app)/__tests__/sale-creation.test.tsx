@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native'
+import { router } from 'expo-router'
 import * as SecureStore from 'expo-secure-store'
 import type { ReactElement } from 'react'
 
@@ -17,6 +18,7 @@ jest.mock('../../../lib/inventory-api', () => ({
 jest.mock('../../../lib/sales-api', () => ({
   createOrder: jest.fn(),
   publishOrderLink: jest.fn(),
+  sendOfferLink: jest.fn(),
   fetchSellerPaymentConnection: jest.fn(),
   salesKeys: {
     root: ['sales'],
@@ -152,5 +154,66 @@ describe('Crear venta mobile', () => {
     expect(sales.createOrder.mock.calls[1][0].idempotencyKey).toBe(firstKey)
     expect(sales.publishOrderLink).not.toHaveBeenCalled()
     expect(SecureStore.setItemAsync).toHaveBeenCalled()
+  })
+
+  it('confirma efectivo y abre la ficha sin publicar enlace', async () => {
+    sales.createOrder.mockResolvedValue({
+      replayed: false,
+      order: { id: 'order-cash', number: 'V-9' },
+    } as never)
+    await renderScreen(<NewSaleScreen />)
+    await addOneProduct()
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Continuar a entrega y pago' }),
+    )
+    await fireEvent.press(screen.getByRole('radio', { name: 'Efectivo / presencial' }))
+    await fireEvent.press(screen.getByRole('button', { name: 'Revisar venta' }))
+    await fireEvent.press(
+      await screen.findByRole('button', { name: 'Crear venta en efectivo' }),
+    )
+    expect(await screen.findByText('Confirmar venta en efectivo')).toBeOnTheScreen()
+    await fireEvent.press(screen.getByRole('button', { name: 'Crear venta' }))
+
+    await waitFor(() =>
+      expect(sales.createOrder).toHaveBeenCalledWith(
+        expect.objectContaining({ paymentMethod: 'cash' }),
+      ),
+    )
+    expect(sales.publishOrderLink).not.toHaveBeenCalled()
+    expect(router.replace).toHaveBeenCalledWith('/ventas/order-cash')
+  })
+
+  it('envía el enlace por correo desde el resultado', async () => {
+    sales.createOrder.mockResolvedValue({
+      replayed: false,
+      order: { id: 'order-1', number: 'V-0001' },
+    } as never)
+    sales.publishOrderLink.mockResolvedValue({
+      replayed: false,
+      publicUrl: 'https://tenda.test/p/token',
+      order: { id: 'order-1', number: 'V-0001' },
+    } as never)
+    sales.sendOfferLink.mockResolvedValue({
+      replayed: false,
+      publicUrl: 'https://tenda.test/p/token',
+      order: { id: 'order-1' },
+    } as never)
+
+    await renderScreen(<NewSaleScreen />)
+    await reachReview()
+    await fireEvent.press(screen.getByRole('button', { name: 'Crear venta y enlace' }))
+    await fireEvent.press(await screen.findByRole('button', { name: 'Enviar por correo' }))
+    const email = await screen.findByLabelText('Correo del comprador')
+    await fireEvent.changeText(email, 'camila@example.cl')
+    await fireEvent.press(screen.getByRole('button', { name: 'Enviar' }))
+
+    await waitFor(() =>
+      expect(sales.sendOfferLink).toHaveBeenCalledWith({
+        orderId: 'order-1',
+        email: 'camila@example.cl',
+        idempotencyKey: expect.any(String),
+      }),
+    )
+    expect(await screen.findByText('Correo enviado.')).toBeOnTheScreen()
   })
 })

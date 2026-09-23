@@ -5,10 +5,16 @@ import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 
 import { BankDetailsRequiredNotice } from '../app/BankDetailsRequiredNotice'
 import type { ViewerPayload } from '../auth/api'
-import { SearchField, StatusChip } from '../components/ui'
+import { Modal, SearchField, StatusChip } from '../components/ui'
 import { fetchProducts, inventoryKeys, type ProductRow } from '../inventory/api'
-import { TendaApiError } from '../lib/http'
-import { createOrder, fetchPaymentConnection, publishOrderLink, salesKeys } from './api'
+import { TendaApiError, newIdempotencyKey } from '../lib/http'
+import {
+  createOrder,
+  fetchPaymentConnection,
+  publishOrderLink,
+  salesKeys,
+  sendOfferLink,
+} from './api'
 import {
   clearSaleDraft,
   createEmptySaleDraft,
@@ -24,6 +30,11 @@ import {
 } from './model'
 
 const steps = ['Productos y precios', 'Entrega y pago', 'Revisión', 'Enlace listo']
+
+function isValidEmail(value: string) {
+  const email = value.trim()
+  return Boolean(email) && email.includes('@') && !email.includes(' ')
+}
 
 class OfflineSubmissionError extends Error {
   constructor() {
@@ -59,6 +70,12 @@ export function NewSalePage() {
   const [search, setSearch] = useState('')
   const [submitError, setSubmitError] = useState<Error | null>(null)
   const [copied, setCopied] = useState(false)
+  const [confirmCash, setConfirmCash] = useState(false)
+  const [emailOpen, setEmailOpen] = useState(false)
+  const [email, setEmail] = useState('')
+  const [emailSent, setEmailSent] = useState(false)
+  const [emailError, setEmailError] = useState<Error | null>(null)
+  const [emailKey, setEmailKey] = useState(newIdempotencyKey)
 
   useEffect(() => {
     saveSaleDraft(draft)
@@ -97,6 +114,7 @@ export function NewSalePage() {
       : draft.paymentMethod
   const depositBlocked =
     selectedPaymentMethod === 'bank_transfer' && !hasBankDetails
+  const isCash = selectedPaymentMethod === 'cash'
 
   function replaceDraft(update: (current: SaleDraft) => SaleDraft) {
     setDraft((current) => {
@@ -141,6 +159,10 @@ export function NewSalePage() {
         setDraft(withOrder)
       }
 
+      if (selectedPaymentMethod === 'cash') {
+        return { orderId, publicUrl: null }
+      }
+
       const published = await publishOrderLink({
         orderId,
         idempotencyKey: draft.publishIdempotencyKey,
@@ -148,6 +170,15 @@ export function NewSalePage() {
       return { orderId, publicUrl: published.publicUrl }
     },
     onSuccess: ({ orderId, publicUrl }) => {
+      setSubmitError(null)
+      setConfirmCash(false)
+      void queryClient.invalidateQueries({ queryKey: ['sales'] })
+      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
+      if (selectedPaymentMethod === 'cash' || !publicUrl) {
+        clearSaleDraft()
+        navigate(`/app/ventas/${orderId}`)
+        return
+      }
       const complete: SaleDraft = {
         ...draft,
         step: 4,
@@ -157,12 +188,29 @@ export function NewSalePage() {
       }
       setDraft(complete)
       saveSaleDraft(complete)
-      setSubmitError(null)
-      void queryClient.invalidateQueries({ queryKey: ['sales'] })
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
     },
     onError: (error: Error) => {
       setSubmitError(error)
+    },
+  })
+
+  const sendEmail = useMutation({
+    mutationFn: () => {
+      if (!draft.createdOrderId) throw new Error('Falta la venta publicada.')
+      return sendOfferLink({
+        orderId: draft.createdOrderId,
+        email: email.trim(),
+        idempotencyKey: emailKey,
+      })
+    },
+    onSuccess: () => {
+      setEmailSent(true)
+      setEmailError(null)
+      setEmailOpen(false)
+    },
+    onError: (error: Error) => {
+      setEmailError(error)
+      setEmailKey(newIdempotencyKey())
     },
   })
 
@@ -178,6 +226,11 @@ export function NewSalePage() {
     setDraft(empty)
     setSubmitError(null)
     setCopied(false)
+    setEmailOpen(false)
+    setEmail('')
+    setEmailSent(false)
+    setEmailError(null)
+    setEmailKey(newIdempotencyKey())
   }
 
   return (
@@ -288,7 +341,7 @@ export function NewSalePage() {
                     >
                       {product.stock.available < 1
                         ? 'Sin disponibilidad'
-                        : 'Agregar línea'}
+                        : 'Agregar artículo'}
                     </button>
                   </li>
                 ))}
@@ -297,7 +350,7 @@ export function NewSalePage() {
           </div>
 
           <div className="sale-lines">
-            <h3>Líneas de la venta</h3>
+            <h3>Artículos en venta</h3>
             {!draft.lines.length ? (
               <p className="sale-lines__empty">
                 Busca un producto activo y agrega al menos una línea.
@@ -364,7 +417,7 @@ export function NewSalePage() {
                         <small>Referencia: {formatClp(line.referencePrice)}</small>
                       </label>
                       <label>
-                        <span>Ayuda de descuento % (opcional)</span>
+                        <span>Descuento % (opcional)</span>
                         <input
                           aria-label={`Descuento línea ${index + 1} de ${line.productName}`}
                           type="number"
@@ -388,7 +441,7 @@ export function NewSalePage() {
                         </small>
                       </label>
                       <div>
-                        <span>Total línea</span>
+                        <span>Total</span>
                         <strong>
                           {formatClp(line.quantity * Number(line.unitSalePrice || 0))}
                         </strong>
@@ -532,7 +585,7 @@ export function NewSalePage() {
               disabled={depositBlocked}
               onClick={() => goToStep(3)}
             >
-              Revisar venta
+              Continuar
             </button>
           </footer>
         </section>
@@ -543,10 +596,11 @@ export function NewSalePage() {
           <div className="sale-wizard-card__heading">
             <div>
               <span>Paso 3 de 4</span>
-              <h2>Revisa antes de reservar</h2>
+              <h2>{isCash ? 'Revisa antes de crear' : 'Revisa antes de generar venta'}</h2>
               <p>
-                Crear reserva el stock por 8 horas y genera un enlace. Tenda no lo enviará
-                automáticamente a ningún contacto.
+                {isCash
+                  ? 'Crear reserva el stock. Luego abrirás la ficha para completar los datos y registrar el pago.'
+                  : 'Crear reserva el stock por 8 horas y genera un enlace. Tenda no lo enviará automáticamente a ningún contacto.'}
               </p>
             </div>
           </div>
@@ -612,10 +666,20 @@ export function NewSalePage() {
               disabled={submit.isPending || !validation.valid || depositBlocked}
               onClick={() => {
                 setSubmitError(null)
+                if (isCash) {
+                  setConfirmCash(true)
+                  return
+                }
                 submit.mutate()
               }}
             >
-              {submit.isPending ? 'Creando y publicando…' : 'Crear y obtener enlace'}
+              {submit.isPending
+                ? isCash
+                  ? 'Creando…'
+                  : 'Creando y publicando…'
+                : isCash
+                  ? 'Crear venta en efectivo'
+                  : 'Generar venta'}
             </button>
           </footer>
         </section>
@@ -675,7 +739,23 @@ export function NewSalePage() {
             >
               Ver detalle
             </Link>
+            <button
+              className="button button--secondary"
+              type="button"
+              onClick={() => {
+                setEmailError(null)
+                setEmailOpen(true)
+              }}
+            >
+              Enviar por correo
+            </button>
           </div>
+          {emailSent ? (
+            <div className="form-message form-message--success" role="status">
+              <strong>Enlace enviado</strong>
+              <span>Lo enviamos al correo indicado.</span>
+            </div>
+          ) : null}
           <div className="sale-result__new">
             <button className="text-link" type="button" onClick={reset}>
               Crear otra venta
@@ -689,6 +769,103 @@ export function NewSalePage() {
             </button>
           </div>
         </section>
+      ) : null}
+
+      {emailOpen ? (
+        <Modal
+          title="Enviar por correo"
+          description="Ingresa el correo del comprador para enviarle el enlace."
+          onClose={() => {
+            if (!sendEmail.isPending) setEmailOpen(false)
+          }}
+          footer={
+            <>
+              <button
+                className="button button--secondary"
+                type="button"
+                disabled={sendEmail.isPending}
+                onClick={() => setEmailOpen(false)}
+              >
+                Volver
+              </button>
+              <button
+                className="button button--primary"
+                type="button"
+                disabled={sendEmail.isPending || !isValidEmail(email)}
+                onClick={() => sendEmail.mutate()}
+              >
+                {sendEmail.isPending ? 'Enviando…' : 'Enviar'}
+              </button>
+            </>
+          }
+        >
+          {emailError ? (
+            <div className="form-message form-message--error" role="alert">
+              <span>
+                {emailError instanceof TendaApiError
+                  ? emailError.message
+                  : 'No pudimos enviar el correo. Inténtalo nuevamente.'}
+              </span>
+            </div>
+          ) : null}
+          <div className="field">
+            <label htmlFor="new-sale-email">Correo del comprador</label>
+            <input
+              id="new-sale-email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              placeholder="correo@ejemplo.cl"
+              onChange={(event) => {
+                setEmail(event.target.value)
+                setEmailSent(false)
+              }}
+            />
+            {!isValidEmail(email) ? (
+              <small className="field__hint">Ingresa un correo válido.</small>
+            ) : null}
+          </div>
+        </Modal>
+      ) : null}
+
+      {confirmCash ? (
+        <Modal
+          title="Confirmar venta en efectivo"
+          description="Se reservará el stock y abrirás la ficha para completar los datos y registrar el pago."
+          onClose={() => {
+            if (!submit.isPending) setConfirmCash(false)
+          }}
+          footer={
+            <>
+              <button
+                className="button button--secondary"
+                type="button"
+                disabled={submit.isPending}
+                onClick={() => setConfirmCash(false)}
+              >
+                Volver
+              </button>
+              <button
+                className="button button--primary"
+                type="button"
+                disabled={submit.isPending}
+                onClick={() => submit.mutate()}
+              >
+                {submit.isPending ? 'Creando…' : 'Crear venta'}
+              </button>
+            </>
+          }
+        >
+          <p>
+            Total {formatClp(total)} ·{' '}
+            {draft.deliveryMode === 'shipping'
+              ? 'Despacho'
+              : draft.deliveryMode === 'pickup'
+                ? 'Retiro'
+                : 'Entrega coordinada'}
+          </p>
+        </Modal>
       ) : null}
     </>
   )

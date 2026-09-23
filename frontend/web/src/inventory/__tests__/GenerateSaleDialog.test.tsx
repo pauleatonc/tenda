@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import * as salesApi from '../../sales/api'
@@ -37,11 +37,19 @@ function renderDialog() {
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter>
-        <GenerateSaleDialog
-          product={product}
-          hasBankDetails
-          onClose={vi.fn()}
-        />
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <GenerateSaleDialog
+                product={product}
+                hasBankDetails
+                onClose={vi.fn()}
+              />
+            }
+          />
+          <Route path="/app/ventas/:id" element={<p>Ficha de venta</p>} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   )
@@ -72,7 +80,7 @@ describe('GenerateSaleDialog', () => {
     expect(screen.getByText('Depósito')).toBeInTheDocument()
     expect(screen.getByText('Pago Online')).toBeInTheDocument()
     expect(screen.getByText('Efectivo')).toBeInTheDocument()
-    expect(screen.getAllByText('Próximamente')).toHaveLength(2)
+    expect(screen.getAllByText('Próximamente')).toHaveLength(1)
     expect(mocked.createOrder).not.toHaveBeenCalled()
 
     await userEvent.click(screen.getByRole('button', { name: 'Generar depósito' }))
@@ -125,5 +133,29 @@ describe('GenerateSaleDialog', () => {
     )
     expect(screen.queryByRole('button', { name: 'Generar depósito' })).toBeNull()
     expect(mocked.createOrder).not.toHaveBeenCalled()
+  })
+
+  it('confirma efectivo y abre la ficha de la venta', async () => {
+    mocked.createOrder.mockResolvedValue({
+      replayed: false,
+      order: { id: 'order-cash' },
+    } as never)
+
+    renderDialog()
+    await userEvent.click(screen.getByRole('button', { name: /Efectivo/ }))
+    expect(
+      screen.getByRole('heading', { name: 'Confirmar venta en efectivo' }),
+    ).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Crear venta' }))
+
+    await waitFor(() => expect(mocked.createOrder).toHaveBeenCalledTimes(1))
+    expect(mocked.createOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deliveryMode: 'coordinated',
+        paymentMethod: 'cash',
+      }),
+    )
+    expect(mocked.publishOrderLink).not.toHaveBeenCalled()
+    expect(await screen.findByText('Ficha de venta')).toBeInTheDocument()
   })
 })

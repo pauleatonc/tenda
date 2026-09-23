@@ -1,7 +1,8 @@
 import { organisationHasBankDetails } from '@tenda/api-client'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { router } from 'expo-router'
 import { useState } from 'react'
-import { Clipboard, Share, StyleSheet, Text, View } from 'react-native'
+import { Clipboard, Pressable, Share, StyleSheet, Text, View } from 'react-native'
 
 import { PrimaryButton, StatusMessage, colors } from './auth-ui'
 import { BankDetailsRequired } from './bank-details-required'
@@ -33,8 +34,8 @@ const METHODS = [
   {
     id: 'cash',
     label: 'Efectivo',
-    description: 'Próximamente',
-    enabled: false,
+    description: 'Abres la ficha para completar datos y registrar el pago.',
+    enabled: true,
   },
 ] as const
 
@@ -70,6 +71,7 @@ export function GenerateSaleSheet({
   const [result, setResult] = useState<{ orderId: string; publicUrl: string } | null>(
     null,
   )
+  const [confirmCash, setConfirmCash] = useState(false)
 
   const publish = useMutation({
     mutationFn: async () => {
@@ -106,6 +108,38 @@ export function GenerateSaleSheet({
     },
   })
 
+  const createCash = useMutation({
+    mutationFn: async () => {
+      const created = await createOrder({
+        lines: [
+          {
+            productId: product.id,
+            quantity,
+            unitSalePrice: product.salePrice ?? '0',
+          },
+        ],
+        deliveryMode: 'coordinated',
+        paymentMethod: 'cash',
+        idempotencyKey: createKey,
+      })
+      return created.order.id
+    },
+    onSuccess: (orderId) => {
+      setError('')
+      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
+      void queryClient.invalidateQueries({ queryKey: ['sales'] })
+      onClose()
+      router.push(`/ventas/${orderId}`)
+    },
+    onError: (mutationError: unknown) => {
+      setError(
+        mutationError instanceof MobileApiError
+          ? mutationError.message
+          : 'No pudimos crear la venta. Inténtalo otra vez.',
+      )
+    },
+  })
+
   const sendEmail = useMutation({
     mutationFn: () => {
       if (!result) throw new Error('Falta el enlace.')
@@ -132,6 +166,7 @@ export function GenerateSaleSheet({
 
   function closeAll() {
     setEmailOpen(false)
+    setConfirmCash(false)
     onClose()
   }
 
@@ -150,13 +185,42 @@ export function GenerateSaleSheet({
     <>
       <Sheet
         visible={visible && !emailOpen}
-        title={result ? 'Enlace listo' : `Generar venta · ${product.name}`}
+        title={
+          result
+            ? 'Enlace listo'
+            : confirmCash
+              ? 'Confirmar venta en efectivo'
+              : `Generar venta · ${product.name}`
+        }
         description={
           result
             ? 'Comparte el enlace. El comprador abre la ficha en el navegador.'
-            : 'Depósito reserva stock y comparte un enlace de transferencia.'
+            : confirmCash
+              ? 'Se reservará el stock y abrirás la ficha para completar los datos y registrar el pago.'
+              : 'Depósito comparte un enlace. Efectivo abre la ficha de la venta.'
         }
         onClose={closeAll}
+        footer={
+          confirmCash && !result ? (
+            <>
+              <View style={styles.footerItem}>
+                <PrimaryButton
+                  label="Volver"
+                  variant="secondary"
+                  disabled={createCash.isPending}
+                  onPress={() => setConfirmCash(false)}
+                />
+              </View>
+              <View style={styles.footerItem}>
+                <PrimaryButton
+                  label={createCash.isPending ? 'Creando…' : 'Crear venta'}
+                  loading={createCash.isPending}
+                  onPress={() => createCash.mutate()}
+                />
+              </View>
+            </>
+          ) : undefined
+        }
       >
         {error ? <StatusMessage message={error} /> : null}
 
@@ -194,15 +258,39 @@ export function GenerateSaleSheet({
           </View>
         ) : (
           <View style={styles.choose}>
-            {METHODS.map((method) => (
-              <View
-                key={method.id}
-                style={[styles.method, method.enabled ? styles.methodActive : null]}
-              >
-                <Text style={styles.methodTitle}>{method.label}</Text>
-                <Text style={styles.muted}>{method.description}</Text>
-              </View>
-            ))}
+            {confirmCash ? (
+              <Text style={styles.price}>
+                {product.name} · {formatQuantity(quantity)} ·{' '}
+                {formatPrice(String(Number(product.salePrice ?? 0) * quantity))}
+              </Text>
+            ) : (
+              <>
+            {METHODS.map((method) => {
+              const card = (
+                <View
+                  style={[styles.method, method.enabled ? styles.methodActive : null]}
+                >
+                  <Text style={styles.methodTitle}>{method.label}</Text>
+                  <Text style={styles.muted}>{method.description}</Text>
+                </View>
+              )
+              if (method.id === 'cash') {
+                return (
+                  <Pressable
+                    key={method.id}
+                    accessibilityRole="button"
+                    accessibilityLabel="Efectivo"
+                    onPress={() => {
+                      setError('')
+                      setConfirmCash(true)
+                    }}
+                  >
+                    {card}
+                  </Pressable>
+                )
+              }
+              return <View key={method.id}>{card}</View>
+            })}
             <Text style={styles.price}>
               Precio de venta: {formatPrice(product.salePrice)}
             </Text>
@@ -233,6 +321,8 @@ export function GenerateSaleSheet({
               />
             ) : (
               <BankDetailsRequired />
+            )}
+              </>
             )}
           </View>
         )}

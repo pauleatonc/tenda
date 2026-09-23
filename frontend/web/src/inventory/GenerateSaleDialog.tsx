@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { BankDetailsRequiredNotice } from '../app/BankDetailsRequiredNotice'
 import { Modal } from '../components/ui'
@@ -30,8 +30,8 @@ const SALE_METHODS = [
   {
     id: 'cash',
     label: 'Efectivo',
-    description: 'Próximamente',
-    enabled: false,
+    description: 'Abres la ficha para completar datos y registrar el pago.',
+    enabled: true,
   },
 ] as const
 
@@ -45,7 +45,9 @@ export function GenerateSaleDialog({
   onClose: () => void
 }) {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const available = product.stock.available
+  const [confirmCash, setConfirmCash] = useState(false)
   const [quantity, setQuantity] = useState(1)
   const [email, setEmail] = useState('')
   const [copied, setCopied] = useState(false)
@@ -87,6 +89,32 @@ export function GenerateSaleDialog({
     onError: (mutationError: Error) => setError(mutationError),
   })
 
+  const createCash = useMutation({
+    mutationFn: async () => {
+      const created = await createOrder({
+        lines: [
+          {
+            productId: product.id,
+            quantity,
+            unitSalePrice: product.salePrice ?? '0',
+          },
+        ],
+        deliveryMode: 'coordinated',
+        paymentMethod: 'cash',
+        idempotencyKey: createKey,
+      })
+      return created.order.id
+    },
+    onSuccess: (orderId) => {
+      setError(null)
+      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
+      void queryClient.invalidateQueries({ queryKey: ['sales'] })
+      onClose()
+      navigate(`/app/ventas/${orderId}`)
+    },
+    onError: (mutationError: Error) => setError(mutationError),
+  })
+
   const sendEmail = useMutation({
     mutationFn: () => {
       if (!result) throw new Error('Falta el enlace publicado.')
@@ -114,11 +142,19 @@ export function GenerateSaleDialog({
 
   return (
     <Modal
-      title={result ? 'Enlace listo' : `Generar venta · ${product.name}`}
+      title={
+        result
+          ? 'Enlace listo'
+          : confirmCash
+            ? 'Confirmar venta en efectivo'
+            : `Generar venta · ${product.name}`
+      }
       description={
         result
           ? 'Copia el enlace o envíalo por correo. El comprador abre la ficha en el navegador.'
-          : 'Elige el tipo de venta. Depósito reserva stock y comparte un enlace de transferencia.'
+          : confirmCash
+            ? 'Se reservará el stock y abrirás la ficha para completar los datos y registrar el pago.'
+            : 'Elige el tipo de venta. Depósito comparte un enlace. Efectivo abre la ficha de la venta.'
       }
       onClose={onClose}
       footer={
@@ -126,6 +162,25 @@ export function GenerateSaleDialog({
           <button className="button button--secondary" type="button" onClick={onClose}>
             Cerrar
           </button>
+        ) : confirmCash ? (
+          <>
+            <button
+              className="button button--secondary"
+              type="button"
+              disabled={createCash.isPending}
+              onClick={() => setConfirmCash(false)}
+            >
+              Volver
+            </button>
+            <button
+              className="button button--primary"
+              type="button"
+              disabled={createCash.isPending}
+              onClick={() => createCash.mutate()}
+            >
+              {createCash.isPending ? 'Creando…' : 'Crear venta'}
+            </button>
+          </>
         ) : (
           <>
             <button className="button button--secondary" type="button" onClick={onClose}>
@@ -155,7 +210,7 @@ export function GenerateSaleDialog({
         </div>
       ) : null}
 
-      {!result && !hasBankDetails ? <BankDetailsRequiredNotice /> : null}
+      {!result && !hasBankDetails && !confirmCash ? <BankDetailsRequiredNotice /> : null}
 
       {result ? (
         <div className="generate-sale-ready">
@@ -207,22 +262,46 @@ export function GenerateSaleDialog({
         </div>
       ) : (
         <>
+          {confirmCash ? (
+            <p>
+              {product.name} · {formatQuantity(quantity)} ·{' '}
+              {formatClp(Number(product.salePrice ?? 0) * quantity)}
+            </p>
+          ) : (
           <div className="sale-method-list" role="list">
-            {SALE_METHODS.map((method) => (
-              <div
-                key={method.id}
-                className={`sale-method${method.enabled ? ' is-active' : ''}`}
-                role="listitem"
-              >
-                <strong>{method.label}</strong>
-                <span>{method.description}</span>
-              </div>
-            ))}
+            {SALE_METHODS.map((method) => {
+              const className = `sale-method${method.enabled ? ' is-active' : ''}`
+              if (method.id === 'cash') {
+                return (
+                  <button
+                    key={method.id}
+                    className={className}
+                    type="button"
+                    onClick={() => {
+                      setError(null)
+                      setConfirmCash(true)
+                    }}
+                  >
+                    <strong>{method.label}</strong>
+                    <span>{method.description}</span>
+                  </button>
+                )
+              }
+              return (
+                <div key={method.id} className={className} role="listitem">
+                  <strong>{method.label}</strong>
+                  <span>{method.description}</span>
+                </div>
+              )
+            })}
           </div>
+          )}
+          {confirmCash ? null : (
           <p className="generate-sale-price">
             Precio de venta: <strong>{formatPrice(product.salePrice)}</strong>
           </p>
-          {available > 1 ? (
+          )}
+          {!confirmCash && available > 1 ? (
             <div className="field">
               <span id="generate-sale-qty">Cantidad</span>
               <div className="qty-stepper">

@@ -23,6 +23,7 @@ import {
   InventoryChip,
   OptionRow,
   SectionCard,
+  Sheet,
   SheetField,
 } from '../../../components/inventory-ui'
 import {
@@ -33,7 +34,7 @@ import {
 } from '../../../components/sales-ui'
 import { MobileApiError, getMobileViewer } from '../../../lib/auth-api'
 import { formatPrice, formatQuantity } from '../../../lib/format'
-import { isOfflineError } from '../../../lib/graphql'
+import { isOfflineError, newIdempotencyKey } from '../../../lib/graphql'
 import {
   fetchProducts,
   inventoryKeys,
@@ -44,6 +45,7 @@ import {
   fetchSellerPaymentConnection,
   publishOrderLink,
   salesKeys,
+  sendOfferLink,
 } from '../../../lib/sales-api'
 import {
   calculateDiscountedPrice,
@@ -240,7 +242,7 @@ function DraftLineCard({
         error={errors.find((error) => error.includes('precio'))}
       />
       <SheetField
-        label={`Ayuda de descuento para ${line.productName}`}
+        label={`Descuento para ${line.productName}`}
         help="Porcentaje opcional: solo calcula el precio efectivo; el porcentaje no se guarda."
         keyboardType="decimal-pad"
         placeholder="Ej. 10"
@@ -270,6 +272,11 @@ export default function NewSaleScreen() {
   const [draft, setDraft] = useState<SaleDraft>(createEmptySaleDraft)
   const [hydrated, setHydrated] = useState(false)
   const [apiError, setApiError] = useState<MobileApiError | null>(null)
+  const [confirmCash, setConfirmCash] = useState(false)
+  const [emailOpen, setEmailOpen] = useState(false)
+  const [email, setEmail] = useState('')
+  const [emailSent, setEmailSent] = useState(false)
+  const [emailKey, setEmailKey] = useState(newIdempotencyKey)
   const submitLock = useRef(false)
 
   useEffect(() => {
@@ -334,29 +341,64 @@ export default function NewSaleScreen() {
         paymentMethod: draft.paymentMethod,
         idempotencyKey: draft.idempotencyKey,
       })
-      return publishOrderLink({
+      if (draft.paymentMethod === 'cash') {
+        return { kind: 'cash' as const, orderId: created.order.id }
+      }
+      const published = await publishOrderLink({
         orderId: created.order.id,
         idempotencyKey: draft.idempotencyKey,
       })
+      return {
+        kind: 'link' as const,
+        orderId: published.order.id,
+        orderNumber: published.order.number,
+        publicUrl: published.publicUrl,
+      }
     },
-    onSuccess: (published) => {
+    onSuccess: (result) => {
       setApiError(null)
+      setConfirmCash(false)
+      void queryClient.invalidateQueries({ queryKey: salesKeys.root })
+      if (result.kind === 'cash') {
+        void clearSaleDraft()
+        router.replace(`/ventas/${result.orderId}`)
+        return
+      }
       setDraft((current) => ({
         ...current,
         step: 'result',
         result: {
-          orderId: published.order.id,
-          orderNumber: published.order.number,
-          publicUrl: published.publicUrl,
+          orderId: result.orderId,
+          orderNumber: result.orderNumber,
+          publicUrl: result.publicUrl,
         },
       }))
-      void queryClient.invalidateQueries({ queryKey: salesKeys.root })
     },
     onError: (error: unknown) => {
       if (error instanceof MobileApiError) setApiError(error)
     },
     onSettled: () => {
       submitLock.current = false
+    },
+  })
+
+  const sendEmail = useMutation({
+    mutationFn: () => {
+      if (!draft.result) throw new Error('Falta el enlace.')
+      return sendOfferLink({
+        orderId: draft.result.orderId,
+        email: email.trim(),
+        idempotencyKey: emailKey,
+      })
+    },
+    onSuccess: () => {
+      setEmailSent(true)
+      setEmailOpen(false)
+      setApiError(null)
+    },
+    onError: (error: unknown) => {
+      setApiError(error instanceof MobileApiError ? error : null)
+      setEmailKey(newIdempotencyKey())
     },
   })
 
@@ -401,6 +443,7 @@ export default function NewSaleScreen() {
   }
 
   return (
+    <>
     <SafeAreaView style={salesStyles.safeArea}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -584,18 +627,27 @@ export default function NewSaleScreen() {
               </SectionCard>
               {depositBlocked ? <BankDetailsRequired /> : null}
               <Text style={salesStyles.muted}>
-                Crear reserva stock y publica un enlace opaco. No se enviará a ningún
-                contacto automáticamente.
+                {draft.paymentMethod === 'cash'
+                  ? 'Crear reserva el stock. Luego abrirás la ficha para completar los datos y registrar el pago.'
+                  : 'Crear reserva stock y publica un enlace opaco. No se enviará a ningún contacto automáticamente.'}
               </Text>
               <View style={salesStyles.actions}>
                 <PrimaryButton
-                  label="Crear venta y enlace"
+                  label={
+                    draft.paymentMethod === 'cash'
+                      ? 'Crear venta en efectivo'
+                      : 'Crear venta y enlace'
+                  }
                   loading={submit.isPending}
                   disabled={depositBlocked}
                   onPress={() => {
                     if (depositBlocked || submitLock.current || submit.isPending) return
-                    submitLock.current = true
                     setApiError(null)
+                    if (draft.paymentMethod === 'cash') {
+                      setConfirmCash(true)
+                      return
+                    }
+                    submitLock.current = true
                     submit.mutate()
                   }}
                 />
@@ -646,12 +698,27 @@ export default function NewSaleScreen() {
                   onPress={() => router.replace(`/ventas/${draft.result?.orderId ?? ''}`)}
                 />
                 <PrimaryButton
+                  label="Enviar por correo"
+                  variant="secondary"
+                  onPress={() => {
+                    setApiError(null)
+                    setEmailOpen(true)
+                  }}
+                />
+                {emailSent ? (
+                  <Text style={salesStyles.muted}>Correo enviado.</Text>
+                ) : null}
+                <PrimaryButton
                   label="Crear otra venta"
                   variant="secondary"
                   onPress={() => {
                     void clearSaleDraft()
                     setDraft(createEmptySaleDraft())
                     setApiError(null)
+                    setEmail('')
+                    setEmailSent(false)
+                    setEmailOpen(false)
+                    setEmailKey(newIdempotencyKey())
                   }}
                 />
               </View>
@@ -664,6 +731,79 @@ export default function NewSaleScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
+    <Sheet
+      visible={confirmCash}
+      title="Confirmar venta en efectivo"
+      description="Se reservará el stock y abrirás la ficha para completar los datos y registrar el pago."
+      onClose={() => {
+        if (!submit.isPending) setConfirmCash(false)
+      }}
+      footer={
+        <>
+          <View style={styles.footerItem}>
+            <PrimaryButton
+              label="Volver"
+              variant="secondary"
+              disabled={submit.isPending}
+              onPress={() => setConfirmCash(false)}
+            />
+          </View>
+          <View style={styles.footerItem}>
+            <PrimaryButton
+              label={submit.isPending ? 'Creando…' : 'Crear venta'}
+              loading={submit.isPending}
+              onPress={() => {
+                if (submitLock.current || submit.isPending) return
+                submitLock.current = true
+                submit.mutate()
+              }}
+            />
+          </View>
+        </>
+      }
+    >
+      <Text style={styles.total}>Total {formatClp(String(total))}</Text>
+    </Sheet>
+    <Sheet
+      visible={emailOpen}
+      title="Enviar por correo"
+      description="Ingresa el correo del comprador para enviarle el enlace."
+      onClose={() => {
+        if (!sendEmail.isPending) setEmailOpen(false)
+      }}
+      footer={
+        <>
+          <View style={styles.footerItem}>
+            <PrimaryButton
+              label="Volver"
+              variant="secondary"
+              disabled={sendEmail.isPending}
+              onPress={() => setEmailOpen(false)}
+            />
+          </View>
+          <View style={styles.footerItem}>
+            <PrimaryButton
+              label={sendEmail.isPending ? 'Enviando…' : 'Enviar'}
+              loading={sendEmail.isPending}
+              disabled={!email.includes('@') || email.includes(' ') || !email.trim()}
+              onPress={() => sendEmail.mutate()}
+            />
+          </View>
+        </>
+      }
+    >
+      <SheetField
+        label="Correo del comprador"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        value={email}
+        onChangeText={(value) => {
+          setEmail(value)
+          setEmailSent(false)
+        }}
+      />
+    </Sheet>
+    </>
   )
 }
 
@@ -747,4 +887,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   publicUrl: { color: colors.green, fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  footerItem: { flex: 1 },
 })
