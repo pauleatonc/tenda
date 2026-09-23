@@ -269,12 +269,19 @@ export function BalancesPage() {
       </section>
 
       {balance.isPending ? (
-        <section className="balance-metrics balance-metrics--loading" aria-busy="true">
-          <span className="sr-only">Calculando balance…</span>
-          {Array.from({ length: 7 }).map((_, index) => (
-            <div key={index} />
-          ))}
-        </section>
+        <div className="balance-metrics-stack" aria-busy="true">
+          <section className="balance-metrics balance-metrics--loading">
+            <span className="sr-only">Calculando balance…</span>
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={`inventory-${index}`} />
+            ))}
+          </section>
+          <section className="balance-metrics balance-metrics--loading">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={`sales-${index}`} />
+            ))}
+          </section>
+        </div>
       ) : null}
 
       {balance.isError ? (
@@ -316,6 +323,74 @@ export function BalancesPage() {
         </div>
       ) : null}
 
+      {balance.data && balance.data.inventoryValuationComplete === false ? (
+        <div className="sales-notice sales-notice--warning" role="status">
+          <strong>La valoración del inventario está incompleta</strong>
+          <span>
+            Hay unidades sin precio de compra o de venta. El margen potencial solo
+            considera productos con ambos precios.
+          </span>
+        </div>
+      ) : null}
+
+      {balance.data ? (
+        <div className="balance-metrics-stack">
+          <section className="balance-metrics" aria-label="Valoración del inventario">
+            <Link to="/app/inventario">
+              <span>Inventario al costo</span>
+              <strong>
+                {balance.data.inventoryValuationComplete === false
+                  ? `${formatClp(balance.data.inventoryAtCost)}*`
+                  : formatClp(balance.data.inventoryAtCost)}
+              </strong>
+            </Link>
+            <Link to="/app/inventario">
+              <span>Inventario a precio de venta</span>
+              <strong>
+                {balance.data.inventoryValuationComplete === false
+                  ? `${formatClp(balance.data.inventoryAtSalePrice)}*`
+                  : formatClp(balance.data.inventoryAtSalePrice)}
+              </strong>
+            </Link>
+            <Link to="/app/inventario">
+              <span>Margen potencial del stock</span>
+              <strong>
+                {balance.data.inventoryValuationComplete === false
+                  ? `${formatClp(balance.data.inventoryPotentialMargin)}*`
+                  : formatClp(balance.data.inventoryPotentialMargin)}
+              </strong>
+            </Link>
+          </section>
+          <section className="balance-metrics" aria-label="Métricas comerciales">
+            <Link to={makeSalesFilterHref({ ...salesHrefBase, estado: 'paid' })}>
+              <span>Ventas brutas confirmadas</span>
+              <strong>{formatClp(balance.data.grossSales)}</strong>
+            </Link>
+            <Link to={makeSalesFilterHref(salesHrefBase)}>
+              <span>Costo conocido</span>
+              <strong>{formatClp(balance.data.knownCostOfGoods)}</strong>
+            </Link>
+            <Link to={makeSalesFilterHref(salesHrefBase)}>
+              <span>Margen bruto</span>
+              <strong>
+                {balance.data.marginComplete
+                  ? formatClp(balance.data.grossMargin)
+                  : `${formatClp(balance.data.grossMargin)}*`}
+              </strong>
+            </Link>
+            <Link
+              to={makeSalesFilterHref({
+                ...salesHrefBase,
+                estado: 'purchase_validation',
+              })}
+            >
+              <span>Por cobrar / validar</span>
+              <strong>{formatClp(balance.data.pendingAmount)}</strong>
+            </Link>
+          </section>
+        </div>
+      ) : null}
+
       {balance.data && balance.data.operationCount === 0 ? (
         <EmptyState
           title="Sin operaciones confirmadas"
@@ -329,48 +404,6 @@ export function BalancesPage() {
             </Link>
           }
         />
-      ) : null}
-
-      {balance.data && balance.data.operationCount > 0 ? (
-        <section className="balance-metrics" aria-label="Métricas comerciales">
-          <Link to={makeSalesFilterHref({ ...salesHrefBase, estado: 'paid' })}>
-            <span>Ventas brutas confirmadas</span>
-            <strong>{formatClp(balance.data.grossSales)}</strong>
-          </Link>
-          <Link to={makeSalesFilterHref({ ...salesHrefBase, estado: 'refunded' })}>
-            <span>Reembolsos</span>
-            <strong>{formatClp(balance.data.refunds)}</strong>
-          </Link>
-          <Link to={makeSalesFilterHref(salesHrefBase)}>
-            <span>Ventas netas</span>
-            <strong>{formatClp(balance.data.netSales)}</strong>
-          </Link>
-          <Link to={makeSalesFilterHref(salesHrefBase)}>
-            <span>Costo conocido</span>
-            <strong>{formatClp(balance.data.knownCostOfGoods)}</strong>
-          </Link>
-          <Link to={makeSalesFilterHref(salesHrefBase)}>
-            <span>Margen bruto</span>
-            <strong>
-              {balance.data.marginComplete
-                ? formatClp(balance.data.grossMargin)
-                : `${formatClp(balance.data.grossMargin)}*`}
-            </strong>
-          </Link>
-          <Link
-            to={makeSalesFilterHref({
-              ...salesHrefBase,
-              estado: 'purchase_validation',
-            })}
-          >
-            <span>Por cobrar / validar</span>
-            <strong>{formatClp(balance.data.pendingAmount)}</strong>
-          </Link>
-          <Link to={makeSalesFilterHref(salesHrefBase)}>
-            <span>Operaciones</span>
-            <strong>{balance.data.operationCount}</strong>
-          </Link>
-        </section>
       ) : null}
 
       {breakdown.isError && balance.data ? (
@@ -412,7 +445,7 @@ export function BalancesPage() {
                   <th scope="col">Costo conocido</th>
                   <th scope="col">Margen</th>
                   <th scope="col">Pendiente</th>
-                  <th scope="col">Operaciones</th>
+                  <th scope="col">Artículos vendidos</th>
                 </tr>
               </thead>
               <tbody>
@@ -481,8 +514,10 @@ export function BalancesPage() {
 
       {balance.data ? (
         <footer className="balance-disclaimer">
-          Corte según zona horaria <strong>{balance.data.timezone}</strong>. No incluye
-          caja, impuestos, DTE, facturación ni conciliación bancaria.
+          Corte según zona horaria <strong>{balance.data.timezone}</strong>. El
+          inventario al costo, a precio de venta y el margen potencial reflejan el
+          stock actual (no el período). No incluye caja, impuestos, DTE, facturación
+          ni conciliación bancaria.
         </footer>
       ) : null}
     </>

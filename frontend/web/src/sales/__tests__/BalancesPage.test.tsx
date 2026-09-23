@@ -125,6 +125,10 @@ describe('balance comercial', () => {
       costedLineCount: 3,
       costCoverage: '0.6',
       marginComplete: false,
+      inventoryAtCost: '200000',
+      inventoryAtSalePrice: '350000',
+      inventoryPotentialMargin: '150000',
+      inventoryValuationComplete: true,
       isPartial: false,
       warnings: [],
     })
@@ -137,5 +141,11 @@ describe('balance comercial', () => {
       screen.getByText(/Los costos desconocidos no se interpretan como cero/),
     ).toBeInTheDocument()
     expect(screen.getByText('$48.000*')).toBeInTheDocument()
+    expect(screen.getByText('Inventario al costo')).toBeInTheDocument()
+    expect(screen.getByText('Inventario a precio de venta')).toBeInTheDocument()
+    expect(screen.getByText('Margen potencial del stock')).toBeInTheDocument()
+    expect(screen.getByText('$200.000')).toBeInTheDocument()
+    expect(screen.getByText('$350.000')).toBeInTheDocument()
+    expect(screen.getByText('$150.000')).toBeInTheDocument()
   })
 })

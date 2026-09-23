@@ -264,6 +264,10 @@ query SalesBalance($filter: SalesBalanceFilterInput) {
     knownCostLines
     costCoverage
     costIncomplete
+    inventoryAtCost
+    inventoryAtSalePrice
+    inventoryPotentialMargin
+    inventoryValuationIncomplete
   }
 }
 

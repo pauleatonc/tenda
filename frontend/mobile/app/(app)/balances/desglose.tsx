@@ -55,7 +55,7 @@ function BreakdownCard({
         value={`${formatClp(row.grossMargin)}${row.marginComplete ? '' : ' · incompleto'}`}
       />
       <DetailRow label="Por cobrar / validar" value={formatClp(row.pendingAmount)} />
-      <DetailRow label="Operaciones" value={String(row.operationCount)} />
+      <DetailRow label="Artículos vendidos" value={String(row.operationCount)} />
       <Text style={styles.link}>Ver ventas con estos filtros ›</Text>
     </Pressable>
   )

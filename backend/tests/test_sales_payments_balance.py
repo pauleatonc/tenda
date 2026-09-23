@@ -176,6 +176,11 @@ def test_balance_uses_line_snapshots_refunds_and_financial_permission() -> None:
     assert page.total_count == 2
     assert page.has_next_page
     assert page.end_cursor
+    # Stock actual: solo la venta pendiente (1 ud. a costo 100 / venta 300).
+    assert balance.inventory_at_cost == Decimal("100")
+    assert balance.inventory_at_sale_price == Decimal("300")
+    assert balance.inventory_potential_margin == Decimal("200")
+    assert not balance.inventory_valuation_incomplete
 
     _operator, operator_context = identity(
         "balance-operator@example.com",

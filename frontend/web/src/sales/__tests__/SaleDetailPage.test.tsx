@@ -383,10 +383,7 @@ describe('detalle de venta', () => {
     expect(
       await screen.findByRole('heading', { name: 'Etiqueta interna Tenda' }),
     ).toBeInTheDocument()
-    expect(screen.getByTitle('Vista previa de la etiqueta interna')).toHaveAttribute(
-      'src',
-      label.downloadUrl,
-    )
+    expect(screen.getByText(/etiqueta-interna-ENV-ABC\.pdf/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Descargar PDF' })).toHaveAttribute(
       'href',
       label.downloadUrl,

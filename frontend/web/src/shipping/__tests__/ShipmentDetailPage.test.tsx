@@ -185,10 +185,8 @@ describe('detalle de despacho', () => {
     expect(await screen.findByText('Chilexpress')).toBeInTheDocument()
     expect(screen.getByText('Sale hoy en la tarde')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Registrar despacho' })).toBeNull()
-    expect(screen.getByRole('link', { name: 'Abrir seguimiento' })).toHaveAttribute(
-      'href',
-      'https://chilexpress.cl/track/CX-99',
-    )
+    expect(screen.queryByRole('link', { name: 'Abrir seguimiento' })).toBeNull()
+    expect(screen.getByText('CX-99')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Copiar tracking' }))
     await waitFor(() =>
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith('CX-99'),
@@ -196,7 +194,7 @@ describe('detalle de despacho', () => {
     expect(screen.getByRole('button', { name: 'Generar etiqueta' })).toBeInTheDocument()
   })
 
-  it('abre la vista previa de la etiqueta interna al generarla', async () => {
+  it('abre el modal de descarga de la etiqueta interna al generarla', async () => {
     const label = {
       id: 'lab-1',
       downloadUrl: 'https://r2.invalid/download/label.pdf?expires=300',
@@ -214,10 +212,7 @@ describe('detalle de despacho', () => {
     expect(
       await screen.findByRole('heading', { name: 'Etiqueta interna Tenda' }),
     ).toBeInTheDocument()
-    expect(screen.getByTitle('Vista previa de la etiqueta interna')).toHaveAttribute(
-      'src',
-      label.downloadUrl,
-    )
+    expect(screen.getByText(/etiqueta-interna-ENV-ABC\.pdf/)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Descargar PDF' })).toHaveAttribute(
       'href',
       label.downloadUrl,

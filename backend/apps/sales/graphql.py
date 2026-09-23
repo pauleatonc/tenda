@@ -890,6 +890,10 @@ class SalesBalanceType(graphene.ObjectType):  # type: ignore[misc]
     known_cost_lines = graphene.Int(required=True)
     cost_coverage = graphene.String(required=True)
     cost_incomplete = graphene.Boolean(required=True)
+    inventory_at_cost = graphene.String(required=True)
+    inventory_at_sale_price = graphene.String(required=True)
+    inventory_potential_margin = graphene.String(required=True)
+    inventory_valuation_incomplete = graphene.Boolean(required=True)
     currency = graphene.String(required=True)
     timezone = graphene.String(required=True)
 
@@ -924,6 +928,24 @@ class SalesBalanceType(graphene.ObjectType):  # type: ignore[misc]
     @staticmethod
     def resolve_cost_coverage(root: SalesBalance, _info: GraphQLResolveInfo) -> str:
         return format(root.cost_coverage, "f")
+
+    @staticmethod
+    def resolve_inventory_at_cost(root: SalesBalance, _info: GraphQLResolveInfo) -> str:
+        return str(root.inventory_at_cost)
+
+    @staticmethod
+    def resolve_inventory_at_sale_price(
+        root: SalesBalance,
+        _info: GraphQLResolveInfo,
+    ) -> str:
+        return str(root.inventory_at_sale_price)
+
+    @staticmethod
+    def resolve_inventory_potential_margin(
+        root: SalesBalance,
+        _info: GraphQLResolveInfo,
+    ) -> str:
+        return str(root.inventory_potential_margin)
 
     @staticmethod
     def resolve_currency(_root: SalesBalance, _info: GraphQLResolveInfo) -> str:

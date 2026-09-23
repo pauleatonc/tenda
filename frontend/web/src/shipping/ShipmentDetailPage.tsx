@@ -454,7 +454,6 @@ export function ShipmentDetailPage() {
         <Modal
           title="Etiqueta interna Tenda"
           description="Este documento no es una etiqueta de transportista."
-          size="large"
           onClose={() => setLabelOpen(false)}
           footer={
             <>
@@ -492,16 +491,9 @@ export function ShipmentDetailPage() {
             No simula un documento del transportista. El enlace de descarga expira.
           </p>
           {previewLabel?.downloadUrl ? (
-            <>
-              <iframe
-                className="shipping-label-preview"
-                title="Vista previa de la etiqueta interna"
-                src={previewLabel.downloadUrl}
-              />
-              <p className="shipping-label-meta">
-                Caduca {formatDate(previewLabel.expiresAt)} · {previewLabel.fileName}
-              </p>
-            </>
+            <p className="shipping-label-meta">
+              Caduca {formatDate(previewLabel.expiresAt)} · {previewLabel.fileName}
+            </p>
           ) : (
             <p>
               El enlace de esta etiqueta ya expiró. Genera una nueva para descargarla.

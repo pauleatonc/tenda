@@ -614,11 +614,19 @@
   margin-bottom: 10px;
 }
 
-.balance-metrics {
+.balance-metrics-stack {
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   margin: 22px 0;
+}
+
+.balance-metrics {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 14px;
+  margin: 0;
+  overflow-x: auto;
+  padding-bottom: 4px;
 }
 
 .balance-metrics > a,
@@ -626,7 +634,9 @@
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 16px;
+  flex: 1 1 0;
   min-height: 120px;
+  min-width: 148px;
   padding: 18px;
 }
 

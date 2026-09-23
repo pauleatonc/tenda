@@ -306,7 +306,7 @@ export default function BalancesScreen() {
                 onPress={openOrders}
               />
               <SalesMetric
-                label="Operaciones"
+                label="Artículos vendidos"
                 value={String(data.operationCount)}
                 onPress={openOrders}
               />

@@ -79,6 +79,10 @@ class SalesBalance:
     known_cost_lines: int
     cost_coverage: Decimal
     cost_incomplete: bool
+    inventory_at_cost: Decimal
+    inventory_at_sale_price: Decimal
+    inventory_potential_margin: Decimal
+    inventory_valuation_incomplete: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -557,6 +561,44 @@ def _pending_amounts(
     return pending, validation
 
 
+def _inventory_valuation(
+    context: TenantContext,
+    *,
+    product_id: uuid.UUID | None = None,
+) -> tuple[Decimal, Decimal, Decimal, bool]:
+    """Current on-hand stock valued at purchase and sale prices."""
+
+    from apps.inventory.models import Product
+    from apps.inventory.selectors import products_for_inventory
+
+    queryset = products_for_inventory(context).exclude(
+        catalog_status=Product.CatalogStatus.ARCHIVED,
+    )
+    if product_id is not None:
+        queryset = queryset.filter(public_id=product_id)
+
+    at_cost = Decimal("0")
+    at_sale = Decimal("0")
+    potential = Decimal("0")
+    units = 0
+    complete_units = 0
+    for product in queryset.iterator(chunk_size=200):
+        quantity = int(getattr(product, "on_hand", 0))
+        if quantity <= 0:
+            continue
+        units += quantity
+        purchase = product.purchase_price
+        sale = product.sale_price
+        if purchase is not None:
+            at_cost += Decimal(purchase) * quantity
+        if sale is not None:
+            at_sale += Decimal(sale) * quantity
+        if purchase is not None and sale is not None:
+            potential += (Decimal(sale) - Decimal(purchase)) * quantity
+            complete_units += quantity
+    return at_cost, at_sale, potential, complete_units < units
+
+
 def sales_balance(
     context: TenantContext,
     *,
@@ -582,6 +624,9 @@ def sales_balance(
         else Decimal("100")
     )
     pending, validation = _pending_amounts(context, filters)
+    inventory_at_cost, inventory_at_sale, inventory_margin, inventory_incomplete = (
+        _inventory_valuation(context, product_id=filters.product_id)
+    )
     return SalesBalance(
         confirmed_gross=gross,
         refunds=refunds,
@@ -595,6 +640,10 @@ def sales_balance(
         known_cost_lines=known_cost_lines,
         cost_coverage=coverage,
         cost_incomplete=known_cost_lines < recognized_lines,
+        inventory_at_cost=inventory_at_cost,
+        inventory_at_sale_price=inventory_at_sale,
+        inventory_potential_margin=inventory_margin,
+        inventory_valuation_incomplete=inventory_incomplete,
     )
 
 

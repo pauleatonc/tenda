@@ -235,6 +235,10 @@ export type SalesBalance = {
   costedLineCount: number
   costCoverage: string
   marginComplete: boolean
+  inventoryAtCost: string
+  inventoryAtSalePrice: string
+  inventoryPotentialMargin: string
+  inventoryValuationComplete: boolean
   isPartial: boolean
   warnings: string[]
 }
@@ -645,6 +649,10 @@ export function mapSalesBalance(
     costedLineCount: balance.knownCostLines,
     costCoverage: balance.costCoverage,
     marginComplete: !balance.costIncomplete,
+    inventoryAtCost: balance.inventoryAtCost,
+    inventoryAtSalePrice: balance.inventoryAtSalePrice,
+    inventoryPotentialMargin: balance.inventoryPotentialMargin,
+    inventoryValuationComplete: balance.inventoryValuationIncomplete !== true,
     isPartial: false,
     warnings: [],
   }
