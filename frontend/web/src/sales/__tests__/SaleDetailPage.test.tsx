@@ -289,6 +289,10 @@ describe('detalle de venta', () => {
 
     renderPage()
     await userEvent.click(await screen.findByRole('button', { name: 'Reenviar enlace' }))
+    expect(screen.getByDisplayValue(order.publicUrl)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Copiar enlace' }))
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(order.publicUrl)
+
     const email = screen.getByLabelText('Correo del comprador')
     expect(email).toHaveValue('camila@example.cl')
     await userEvent.clear(email)
@@ -303,6 +307,7 @@ describe('detalle de venta', () => {
       }),
     )
 
+    expect(await screen.findByDisplayValue(order.publicUrl)).toBeInTheDocument()
     const copy = await screen.findByRole('button', { name: 'Copiar enlace' })
     await userEvent.click(copy)
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(order.publicUrl)

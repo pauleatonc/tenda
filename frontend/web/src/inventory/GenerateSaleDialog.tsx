@@ -14,7 +14,15 @@ import { formatClp } from '../sales/model'
 import type { ProductRow } from './api'
 import { formatPrice, formatQuantity } from './format'
 
-const SALE_METHODS = [
+type SaleMethodId = 'deposit' | 'online' | 'cash'
+type DeliveryMode = 'shipping' | 'pickup' | 'coordinated'
+
+const SALE_METHODS: ReadonlyArray<{
+  id: SaleMethodId
+  label: string
+  description: string
+  enabled: boolean
+}> = [
   {
     id: 'deposit',
     label: 'Depósito',
@@ -33,7 +41,29 @@ const SALE_METHODS = [
     description: 'Abres la ficha para completar datos y registrar el pago.',
     enabled: true,
   },
-] as const
+]
+
+const DELIVERY_MODES: ReadonlyArray<{
+  id: DeliveryMode
+  label: string
+  description: string
+}> = [
+  {
+    id: 'shipping',
+    label: 'Despacho',
+    description: 'El comprador completará destinatario y dirección.',
+  },
+  {
+    id: 'pickup',
+    label: 'Retiro',
+    description: 'El retiro se coordina directamente con el vendedor.',
+  },
+  {
+    id: 'coordinated',
+    label: 'Entrega coordinada',
+    description: 'La fecha y el lugar se acuerdan después de la compra.',
+  },
+]
 
 export function GenerateSaleDialog({
   product,
@@ -47,6 +77,8 @@ export function GenerateSaleDialog({
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const available = product.stock.available
+  const [method, setMethod] = useState<'deposit' | 'cash'>('deposit')
+  const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('shipping')
   const [confirmCash, setConfirmCash] = useState(false)
   const [quantity, setQuantity] = useState(1)
   const [email, setEmail] = useState('')
@@ -70,7 +102,7 @@ export function GenerateSaleDialog({
             unitSalePrice: product.salePrice ?? '0',
           },
         ],
-        deliveryMode: 'coordinated',
+        deliveryMode,
         paymentMethod: 'bank_transfer',
         idempotencyKey: createKey,
       })
@@ -99,7 +131,7 @@ export function GenerateSaleDialog({
             unitSalePrice: product.salePrice ?? '0',
           },
         ],
-        deliveryMode: 'coordinated',
+        deliveryMode,
         paymentMethod: 'cash',
         idempotencyKey: createKey,
       })
@@ -140,6 +172,8 @@ export function GenerateSaleDialog({
     setCopied(true)
   }
 
+  const showBankNotice = !result && !confirmCash && method === 'deposit' && !hasBankDetails
+
   return (
     <Modal
       title={
@@ -154,7 +188,7 @@ export function GenerateSaleDialog({
           ? 'Copia el enlace o envíalo por correo. El comprador abre la ficha en el navegador.'
           : confirmCash
             ? 'Se reservará el stock y abrirás la ficha para completar los datos y registrar el pago.'
-            : 'Elige el tipo de venta. Depósito comparte un enlace. Efectivo abre la ficha de la venta.'
+            : 'Elige entrega y tipo de venta. Depósito comparte un enlace. Efectivo abre la ficha.'
       }
       onClose={onClose}
       footer={
@@ -186,7 +220,7 @@ export function GenerateSaleDialog({
             <button className="button button--secondary" type="button" onClick={onClose}>
               Cancelar
             </button>
-            {hasBankDetails ? (
+            {method === 'deposit' && hasBankDetails ? (
               <button
                 className="button button--primary"
                 type="button"
@@ -194,6 +228,18 @@ export function GenerateSaleDialog({
                 onClick={() => publish.mutate()}
               >
                 {publish.isPending ? 'Generando…' : 'Generar depósito'}
+              </button>
+            ) : null}
+            {method === 'cash' ? (
+              <button
+                className="button button--primary"
+                type="button"
+                onClick={() => {
+                  setError(null)
+                  setConfirmCash(true)
+                }}
+              >
+                Continuar
               </button>
             ) : null}
           </>
@@ -210,7 +256,7 @@ export function GenerateSaleDialog({
         </div>
       ) : null}
 
-      {!result && !hasBankDetails && !confirmCash ? <BankDetailsRequiredNotice /> : null}
+      {showBankNotice ? <BankDetailsRequiredNotice /> : null}
 
       {result ? (
         <div className="generate-sale-ready">
@@ -268,38 +314,67 @@ export function GenerateSaleDialog({
               {formatClp(Number(product.salePrice ?? 0) * quantity)}
             </p>
           ) : (
-          <div className="sale-method-list" role="list">
-            {SALE_METHODS.map((method) => {
-              const className = `sale-method${method.enabled ? ' is-active' : ''}`
-              if (method.id === 'cash') {
-                return (
-                  <button
-                    key={method.id}
-                    className={className}
-                    type="button"
-                    onClick={() => {
-                      setError(null)
-                      setConfirmCash(true)
-                    }}
-                  >
-                    <strong>{method.label}</strong>
-                    <span>{method.description}</span>
-                  </button>
-                )
-              }
-              return (
-                <div key={method.id} className={className} role="listitem">
-                  <strong>{method.label}</strong>
-                  <span>{method.description}</span>
-                </div>
-              )
-            })}
-          </div>
+            <>
+              <fieldset className="choice-cards">
+                <legend>Entrega</legend>
+                {DELIVERY_MODES.map((item) => (
+                  <label key={item.id}>
+                    <input
+                      type="radio"
+                      name="generate-sale-delivery"
+                      value={item.id}
+                      checked={deliveryMode === item.id}
+                      onChange={() => setDeliveryMode(item.id)}
+                    />
+                    <span>
+                      <strong>{item.label}</strong>
+                      <small>{item.description}</small>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+              <div className="sale-method-list" role="list">
+                {SALE_METHODS.map((item) => {
+                  const className = `sale-method${
+                    item.enabled && method === item.id ? ' is-active' : ''
+                  }`
+                  if (!item.enabled) {
+                    return (
+                      <div
+                        key={item.id}
+                        className={className}
+                        role="listitem"
+                        aria-disabled="true"
+                      >
+                        <strong>{item.label}</strong>
+                        <span>{item.description}</span>
+                      </div>
+                    )
+                  }
+                  return (
+                    <button
+                      key={item.id}
+                      className={className}
+                      type="button"
+                      aria-pressed={method === item.id}
+                      onClick={() => {
+                        setError(null)
+                        setConfirmCash(false)
+                        setMethod(item.id === 'cash' ? 'cash' : 'deposit')
+                      }}
+                    >
+                      <strong>{item.label}</strong>
+                      <span>{item.description}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </>
           )}
           {confirmCash ? null : (
-          <p className="generate-sale-price">
-            Precio de venta: <strong>{formatPrice(product.salePrice)}</strong>
-          </p>
+            <p className="generate-sale-price">
+              Precio de venta: <strong>{formatPrice(product.salePrice)}</strong>
+            </p>
           )}
           {!confirmCash && available > 1 ? (
             <div className="field">

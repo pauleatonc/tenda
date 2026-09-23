@@ -177,7 +177,7 @@ describe('Inventario mobile', () => {
     await waitFor(() => expect(mockedSales.createOrder).toHaveBeenCalledTimes(1))
     expect(mockedSales.createOrder).toHaveBeenCalledWith(
       expect.objectContaining({
-        deliveryMode: 'coordinated',
+        deliveryMode: 'shipping',
         paymentMethod: 'bank_transfer',
       }),
     )
@@ -198,13 +198,14 @@ describe('Inventario mobile', () => {
     await renderScreen(<InventoryScreen />)
     await fireEvent.press(await screen.findByRole('button', { name: 'Generar venta' }))
     await fireEvent.press(screen.getByRole('button', { name: 'Efectivo' }))
+    await fireEvent.press(screen.getByRole('button', { name: 'Continuar' }))
     expect(await screen.findByText('Confirmar venta en efectivo')).toBeOnTheScreen()
     await fireEvent.press(screen.getByRole('button', { name: 'Crear venta' }))
 
     await waitFor(() => expect(mockedSales.createOrder).toHaveBeenCalledTimes(1))
     expect(mockedSales.createOrder).toHaveBeenCalledWith(
       expect.objectContaining({
-        deliveryMode: 'coordinated',
+        deliveryMode: 'shipping',
         paymentMethod: 'cash',
       }),
     )

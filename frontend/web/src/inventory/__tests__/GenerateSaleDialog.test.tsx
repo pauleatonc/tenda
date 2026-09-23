@@ -88,7 +88,7 @@ describe('GenerateSaleDialog', () => {
     await waitFor(() => expect(mocked.createOrder).toHaveBeenCalledTimes(1))
     expect(mocked.createOrder).toHaveBeenCalledWith(
       expect.objectContaining({
-        deliveryMode: 'coordinated',
+        deliveryMode: 'shipping',
         paymentMethod: 'bank_transfer',
         lines: [
           expect.objectContaining({
@@ -143,6 +143,7 @@ describe('GenerateSaleDialog', () => {
 
     renderDialog()
     await userEvent.click(screen.getByRole('button', { name: /Efectivo/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar' }))
     expect(
       screen.getByRole('heading', { name: 'Confirmar venta en efectivo' }),
     ).toBeInTheDocument()
@@ -151,11 +152,56 @@ describe('GenerateSaleDialog', () => {
     await waitFor(() => expect(mocked.createOrder).toHaveBeenCalledTimes(1))
     expect(mocked.createOrder).toHaveBeenCalledWith(
       expect.objectContaining({
-        deliveryMode: 'coordinated',
+        deliveryMode: 'shipping',
         paymentMethod: 'cash',
       }),
     )
     expect(mocked.publishOrderLink).not.toHaveBeenCalled()
     expect(await screen.findByText('Ficha de venta')).toBeInTheDocument()
+  })
+
+  it('permite elegir depósito y efectivo como métodos', async () => {
+    renderDialog()
+
+    const deposit = screen.getByRole('button', { name: /Depósito/ })
+    const cash = screen.getByRole('button', { name: /Efectivo/ })
+    expect(deposit).toHaveAttribute('aria-pressed', 'true')
+    expect(cash).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Generar depósito' })).toBeInTheDocument()
+
+    await userEvent.click(cash)
+    expect(deposit).toHaveAttribute('aria-pressed', 'false')
+    expect(cash).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Continuar' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Generar depósito' })).toBeNull()
+
+    await userEvent.click(deposit)
+    expect(deposit).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Generar depósito' })).toBeInTheDocument()
+  })
+
+  it('permite elegir el tipo de entrega', async () => {
+    mocked.createOrder.mockResolvedValue({
+      replayed: false,
+      order: { id: 'order-1' },
+    } as never)
+    mocked.publishOrderLink.mockResolvedValue({
+      replayed: false,
+      publicUrl: 'https://shop.test/p/token',
+      order: { id: 'order-1' },
+    } as never)
+
+    renderDialog()
+    expect(screen.getByRole('radio', { name: /Despacho/ })).toBeChecked()
+    await userEvent.click(screen.getByRole('radio', { name: /Retiro/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Generar depósito' }))
+
+    await waitFor(() => expect(mocked.createOrder).toHaveBeenCalledTimes(1))
+    expect(mocked.createOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deliveryMode: 'pickup',
+        paymentMethod: 'bank_transfer',
+      }),
+    )
   })
 })

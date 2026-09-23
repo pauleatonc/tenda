@@ -39,6 +39,26 @@ const METHODS = [
   },
 ] as const
 
+const DELIVERY_MODES = [
+  {
+    id: 'shipping',
+    label: 'Despacho',
+    description: 'El comprador completará destinatario y dirección.',
+  },
+  {
+    id: 'pickup',
+    label: 'Retiro',
+    description: 'El retiro se coordina directamente con el vendedor.',
+  },
+  {
+    id: 'coordinated',
+    label: 'Entrega coordinada',
+    description: 'La fecha y el lugar se acuerdan después de la compra.',
+  },
+] as const
+
+type DeliveryMode = (typeof DELIVERY_MODES)[number]['id']
+
 export function GenerateSaleSheet({
   product,
   visible,
@@ -72,6 +92,8 @@ export function GenerateSaleSheet({
     null,
   )
   const [confirmCash, setConfirmCash] = useState(false)
+  const [method, setMethod] = useState<'deposit' | 'cash'>('deposit')
+  const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('shipping')
 
   const publish = useMutation({
     mutationFn: async () => {
@@ -83,7 +105,7 @@ export function GenerateSaleSheet({
             unitSalePrice: product.salePrice ?? '0',
           },
         ],
-        deliveryMode: 'coordinated',
+        deliveryMode,
         paymentMethod: 'bank_transfer',
         idempotencyKey: createKey,
       })
@@ -118,7 +140,7 @@ export function GenerateSaleSheet({
             unitSalePrice: product.salePrice ?? '0',
           },
         ],
-        deliveryMode: 'coordinated',
+        deliveryMode,
         paymentMethod: 'cash',
         idempotencyKey: createKey,
       })
@@ -197,7 +219,7 @@ export function GenerateSaleSheet({
             ? 'Comparte el enlace. El comprador abre la ficha en el navegador.'
             : confirmCash
               ? 'Se reservará el stock y abrirás la ficha para completar los datos y registrar el pago.'
-              : 'Depósito comparte un enlace. Efectivo abre la ficha de la venta.'
+              : 'Elige entrega y tipo de venta. Depósito comparte un enlace.'
         }
         onClose={closeAll}
         footer={
@@ -265,31 +287,57 @@ export function GenerateSaleSheet({
               </Text>
             ) : (
               <>
-            {METHODS.map((method) => {
+            <Text style={styles.sectionLabel}>Entrega</Text>
+            {DELIVERY_MODES.map((item) => (
+              <Pressable
+                key={item.id}
+                accessibilityRole="button"
+                accessibilityState={{ selected: deliveryMode === item.id }}
+                accessibilityLabel={item.label}
+                onPress={() => setDeliveryMode(item.id)}
+              >
+                <View
+                  style={[
+                    styles.method,
+                    deliveryMode === item.id ? styles.methodActive : null,
+                  ]}
+                >
+                  <Text style={styles.methodTitle}>{item.label}</Text>
+                  <Text style={styles.muted}>{item.description}</Text>
+                </View>
+              </Pressable>
+            ))}
+            <Text style={styles.sectionLabel}>Pago</Text>
+            {METHODS.map((item) => {
               const card = (
                 <View
-                  style={[styles.method, method.enabled ? styles.methodActive : null]}
+                  style={[
+                    styles.method,
+                    item.enabled && method === item.id ? styles.methodActive : null,
+                  ]}
                 >
-                  <Text style={styles.methodTitle}>{method.label}</Text>
-                  <Text style={styles.muted}>{method.description}</Text>
+                  <Text style={styles.methodTitle}>{item.label}</Text>
+                  <Text style={styles.muted}>{item.description}</Text>
                 </View>
               )
-              if (method.id === 'cash') {
-                return (
-                  <Pressable
-                    key={method.id}
-                    accessibilityRole="button"
-                    accessibilityLabel="Efectivo"
-                    onPress={() => {
-                      setError('')
-                      setConfirmCash(true)
-                    }}
-                  >
-                    {card}
-                  </Pressable>
-                )
+              if (!item.enabled) {
+                return <View key={item.id}>{card}</View>
               }
-              return <View key={method.id}>{card}</View>
+              return (
+                <Pressable
+                  key={item.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={item.label}
+                  accessibilityState={{ selected: method === item.id }}
+                  onPress={() => {
+                    setError('')
+                    setConfirmCash(false)
+                    setMethod(item.id === 'cash' ? 'cash' : 'deposit')
+                  }}
+                >
+                  {card}
+                </Pressable>
+              )
             })}
             <Text style={styles.price}>
               Precio de venta: {formatPrice(product.salePrice)}
@@ -313,15 +361,23 @@ export function GenerateSaleSheet({
                 />
               </View>
             ) : null}
-            {hasBankDetails ? (
+            {method === 'deposit' && hasBankDetails ? (
               <PrimaryButton
                 label={publish.isPending ? 'Generando…' : 'Generar depósito'}
                 loading={publish.isPending}
                 onPress={() => publish.mutate()}
               />
-            ) : (
-              <BankDetailsRequired />
-            )}
+            ) : null}
+            {method === 'cash' ? (
+              <PrimaryButton
+                label="Continuar"
+                onPress={() => {
+                  setError('')
+                  setConfirmCash(true)
+                }}
+              />
+            ) : null}
+            {method === 'deposit' && !hasBankDetails ? <BankDetailsRequired /> : null}
               </>
             )}
           </View>
@@ -368,6 +424,13 @@ export function GenerateSaleSheet({
 const styles = StyleSheet.create({
   muted: { color: colors.inkSoft, fontSize: 14, lineHeight: 20 },
   choose: { gap: 12 },
+  sectionLabel: {
+    color: colors.inkSoft,
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 4,
+    textTransform: 'uppercase',
+  },
   method: {
     borderColor: colors.line,
     borderRadius: 16,

@@ -200,6 +200,7 @@ export function SaleDetailPage() {
     setActionError(null)
     setReason('')
     setNote('')
+    setCopied(false)
     setEmail(order.data?.buyer?.email ?? '')
     if (next === 'manual' && order.data) setAmount(order.data.total)
   }
@@ -347,6 +348,10 @@ export function SaleDetailPage() {
         <div className="form-message form-message--success" role="status">
           <strong>Enlace enviado</strong>
           <span>Lo enviamos al correo indicado. También puedes copiarlo.</span>
+          <label className="field">
+            <span>Enlace público</span>
+            <input readOnly value={resentUrl} aria-label="Enlace público" />
+          </label>
           <button
             className="button button--secondary"
             type="button"
@@ -630,21 +635,45 @@ export function SaleDetailPage() {
           ) : null}
 
           {action === 'resend' ? (
-            <div className="field">
-              <label htmlFor="sale-resend-email">Correo del comprador</label>
-              <input
-                id="sale-resend-email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                placeholder="correo@ejemplo.cl"
-                onChange={(event) => setEmail(event.target.value)}
-              />
-              {!isValidEmail(email) ? (
-                <small className="field__hint">Ingresa un correo válido.</small>
+            <>
+              {detail.publicUrl || resentUrl ? (
+                <div className="generate-sale-ready">
+                  <label className="field">
+                    <span>Enlace público</span>
+                    <input
+                      readOnly
+                      value={resentUrl || detail.publicUrl}
+                      aria-label="Enlace público"
+                    />
+                  </label>
+                  <button
+                    className="button button--secondary"
+                    type="button"
+                    onClick={() => {
+                      const url = resentUrl || detail.publicUrl
+                      void navigator.clipboard.writeText(url).then(() => setCopied(true))
+                    }}
+                  >
+                    {copied ? 'Copiado' : 'Copiar enlace'}
+                  </button>
+                </div>
               ) : null}
-            </div>
+              <div className="field">
+                <label htmlFor="sale-resend-email">Correo del comprador</label>
+                <input
+                  id="sale-resend-email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  placeholder="correo@ejemplo.cl"
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+                {!isValidEmail(email) ? (
+                  <small className="field__hint">Ingresa un correo válido.</small>
+                ) : null}
+              </div>
+            </>
           ) : null}
 
           {['reject', 'cancel', 'refund'].includes(action) ? (
