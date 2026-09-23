@@ -30,9 +30,6 @@ type Query {
     filter: ShipmentFilterInput
   ): ShipmentConnectionType!
   shipment(id: ID!): ShipmentType
-  ticket(id: ID!): TicketType
-  shipmentTimeline(id: ID!): [ShipmentEventType!]!
-  publicShipment(token: String!): PublicShipmentType
   inventorySchema(includeInactive: Boolean): InventorySchemaType!
   inventoryDashboard: InventoryDashboardType!
   products(
@@ -43,9 +40,21 @@ type Query {
     after: String
   ): ProductConnectionType!
   product(id: ID!): ProductType
-  productStockBreakdown(productId: ID!, first: Int, after: String): StockBreakdownType!
-  stockMovements(productId: ID!, first: Int, after: String): StockMovementConnectionType!
-  productOrders(productId: ID!, first: Int, after: String): ProductOrderConnectionType!
+  productStockBreakdown(
+    productId: ID!
+    first: Int
+    after: String
+  ): StockBreakdownType!
+  stockMovements(
+    productId: ID!
+    first: Int
+    after: String
+  ): StockMovementConnectionType!
+  productOrders(
+    productId: ID!
+    first: Int
+    after: String
+  ): ProductOrderConnectionType!
   productShipments(
     productId: ID!
     first: Int
@@ -416,11 +425,8 @@ type ReconciliationIssueConnectionType {
 type ShippingDashboardType {
   total: Int!
   pending: Int!
-  preparing: Int!
   dispatched: Int!
-  deliveryCheck: Int!
-  issue: Int!
-  attention: Int!
+  delivered: Int!
 }
 
 type ShipmentConnectionType {
@@ -444,22 +450,15 @@ type ShipmentType {
   carrier: String!
   trackingCode: String!
   trackingUrl: String!
-  nextAction: String!
+  dispatchNote: String!
+  buyerEmail: String!
   allowedActions: [String!]!
   dispatchedAt: DateTime
   deliveredAt: DateTime
   createdAt: DateTime!
   updatedAt: DateTime!
   order: ShipmentOrderType!
-  timeline: [ShipmentEventType!]!
   latestLabel: LabelDocumentType
-  publicUrl: String!
-  confirmation: DeliveryConfirmationType
-  activeTicket: TicketType
-  tickets: [TicketType!]!
-  followUps: [FollowUpType!]!
-  nextFollowUp: FollowUpType
-  returnCases: [ReturnCaseType!]!
 }
 
 type ShipmentOrderType {
@@ -468,125 +467,10 @@ type ShipmentOrderType {
   status: String!
 }
 
-type ShipmentEventType {
-  id: ID!
-  eventType: String!
-  fromStatus: String!
-  toStatus: String!
-  title: String!
-  detail: String!
-  isPublic: Boolean!
-  actorName: String!
-  createdAt: DateTime!
-}
-
-type DeliveryConfirmationType {
-  outcome: String!
-  comment: String!
-  createdAt: DateTime!
-}
-
-type TicketType {
-  id: ID!
-  number: String!
-  status: String!
-  statusLabel: String!
-  category: String!
-  categoryLabel: String!
-  contactName: String!
-  contactEmail: String!
-  contactPhone: String!
-  resolvedAt: DateTime
-  closedAt: DateTime
-  createdAt: DateTime!
-  messages: [TicketMessageType!]!
-  shipment: TicketShipmentRefType!
-}
-
-type TicketMessageType {
-  id: ID!
-  authorKind: String!
-  body: String!
-  createdAt: DateTime!
-}
-
-type TicketShipmentRefType {
-  id: ID!
-  number: String!
-  orderNumber: String!
-}
-
-type FollowUpType {
-  id: ID!
-  kind: String!
-  kindLabel: String!
-  status: String!
-  statusLabel: String!
-  dueAt: DateTime!
-  sentAt: DateTime
-  parameterKey: String!
-  parameterSource: String!
-  parameterSourceLabel: String!
-  parameterLabel: String!
-}
-
-type ReturnCaseType {
-  id: ID!
-  kind: String!
-  kindLabel: String!
-  notes: String!
-  stockConfirmedAt: DateTime
-  createdAt: DateTime!
-}
-
 input ShipmentFilterInput {
   search: String
   statuses: [String!]
-  attention: Boolean
   deliveryMode: String
-}
-
-type PublicShipmentType {
-  number: String!
-  publicStatus: String!
-  publicStatusLabel: String!
-  orderNumber: String!
-  seller: PublicShipmentSellerType!
-  lines: [PublicShipmentLineType!]!
-  carrier: String!
-  trackingCode: String!
-  trackingUrl: String!
-  dispatchedAt: DateTime
-  timeline: [PublicShipmentEventType!]!
-  confirmation: DeliveryConfirmationType
-  ticket: TicketType
-  buyerContact: PublicBuyerContactType!
-  allowedActions: [String!]!
-  canConfirm: Boolean!
-  tokenExpiresAt: DateTime!
-}
-
-type PublicShipmentSellerType {
-  name: String!
-  phone: String!
-  businessEmail: String!
-}
-
-type PublicShipmentLineType {
-  productName: String!
-  quantity: Int!
-}
-
-type PublicShipmentEventType {
-  title: String!
-  detail: String!
-  createdAt: DateTime!
-}
-
-type PublicBuyerContactType {
-  name: String!
-  email: String!
-  phone: String!
 }
 
 type InventorySchemaType {
@@ -897,53 +781,40 @@ type Mutation {
     orderId: ID!
     paidAt: DateTime!
   ): ConfirmManualPayment!
-  cancelOrder(idempotencyKey: String!, orderId: ID!, reason: String!): CancelOrder!
+  cancelOrder(
+    idempotencyKey: String!
+    orderId: ID!
+    reason: String!
+  ): CancelOrder!
   restoreOrder(idempotencyKey: String!, orderId: ID!): RestoreOrder!
-  refundPayment(idempotencyKey: String!, orderId: ID!, reason: String!): RefundPayment!
+  refundPayment(
+    idempotencyKey: String!
+    orderId: ID!
+    reason: String!
+  ): RefundPayment!
   resendOrderLink(idempotencyKey: String!, orderId: ID!): ResendOrderLink!
-  sendOfferLink(email: String!, idempotencyKey: String!, orderId: ID!): SendOfferLink!
+  sendOfferLink(
+    email: String!
+    idempotencyKey: String!
+    orderId: ID!
+  ): SendOfferLink!
   reissueBankTransferOffer(
     idempotencyKey: String!
     orderId: ID!
   ): ReissueBankTransferOffer!
-  retryReconciliation(idempotencyKey: String!, issueId: ID!): RetryReconciliation!
-  updateShipment(
+  retryReconciliation(
     idempotencyKey: String!
-    input: UpdateShipmentInput!
+    issueId: ID!
+  ): RetryReconciliation!
+  registerShipmentDispatch(
+    idempotencyKey: String!
+    input: RegisterShipmentDispatchInput!
     shipmentId: ID!
-  ): UpdateShipment!
-  markShipmentDispatched(
-    comment: String
+  ): RegisterShipmentDispatch!
+  generateShipmentLabel(
     idempotencyKey: String!
     shipmentId: ID!
-  ): MarkShipmentDispatched!
-  generateShipmentLabel(idempotencyKey: String!, shipmentId: ID!): GenerateShipmentLabel!
-  openPublicTicket(
-    idempotencyKey: String!
-    input: OpenPublicTicketInput!
-    token: String!
-  ): OpenPublicTicket!
-  sendTicketMessage(
-    body: String!
-    idempotencyKey: String!
-    ticketId: ID!
-    token: String
-    turnstileToken: String
-  ): SendTicketMessage!
-  resolveTicket(comment: String, idempotencyKey: String!, ticketId: ID!): ResolveTicket!
-  rescheduleFollowUp(
-    dueAt: DateTime!
-    followUpId: ID!
-    idempotencyKey: String!
-    reason: String!
-  ): RescheduleFollowUp!
-  registerReturnCase(
-    idempotencyKey: String!
-    kind: String!
-    notes: String
-    shipmentId: ID!
-  ): RegisterReturnCase!
-  confirmReturnToStock(idempotencyKey: String!, returnCaseId: ID!): ConfirmReturnToStock!
+  ): GenerateShipmentLabel!
   createCustomField(input: CreateCustomFieldInput!): CreateCustomField!
   updateCustomField(input: UpdateCustomFieldInput!): UpdateCustomField!
   reorderCustomFields(fieldIds: [ID!]!): ReorderCustomFields!
@@ -960,8 +831,14 @@ type Mutation {
   setPrimaryProductMedia(assetId: ID!, productId: ID!): SetPrimaryProductMedia!
   removeProductMedia(assetId: ID!, productId: ID!): RemoveProductMedia!
   startInventoryImport(assetId: ID!): StartInventoryImport!
-  previewInventoryImport(importId: ID!, mapping: JSONString!): PreviewInventoryImport!
-  confirmInventoryImport(idempotencyKey: String!, importId: ID!): ConfirmInventoryImport!
+  previewInventoryImport(
+    importId: ID!
+    mapping: JSONString!
+  ): PreviewInventoryImport!
+  confirmInventoryImport(
+    idempotencyKey: String!
+    importId: ID!
+  ): ConfirmInventoryImport!
   retryInventoryImport(importId: ID!): RetryInventoryImport!
   startInventoryExport(
     fileFormat: String!
@@ -969,7 +846,9 @@ type Mutation {
     idempotencyKey: String!
   ): StartInventoryExport!
   retryInventoryExport(exportId: ID!): RetryInventoryExport!
-  updateInventoryLowStockThreshold(threshold: Int!): UpdateInventoryLowStockThreshold!
+  updateInventoryLowStockThreshold(
+    threshold: Int!
+  ): UpdateInventoryLowStockThreshold!
   updateProductLowStockThreshold(
     clear: Boolean
     productId: ID!
@@ -1099,68 +978,20 @@ type RetryReconciliation {
   replayed: Boolean!
 }
 
-type UpdateShipment {
+type RegisterShipmentDispatch {
   shipment: ShipmentType!
   replayed: Boolean!
 }
 
-input UpdateShipmentInput {
+input RegisterShipmentDispatchInput {
   carrier: String
   trackingCode: String
   trackingUrl: String
-  comment: String
-  internalNote: Boolean
-}
-
-type MarkShipmentDispatched {
-  shipment: ShipmentType!
-  replayed: Boolean!
+  note: String
 }
 
 type GenerateShipmentLabel {
   label: LabelDocumentType!
-  shipment: ShipmentType!
-  replayed: Boolean!
-}
-
-type OpenPublicTicket {
-  ticket: TicketType!
-  replayed: Boolean!
-}
-
-input OpenPublicTicketInput {
-  category: String!
-  message: String!
-  contactName: String
-  contactEmail: String
-  contactPhone: String
-  turnstileToken: String
-}
-
-type SendTicketMessage {
-  ticket: TicketType!
-  replayed: Boolean!
-}
-
-type ResolveTicket {
-  ticket: TicketType!
-  replayed: Boolean!
-}
-
-type RescheduleFollowUp {
-  followUp: FollowUpType!
-  shipment: ShipmentType!
-  replayed: Boolean!
-}
-
-type RegisterReturnCase {
-  returnCase: ReturnCaseType!
-  shipment: ShipmentType!
-  replayed: Boolean!
-}
-
-type ConfirmReturnToStock {
-  returnCase: ReturnCaseType!
   shipment: ShipmentType!
   replayed: Boolean!
 }

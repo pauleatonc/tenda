@@ -21,7 +21,7 @@ export function ShippingHomeSummary() {
   if (summary.isError) return null
 
   const data = summary.data
-  const pending = data.attentionCount
+  const pending = data.pendingCount
 
   return (
     <article className="sales-attention">
@@ -29,7 +29,11 @@ export function ShippingHomeSummary() {
         <div>
           <StatusChip
             status={pending ? 'warning' : 'success'}
-            label={pending ? `${pending} acciones pendientes` : 'Despachos al día'}
+            label={
+              pending
+                ? `${pending} ${pending === 1 ? 'envío por registrar' : 'envíos por registrar'}`
+                : 'Despachos al día'
+            }
           />
           <h2>Despachos</h2>
         </div>
@@ -43,16 +47,12 @@ export function ShippingHomeSummary() {
           <dd>{data.pendingCount}</dd>
         </div>
         <div>
-          <dt>En preparación</dt>
-          <dd>{data.preparingCount}</dd>
+          <dt>Despachados</dt>
+          <dd>{data.dispatchedCount}</dd>
         </div>
         <div>
-          <dt>Chequeo de entrega</dt>
-          <dd>{data.deliveryCheckCount}</dd>
-        </div>
-        <div>
-          <dt>Incidencias</dt>
-          <dd>{data.issueCount}</dd>
+          <dt>Entregados</dt>
+          <dd>{data.deliveredCount}</dd>
         </div>
       </dl>
     </article>

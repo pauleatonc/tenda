@@ -166,6 +166,32 @@ export function clearSaleDraft(storage: Storage = window.localStorage): void {
   storage.removeItem(SALE_DRAFT_STORAGE_KEY)
 }
 
+export type CompletedSaleNotice = {
+  orderId: string
+  publicUrl: string | null
+}
+
+export function isCompletedSaleDraft(draft: SaleDraft): boolean {
+  return draft.step === 4 && Boolean(draft.createdOrderId)
+}
+
+export function resolveSaleDraftOnEnter(
+  storage: Storage = window.localStorage,
+): { draft: SaleDraft; completed: CompletedSaleNotice | null } {
+  const draft = loadSaleDraft(storage)
+  if (!isCompletedSaleDraft(draft) || !draft.createdOrderId) {
+    return { draft, completed: null }
+  }
+  clearSaleDraft(storage)
+  return {
+    draft: createEmptySaleDraft(),
+    completed: {
+      orderId: draft.createdOrderId,
+      publicUrl: draft.publicUrl,
+    },
+  }
+}
+
 export function aggregateQuantities(lines: SaleDraftLine[]): Map<string, number> {
   const quantities = new Map<string, number>()
   for (const line of lines) {

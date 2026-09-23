@@ -17,13 +17,13 @@ vi.mock('../api', () => ({
 
 const mocked = vi.mocked(api)
 
-function renderPage() {
+function renderPage(path = '/app/despachos') {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={['/app/despachos']}>
+      <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/app/despachos" element={<ShippingListPage />} />
         </Routes>
@@ -32,72 +32,76 @@ function renderPage() {
   )
 }
 
+const pendingShipment = {
+  id: 'ship-1',
+  number: 'ENV-ABC',
+  status: 'pending',
+  statusLabel: 'Pendiente',
+  deliveryMode: 'shipping',
+  recipientName: 'Camila Soto',
+  commune: 'Ñuñoa',
+  region: 'Región Metropolitana de Santiago',
+  carrier: '',
+  trackingCode: '',
+  trackingUrl: '',
+  allowedActions: { registerShipmentDispatch: true, generateShipmentLabel: true },
+  dispatchedAt: null,
+  deliveredAt: null,
+  createdAt: '2026-08-26T12:00:00Z',
+  order: { id: 'order-1', number: 'VEN-001', status: 'paid' },
+}
+
+const dispatchedShipment = {
+  ...pendingShipment,
+  id: 'ship-2',
+  number: 'ENV-DEF',
+  status: 'dispatched',
+  statusLabel: 'Despachado',
+  carrier: 'Chilexpress',
+  trackingCode: 'CX-99',
+  allowedActions: { registerShipmentDispatch: false, generateShipmentLabel: true },
+  dispatchedAt: '2026-08-27T10:00:00Z',
+}
+
 describe('listado de despachos', () => {
   beforeEach(() => {
     mocked.fetchShippingDashboard.mockResolvedValue({
-      totalCount: 1,
+      totalCount: 2,
       pendingCount: 1,
-      preparingCount: 0,
-      dispatchedCount: 0,
-      deliveryCheckCount: 0,
-      issueCount: 0,
-      attentionCount: 1,
+      dispatchedCount: 1,
+      deliveredCount: 0,
     })
     mocked.fetchShipments.mockResolvedValue({
-      totalCount: 1,
+      totalCount: 2,
       pageInfo: { hasNextPage: false, endCursor: '' },
-      nodes: [
-        {
-          id: 'ship-1',
-          number: 'ENV-ABC',
-          status: 'pending',
-          statusLabel: 'Pendiente',
-          deliveryMode: 'shipping',
-          recipientName: 'Camila Soto',
-          commune: 'Ñuñoa',
-          region: 'Región Metropolitana de Santiago',
-          carrier: '',
-          trackingCode: '',
-          trackingUrl: '',
-          nextAction: 'prepare',
-          allowedActions: {
-            updateShipment: true,
-            markShipmentDispatched: true,
-            generateShipmentLabel: true,
-            sendTicketMessage: false,
-            resolveTicket: false,
-            rescheduleFollowUp: false,
-            registerReturnCase: false,
-            confirmReturnToStock: false,
-          },
-          createdAt: '2026-08-26T12:00:00Z',
-          nextFollowUp: {
-            id: 'fu-1',
-            kind: 'delivery_check',
-            kindLabel: 'Chequeo de entrega',
-            status: 'scheduled',
-            statusLabel: 'Programado',
-            dueAt: '2026-08-29T12:00:00Z',
-            sentAt: null,
-            parameterKey: 'shipping.delivery_check_hours',
-            parameterSource: 'global',
-            parameterSourceLabel: 'Parámetro global',
-            parameterLabel: '72 h',
-          },
-          order: { id: 'order-1', number: 'VEN-001', status: 'paid' },
-        },
-      ],
+      nodes: [pendingShipment, dispatchedShipment],
     })
   })
 
-  it('muestra el resumen y la fila operativa en español', async () => {
+  it('muestra el resumen de tres estados y las filas sin seguimiento', async () => {
     renderPage()
     expect(await screen.findByText('ENV-ABC')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Despachos' })).toBeInTheDocument()
     expect(screen.getByText('Pendientes')).toBeInTheDocument()
-    expect(screen.getByText('Camila Soto')).toBeInTheDocument()
-    expect(screen.getByText('Preparar envío')).toBeInTheDocument()
-    expect(screen.getByText('Vencimiento')).toBeInTheDocument()
-    expect(screen.queryByText('Seguimiento, entregas y consultas.')).toBeNull()
+    expect(screen.getByText('Despachados')).toBeInTheDocument()
+    expect(screen.getByText('Entregados')).toBeInTheDocument()
+    expect(screen.getAllByText('Camila Soto')).toHaveLength(2)
+    expect(screen.getByText('Chilexpress · CX-99')).toBeInTheDocument()
+    expect(screen.getByText('Transportista / Tracking')).toBeInTheDocument()
+    expect(screen.queryByText('Vencimiento')).toBeNull()
+    expect(screen.queryByText('Próxima acción')).toBeNull()
+    expect(screen.queryByText('Chequeo de entrega')).toBeNull()
+    expect(screen.queryByText('Incidencias')).toBeNull()
+  })
+
+  it('filtra por estado y modalidad desde la URL', async () => {
+    renderPage('/app/despachos?estado=pending&modalidad=pickup')
+    await screen.findByText('ENV-ABC')
+    expect(mocked.fetchShipments).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filter: { search: null, statuses: ['pending'], deliveryMode: 'pickup' },
+      }),
+    )
+    expect(screen.getByRole('button', { name: 'Limpiar filtros (2)' })).toBeInTheDocument()
   })
 })

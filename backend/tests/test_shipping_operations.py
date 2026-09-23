@@ -4,7 +4,7 @@ import json
 from typing import Any
 
 import pytest
-from django.test import Client, override_settings
+from django.test import Client
 from django.utils import timezone
 
 from apps.inventory.services import create_product
@@ -12,7 +12,6 @@ from apps.organisations.selectors import TenantContext, resolve_tenant_context
 from apps.organisations.services import create_organisation_for_owner
 from apps.sales.models import Order
 from apps.sales.order_services import confirm_manual_payment, create_order, set_buyer_details
-from apps.shipping.models import Shipment, ShipmentEvent
 from apps.users.models import User
 from tenda.crypto import decrypt_credential
 
@@ -53,7 +52,12 @@ def graphql(client: Client, query: str, **variables: Any) -> dict[str, Any]:
     return payload
 
 
-def paid_order(context: TenantContext, *, name: str = "Velón") -> Order:
+def paid_order(
+    context: TenantContext,
+    *,
+    name: str = "Velón",
+    delivery_mode: str = Order.DeliveryMode.SHIPPING,
+) -> Order:
     product = create_product(
         context=context,
         name=name,
@@ -70,7 +74,7 @@ def paid_order(context: TenantContext, *, name: str = "Velón") -> Order:
                 "unitSalePrice": "1000",
             }
         ],
-        delivery_mode=Order.DeliveryMode.SHIPPING,
+        delivery_mode=delivery_mode,
         payment_method=Order.PaymentMethod.CASH,
         idempotency_key=f"create-{product.public_id}",
     ).order
@@ -102,7 +106,27 @@ def paid_order(context: TenantContext, *, name: str = "Velón") -> Order:
     return order
 
 
-def test_graphql_exposes_shipping_query_and_mutation_names() -> None:
+REGISTER = """
+mutation Register($id: ID!, $input: RegisterShipmentDispatchInput!, $key: String!) {
+  registerShipmentDispatch(shipmentId: $id, input: $input, idempotencyKey: $key) {
+    replayed
+    shipment {
+      status
+      statusLabel
+      carrier
+      trackingCode
+      trackingUrl
+      dispatchNote
+      dispatchedAt
+      deliveredAt
+      allowedActions
+    }
+  }
+}
+"""
+
+
+def test_graphql_exposes_only_register_and_label_operations() -> None:
     client, _context = signed_in("ship-schema@example.com")
     payload = graphql(
         client,
@@ -115,24 +139,22 @@ def test_graphql_exposes_shipping_query_and_mutation_names() -> None:
     )
     query_names = {field["name"] for field in payload["data"]["queryType"]["fields"]}
     mutation_names = {field["name"] for field in payload["data"]["mutationType"]["fields"]}
-    assert {
-        "shippingDashboard",
-        "shipments",
-        "shipment",
+    assert {"shippingDashboard", "shipments", "shipment"} <= query_names
+    assert {"registerShipmentDispatch", "generateShipmentLabel"} <= mutation_names
+    removed = {
         "shipmentTimeline",
         "ticket",
-    } <= query_names
-    assert {
+        "publicShipment",
         "updateShipment",
         "markShipmentDispatched",
-        "generateShipmentLabel",
         "openPublicTicket",
         "sendTicketMessage",
         "resolveTicket",
         "rescheduleFollowUp",
         "registerReturnCase",
         "confirmReturnToStock",
-    } <= mutation_names
+    }
+    assert not removed & (query_names | mutation_names)
 
 
 def test_dashboard_list_and_detail_are_tenant_safe() -> None:
@@ -145,14 +167,16 @@ def test_dashboard_list_and_detail_are_tenant_safe() -> None:
         client_a,
         """
         query {
-          shippingDashboard {
-            total pending preparing dispatched deliveryCheck issue attention
-          }
+          shippingDashboard { total pending dispatched delivered }
         }
         """,
     )
-    assert dashboard["data"]["shippingDashboard"]["pending"] == 1
-    assert dashboard["data"]["shippingDashboard"]["attention"] == 1
+    assert dashboard["data"]["shippingDashboard"] == {
+        "total": 1,
+        "pending": 1,
+        "dispatched": 0,
+        "delivered": 0,
+    }
 
     listing = graphql(
         client_a,
@@ -160,7 +184,7 @@ def test_dashboard_list_and_detail_are_tenant_safe() -> None:
         query {
           shipments(first: 10) {
             totalCount
-            nodes { id number status recipientName nextAction allowedActions }
+            nodes { id number status recipientName buyerEmail allowedActions }
           }
         }
         """,
@@ -169,8 +193,8 @@ def test_dashboard_list_and_detail_are_tenant_safe() -> None:
     assert listing["data"]["shipments"]["totalCount"] == 1
     assert nodes[0]["id"] == str(shipment.public_id)
     assert nodes[0]["recipientName"] == "Camila Soto"
-    assert nodes[0]["nextAction"] == "prepare"
-    assert "updateShipment" in nodes[0]["allowedActions"]
+    assert nodes[0]["buyerEmail"] == "camila@example.cl"
+    assert "registerShipmentDispatch" in nodes[0]["allowedActions"]
 
     foreign = graphql(
         client_b,
@@ -197,131 +221,111 @@ def test_dashboard_list_and_detail_are_tenant_safe() -> None:
     assert hidden["errors"][0]["extensions"]["code"] == "NOT_FOUND"
 
 
-def test_update_then_dispatch_is_idempotent_and_locks_edits() -> None:
+def test_register_dispatch_mutation_is_idempotent_and_terminal() -> None:
     client, context = signed_in("ship-ops@example.com")
     order = paid_order(context)
     shipment_id = str(order.shipment.public_id)
-    update = """
-    mutation Update($id: ID!, $input: UpdateShipmentInput!, $key: String!) {
-      updateShipment(shipmentId: $id, input: $input, idempotencyKey: $key) {
-        replayed
-        shipment {
-          status
-          carrier
-          trackingCode
-          trackingUrl
-          allowedActions
-          timeline { title detail isPublic actorName }
-        }
-      }
-    }
-    """
     payload = {
         "carrier": "Chilexpress",
         "trackingCode": "CX-99",
         "trackingUrl": "https://chilexpress.cl/track/CX-99",
-        "comment": "Nota interna del operador",
-        "internalNote": True,
+        "note": "Sale hoy",
     }
-    first = graphql(client, update, id=shipment_id, input=payload, key="upd-1")
-    replay = graphql(client, update, id=shipment_id, input=payload, key="upd-1")
-    assert "errors" not in first, first.get("errors")
-    shipment_data = first["data"]["updateShipment"]["shipment"]
-    assert first["data"]["updateShipment"]["replayed"] is False
-    assert replay["data"]["updateShipment"]["replayed"] is True
-    assert shipment_data["status"] == "preparing"
-    assert shipment_data["carrier"] == "Chilexpress"
-    assert shipment_data["trackingCode"] == "CX-99"
-    internal = [item for item in shipment_data["timeline"] if item["isPublic"] is False]
-    assert internal
-    assert internal[0]["actorName"] == "ship-ops@example.com"
 
-    dispatch = """
-    mutation Dispatch($id: ID!, $key: String!) {
-      markShipmentDispatched(shipmentId: $id, idempotencyKey: $key) {
-        replayed
-        shipment { status allowedActions trackingCode dispatchedAt }
-      }
-    }
-    """
-    dispatched = graphql(client, dispatch, id=shipment_id, key="disp-1")
-    dispatched_again = graphql(client, dispatch, id=shipment_id, key="disp-1")
-    assert "errors" not in dispatched, dispatched.get("errors")
-    assert dispatched["data"]["markShipmentDispatched"]["shipment"]["status"] == "dispatched"
-    assert dispatched_again["data"]["markShipmentDispatched"]["replayed"] is True
-    assert (
-        "updateShipment"
-        not in dispatched["data"]["markShipmentDispatched"]["shipment"]["allowedActions"]
-    )
+    first = graphql(client, REGISTER, id=shipment_id, input=payload, key="reg-1")
+    replay = graphql(client, REGISTER, id=shipment_id, input=payload, key="reg-1")
+    assert "errors" not in first, first.get("errors")
+    data = first["data"]["registerShipmentDispatch"]
+    assert data["replayed"] is False
+    assert replay["data"]["registerShipmentDispatch"]["replayed"] is True
+    assert data["shipment"]["status"] == "dispatched"
+    assert data["shipment"]["statusLabel"] == "Despachado"
+    assert data["shipment"]["carrier"] == "Chilexpress"
+    assert data["shipment"]["trackingCode"] == "CX-99"
+    assert data["shipment"]["dispatchNote"] == "Sale hoy"
+    assert data["shipment"]["dispatchedAt"]
+    assert data["shipment"]["deliveredAt"] is None
+    assert "registerShipmentDispatch" not in data["shipment"]["allowedActions"]
 
     blocked = graphql(
         client,
-        update,
+        REGISTER,
         id=shipment_id,
-        input={"carrier": "Starken", "trackingCode": "ST-1"},
-        key="upd-after",
+        input={"carrier": "Starken"},
+        key="reg-2",
     )
-    assert blocked["errors"][0]["extensions"]["code"] == "SHIPMENT_NOT_EDITABLE"
+    assert blocked["errors"][0]["extensions"]["code"] == "SHIPMENT_ALREADY_REGISTERED"
     order.shipment.refresh_from_db()
     assert order.shipment.carrier == "Chilexpress"
-    assert ShipmentEvent.objects.filter(shipment=order.shipment).count() >= 3
 
-
-@override_settings(PUBLIC_ORIGIN="https://shop.example.test")
-def test_attention_filter_and_timeline_query() -> None:
-    client, context = signed_in("ship-filter@example.com")
-    order = paid_order(context)
-    shipment_id = str(order.shipment.public_id)
-
-    attention = graphql(
+    invalid_url = paid_order(context, name="Otro")
+    bad = graphql(
         client,
-        """
-        query {
-          shipments(filter: { attention: true }) {
-            totalCount
-            nodes { status nextAction }
-          }
-        }
-        """,
+        REGISTER,
+        id=str(invalid_url.shipment.public_id),
+        input={"carrier": "Starken", "trackingUrl": "not a url"},
+        key="reg-3",
     )
-    assert attention["data"]["shipments"]["totalCount"] == 1
-    assert attention["data"]["shipments"]["nodes"][0]["status"] == "pending"
+    assert bad["errors"][0]["extensions"]["code"] == "VALIDATION_ERROR"
+    assert "trackingUrl" in bad["errors"][0]["extensions"]["fieldErrors"]
+
+
+def test_status_and_delivery_mode_filters() -> None:
+    client, context = signed_in("ship-filter@example.com")
+    shipping = paid_order(context, name="Envío")
+    pickup = paid_order(context, name="Retiro", delivery_mode=Order.DeliveryMode.PICKUP)
 
     graphql(
         client,
-        """
-        mutation Dispatch($id: ID!, $key: String!) {
-          markShipmentDispatched(shipmentId: $id, idempotencyKey: $key) {
-            shipment { status }
-          }
-        }
-        """,
-        id=shipment_id,
-        key="go",
+        REGISTER,
+        id=str(pickup.shipment.public_id),
+        input={"note": "Retirado"},
+        key="pickup",
     )
-    remaining = graphql(
+
+    pending = graphql(
         client,
         """
         query {
-          shipments(filter: { attention: true, statuses: ["pending"] }) {
+          shipments(filter: { statuses: ["pending"] }) { totalCount nodes { id } }
+        }
+        """,
+    )
+    assert pending["data"]["shipments"]["totalCount"] == 1
+    assert pending["data"]["shipments"]["nodes"][0]["id"] == str(shipping.shipment.public_id)
+
+    delivered = graphql(
+        client,
+        """
+        query {
+          shipments(filter: { deliveryMode: "pickup" }) {
             totalCount
+            nodes { status deliveredAt carrier }
           }
         }
         """,
     )
-    assert remaining["data"]["shipments"]["totalCount"] == 0
+    assert delivered["data"]["shipments"]["totalCount"] == 1
+    node = delivered["data"]["shipments"]["nodes"][0]
+    assert node["status"] == "delivered"
+    assert node["deliveredAt"]
+    assert node["carrier"] == ""
 
-    timeline = graphql(
+    dashboard = graphql(
+        client,
+        "query { shippingDashboard { total pending dispatched delivered } }",
+    )
+    assert dashboard["data"]["shippingDashboard"] == {
+        "total": 2,
+        "pending": 1,
+        "dispatched": 0,
+        "delivered": 1,
+    }
+
+    invalid = graphql(
         client,
         """
-        query ($id: ID!) {
-          shipmentTimeline(id: $id) { eventType title isPublic }
-        }
+        query { shipments(filter: { statuses: ["closed"] }) { totalCount } }
         """,
-        id=shipment_id,
     )
-    types = [item["eventType"] for item in timeline["data"]["shipmentTimeline"]]
-    assert "shipment.created" in types
-    assert "shipment.preparing" in types
-    assert "shipment.dispatched" in types
-    assert Shipment.objects.filter(public_id=shipment_id).count() == 1
+    assert invalid["errors"][0]["extensions"]["code"] == "VALIDATION_ERROR"

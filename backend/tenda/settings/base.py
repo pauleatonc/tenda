@@ -203,7 +203,6 @@ CELERY_TASK_ROUTES = {
     "apps.sales.tasks.expire_orders": {"queue": "payments"},
     "apps.sales.tasks.process_payment_webhook": {"queue": "payments"},
     "apps.sales.tasks.retry_reconciliation": {"queue": "payments"},
-    "apps.shipping.tasks.process_due_follow_ups": {"queue": "default"},
 }
 CELERY_BEAT_SCHEDULE = {
     "dispatch-outbox": {
@@ -217,10 +216,6 @@ CELERY_BEAT_SCHEDULE = {
     "retry-payment-reconciliation": {
         "task": "apps.sales.tasks.retry_reconciliation",
         "schedule": 300.0,
-    },
-    "process-shipping-follow-ups": {
-        "task": "apps.shipping.tasks.process_due_follow_ups",
-        "schedule": 60.0,
     },
 }
 OUTBOX_EAGER = env_bool("OUTBOX_EAGER", False)
@@ -264,9 +259,6 @@ AUTH_RATE_LIMITS = {
     "oidc_start": (10, 300, 300),
     "oidc_callback": (10, 300, 300),
     "admin_login": (5, 900, 900),
-    "public_shipment_read": (30, 300, 300),
-    "public_shipment_confirm": (8, 300, 300),
-    "public_shipment_ticket": (8, 300, 300),
 }
 
 ADMIN_URL_PATH = f"{os.getenv('DJANGO_ADMIN_PATH', 'admin').strip('/')}/"
@@ -276,7 +268,6 @@ WEB_ORIGIN = os.getenv("WEB_ORIGIN", "http://localhost:5173").rstrip("/")
 PUBLIC_ORIGIN = os.getenv("PUBLIC_ORIGIN", WEB_ORIGIN).rstrip("/")
 PUBLIC_API_URL = os.getenv("PUBLIC_API_URL", "http://localhost:8000").rstrip("/")
 SALES_RESERVATION_TTL_SECONDS = int(os.getenv("SALES_RESERVATION_TTL_SECONDS", str(8 * 60 * 60)))
-SHIPPING_PUBLIC_TOKEN_TTL_DAYS = int(os.getenv("SHIPPING_PUBLIC_TOKEN_TTL_DAYS", "90"))
 GOOGLE_OIDC_CLIENT_ID = os.getenv("GOOGLE_OIDC_CLIENT_ID", "").strip()
 GOOGLE_OIDC_CLIENT_SECRET = os.getenv("GOOGLE_OIDC_CLIENT_SECRET", "").strip()
 GOOGLE_OIDC_CALLBACK_URL = os.getenv(

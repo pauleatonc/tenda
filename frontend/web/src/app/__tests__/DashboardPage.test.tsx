@@ -123,11 +123,8 @@ describe('DashboardPage', () => {
     shipping.fetchShippingDashboard.mockResolvedValue({
       totalCount: 3,
       pendingCount: 1,
-      preparingCount: 1,
-      dispatchedCount: 0,
-      deliveryCheckCount: 1,
-      issueCount: 0,
-      attentionCount: 3,
+      dispatchedCount: 1,
+      deliveredCount: 1,
     })
   })
 

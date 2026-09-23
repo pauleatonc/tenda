@@ -387,30 +387,3 @@ export function PublicOrderUnavailable({
     </PublicPage>
   )
 }
-
-export function PublicShipmentUnavailable({
-  expired = false,
-  onRetry,
-}: {
-  expired?: boolean
-  onRetry?: () => void
-}) {
-  return (
-    <PublicPage>
-      <section className="public-state-card" role={expired ? undefined : 'alert'}>
-        <span aria-hidden="true">{expired ? '⌛' : '!'}</span>
-        <h1>{expired ? 'Este seguimiento ya no está disponible' : 'No pudimos abrir este envío'}</h1>
-        <p>
-          {expired
-            ? 'El enlace de seguimiento caducó. Pide uno actualizado al vendedor.'
-            : 'El enlace puede ser incorrecto o la conexión se interrumpió. No mostramos información privada.'}
-        </p>
-        {onRetry ? (
-          <button className="button button--primary" type="button" onClick={onRetry}>
-            Reintentar
-          </button>
-        ) : null}
-      </section>
-    </PublicPage>
-  )
-}

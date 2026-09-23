@@ -25,16 +25,13 @@ describe('Listado de despachos mobile', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mocked.fetchShippingDashboard.mockResolvedValue({
-      totalCount: 1,
+      totalCount: 2,
       pendingCount: 1,
-      preparingCount: 0,
-      dispatchedCount: 0,
-      deliveryCheckCount: 0,
-      issueCount: 0,
-      attentionCount: 1,
+      dispatchedCount: 1,
+      deliveredCount: 0,
     })
     mocked.fetchShipments.mockResolvedValue({
-      totalCount: 1,
+      totalCount: 2,
       pageInfo: { hasNextPage: false, endCursor: '' },
       nodes: [
         {
@@ -49,47 +46,45 @@ describe('Listado de despachos mobile', () => {
           carrier: '',
           trackingCode: '',
           trackingUrl: '',
-          nextAction: 'prepare',
-          allowedActions: {
-            updateShipment: true,
-            markShipmentDispatched: true,
-            generateShipmentLabel: true,
-            sendTicketMessage: false,
-            resolveTicket: false,
-            rescheduleFollowUp: false,
-            registerReturnCase: false,
-            confirmReturnToStock: false,
-          },
+          allowedActions: { registerShipmentDispatch: true, generateShipmentLabel: true },
+          dispatchedAt: null,
+          deliveredAt: null,
           createdAt: '2026-08-26T12:00:00Z',
-          nextFollowUp: {
-            id: 'fu-1',
-            kind: 'delivery_check',
-            kindLabel: 'Chequeo de entrega',
-            status: 'scheduled',
-            statusLabel: 'Programado',
-            dueAt: '2026-08-29T12:00:00Z',
-            sentAt: null,
-            parameterKey: 'shipping.delivery_check_hours',
-            parameterSource: 'global',
-            parameterSourceLabel: 'Parámetro global',
-            parameterLabel: '72 h',
-          },
           order: { id: 'order-1', number: 'VEN-001', status: 'paid' },
+        },
+        {
+          id: 'ship-2',
+          number: 'ENV-DEF',
+          status: 'dispatched',
+          statusLabel: 'Despachado',
+          deliveryMode: 'shipping',
+          recipientName: 'Pedro Pérez',
+          commune: 'Providencia',
+          region: 'Región Metropolitana de Santiago',
+          carrier: 'Chilexpress',
+          trackingCode: 'CX-99',
+          trackingUrl: '',
+          allowedActions: { registerShipmentDispatch: false, generateShipmentLabel: true },
+          dispatchedAt: '2026-08-27T10:00:00Z',
+          deliveredAt: null,
+          createdAt: '2026-08-26T12:00:00Z',
+          order: { id: 'order-2', number: 'VEN-002', status: 'paid' },
         },
       ],
     })
   })
 
-  it('muestra tarjetas verticales y ninguna tabla', async () => {
+  it('muestra tarjetas con estado, transportista y sin seguimiento', async () => {
     await renderScreen(<ShippingScreen />)
 
     expect(await screen.findByText('Envío ENV-ABC')).toBeOnTheScreen()
     expect(screen.getByText('Camila Soto')).toBeOnTheScreen()
-    expect(screen.getByText('Preparar envío')).toBeOnTheScreen()
-    expect(screen.queryByText('Número')).toBeNull()
-    expect(screen.queryByText('Coming soon', { exact: false })).toBeNull()
-    expect(
-      screen.queryByText('Aquí acompañarás cada entrega', { exact: false }),
-    ).toBeNull()
+    expect(screen.getByText('Registrar despacho')).toBeOnTheScreen()
+    expect(screen.getByText('Chilexpress · CX-99')).toBeOnTheScreen()
+    expect(screen.getByText('Entregados')).toBeOnTheScreen()
+    expect(screen.queryByText('Requieren atención')).toBeNull()
+    expect(screen.queryByText('En preparación')).toBeNull()
+    expect(screen.queryByText('Incidencias')).toBeNull()
+    expect(screen.queryByText('Siguiente acción')).toBeNull()
   })
 })

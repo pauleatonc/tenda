@@ -9,12 +9,8 @@ import * as api from '../../../lib/shipping-api'
 
 jest.mock('../../../lib/shipping-api', () => ({
   fetchShipment: jest.fn(),
-  updateShipment: jest.fn(),
-  markShipmentDispatched: jest.fn(),
+  registerShipmentDispatch: jest.fn(),
   generateShipmentLabel: jest.fn(),
-  rescheduleFollowUp: jest.fn(),
-  registerReturnCase: jest.fn(),
-  confirmReturnToStock: jest.fn(),
   shippingKeys: {
     root: ['shipping'],
     shipment: (id: string) => ['shipping', 'shipment', id],
@@ -31,6 +27,32 @@ function renderScreen(ui: ReactElement) {
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
+const shipment = {
+  id: 'ship-1',
+  number: 'ENV-ABC',
+  status: 'pending',
+  statusLabel: 'Pendiente',
+  deliveryMode: 'shipping',
+  recipientName: 'Camila Soto',
+  recipientTaxId: '11.111.111-1',
+  commune: 'Ñuñoa',
+  region: 'Región Metropolitana de Santiago',
+  addressLine: 'Los Aromos 123',
+  deliveryNotes: '',
+  carrier: '',
+  trackingCode: '',
+  trackingUrl: '',
+  dispatchNote: '',
+  buyerEmail: 'camila@example.cl',
+  allowedActions: { registerShipmentDispatch: true, generateShipmentLabel: true },
+  createdAt: '2026-08-26T12:00:00Z',
+  updatedAt: '2026-08-26T13:00:00Z',
+  dispatchedAt: null,
+  deliveredAt: null,
+  latestLabel: null,
+  order: { id: 'order-1', number: 'VEN-001', status: 'paid' },
+}
+
 describe('Etiqueta interna de despacho', () => {
   it('advierte que el PDF es una etiqueta interna de Tenda', async () => {
     const label = {
@@ -41,95 +63,15 @@ describe('Etiqueta interna de despacho', () => {
       fileName: 'etiqueta-interna-ENV-ABC.pdf',
     }
     mockedParams.mockReturnValue({ shipmentId: 'ship-1' })
-    mocked.fetchShipment.mockResolvedValue({
-      id: 'ship-1',
-      number: 'ENV-ABC',
-      status: 'preparing',
-      statusLabel: 'En preparación',
-      deliveryMode: 'shipping',
-      recipientName: 'Camila Soto',
-      recipientTaxId: '11.111.111-1',
-      commune: 'Ñuñoa',
-      region: 'Región Metropolitana de Santiago',
-      addressLine: 'Los Aromos 123',
-      deliveryNotes: '',
-      carrier: 'Chilexpress',
-      trackingCode: 'CX-99',
-      trackingUrl: 'https://chilexpress.cl/track/CX-99',
-      nextAction: 'dispatch',
-      allowedActions: {
-        updateShipment: true,
-        markShipmentDispatched: true,
-        generateShipmentLabel: true,
-        sendTicketMessage: false,
-        resolveTicket: false,
-        rescheduleFollowUp: false,
-        registerReturnCase: false,
-        confirmReturnToStock: false,
-      },
-      createdAt: '2026-08-26T12:00:00Z',
-      updatedAt: '2026-08-26T13:00:00Z',
-      dispatchedAt: null,
-      deliveredAt: null,
-      publicUrl: 'https://shop.example.test/s/public-token',
-      confirmation: null,
-      latestLabel: null,
-      activeTicket: null,
-      tickets: [],
-      followUps: [],
-      returnCases: [],
-      nextFollowUp: null,
-      order: { id: 'order-1', number: 'VEN-001', status: 'paid' },
-      timeline: [],
-    })
+    mocked.fetchShipment.mockResolvedValue(shipment)
     mocked.generateShipmentLabel.mockResolvedValue({
       replayed: false,
       label,
-      shipment: {
-        id: 'ship-1',
-        number: 'ENV-ABC',
-        status: 'preparing',
-        statusLabel: 'En preparación',
-        deliveryMode: 'shipping',
-        recipientName: 'Camila Soto',
-        recipientTaxId: '11.111.111-1',
-        commune: 'Ñuñoa',
-        region: 'Región Metropolitana de Santiago',
-        addressLine: 'Los Aromos 123',
-        deliveryNotes: '',
-        carrier: 'Chilexpress',
-        trackingCode: 'CX-99',
-        trackingUrl: 'https://chilexpress.cl/track/CX-99',
-        nextAction: 'dispatch',
-        allowedActions: {
-          updateShipment: true,
-          markShipmentDispatched: true,
-          generateShipmentLabel: true,
-          sendTicketMessage: false,
-          resolveTicket: false,
-          rescheduleFollowUp: false,
-          registerReturnCase: false,
-          confirmReturnToStock: false,
-        },
-        createdAt: '2026-08-26T12:00:00Z',
-        updatedAt: '2026-08-26T13:00:00Z',
-        dispatchedAt: null,
-        deliveredAt: null,
-        publicUrl: 'https://shop.example.test/s/public-token',
-        confirmation: null,
-        latestLabel: label,
-        activeTicket: null,
-        tickets: [],
-        followUps: [],
-        returnCases: [],
-        nextFollowUp: null,
-        order: { id: 'order-1', number: 'VEN-001', status: 'paid' },
-        timeline: [],
-      },
+      shipment: { ...shipment, latestLabel: label },
     })
     const alert = jest.spyOn(Alert, 'alert')
     await renderScreen(<ShipmentDetailScreen />)
-    expect(await screen.findByText('CX-99')).toBeOnTheScreen()
+    expect(await screen.findByText('Envío ENV-ABC')).toBeOnTheScreen()
     fireEvent.press(screen.getByText('Generar etiqueta'))
     await waitFor(() =>
       expect(alert.mock.calls.some((call) => call[0] === 'Etiqueta interna Tenda')).toBe(

@@ -1,6 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { fireEvent, render, screen } from '@testing-library/react-native'
-import { Alert, Share } from 'react-native'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native'
 import { useLocalSearchParams } from 'expo-router'
 import type { ReactElement } from 'react'
 
@@ -9,12 +8,8 @@ import * as api from '../../../lib/shipping-api'
 
 jest.mock('../../../lib/shipping-api', () => ({
   fetchShipment: jest.fn(),
-  updateShipment: jest.fn(),
-  markShipmentDispatched: jest.fn(),
+  registerShipmentDispatch: jest.fn(),
   generateShipmentLabel: jest.fn(),
-  rescheduleFollowUp: jest.fn(),
-  registerReturnCase: jest.fn(),
-  confirmReturnToStock: jest.fn(),
   shippingKeys: {
     root: ['shipping'],
     shipment: (id: string) => ['shipping', 'shipment', id],
@@ -31,12 +26,12 @@ function renderScreen(ui: ReactElement) {
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
-function sellerShipment() {
+function pendingShipment(overrides: Record<string, unknown> = {}) {
   return {
     id: 'ship-1',
     number: 'ENV-ABC',
-    status: 'preparing',
-    statusLabel: 'En preparación',
+    status: 'pending',
+    statusLabel: 'Pendiente',
     deliveryMode: 'shipping',
     recipientName: 'Camila Soto',
     recipientTaxId: '11.111.111-1',
@@ -44,46 +39,19 @@ function sellerShipment() {
     region: 'Región Metropolitana de Santiago',
     addressLine: 'Los Aromos 123',
     deliveryNotes: '',
-    carrier: 'Chilexpress',
-    trackingCode: 'CX-99',
-    trackingUrl: 'https://chilexpress.cl/track/CX-99',
-    nextAction: 'dispatch',
-      allowedActions: {
-        updateShipment: true,
-        markShipmentDispatched: true,
-        generateShipmentLabel: true,
-        sendTicketMessage: false,
-        resolveTicket: false,
-        rescheduleFollowUp: false,
-        registerReturnCase: false,
-        confirmReturnToStock: false,
-      },
-      createdAt: '2026-08-26T12:00:00Z',
-      updatedAt: '2026-08-26T13:00:00Z',
-      dispatchedAt: null,
-      deliveredAt: null,
-      publicUrl: 'https://shop.example.test/s/public-token',
-      confirmation: null,
-      latestLabel: null,
-      activeTicket: null,
-      tickets: [],
-      followUps: [],
-      returnCases: [],
-      nextFollowUp: null,
+    carrier: '',
+    trackingCode: '',
+    trackingUrl: '',
+    dispatchNote: '',
+    buyerEmail: 'camila@example.cl',
+    allowedActions: { registerShipmentDispatch: true, generateShipmentLabel: true },
+    createdAt: '2026-08-26T12:00:00Z',
+    updatedAt: '2026-08-26T13:00:00Z',
+    dispatchedAt: null as string | null,
+    deliveredAt: null as string | null,
+    latestLabel: null,
     order: { id: 'order-1', number: 'VEN-001', status: 'paid' },
-    timeline: [
-      {
-        id: 'evt-1',
-        eventType: 'shipment.updated',
-        fromStatus: 'preparing',
-        toStatus: 'preparing',
-        title: 'Datos de seguimiento actualizados',
-        detail: '',
-        isPublic: false,
-        actorName: 'ana@tenda.cl',
-        createdAt: '2026-08-26T13:00:00Z',
-      },
-    ],
+    ...overrides,
   }
 }
 
@@ -91,32 +59,99 @@ describe('Detalle de despacho mobile', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockedParams.mockReturnValue({ shipmentId: 'ship-1' })
-    mocked.fetchShipment.mockResolvedValue(sellerShipment())
   })
 
-  it('advierte antes de abrir el tracking externo y permite despachar', async () => {
-    const alert = jest.spyOn(Alert, 'alert')
+  it('registra el despacho con transportista y confirma el correo', async () => {
+    const dispatched = pendingShipment({
+      status: 'dispatched',
+      statusLabel: 'Despachado',
+      carrier: 'Chilexpress',
+      trackingCode: 'CX-99',
+      dispatchNote: 'Sale hoy',
+      dispatchedAt: '2026-08-27T10:00:00Z',
+      allowedActions: { registerShipmentDispatch: false, generateShipmentLabel: true },
+    })
+    let current: ReturnType<typeof pendingShipment> = pendingShipment()
+    mocked.fetchShipment.mockImplementation(async () => current)
+    mocked.registerShipmentDispatch.mockImplementation(async () => {
+      current = dispatched
+      return { replayed: false, shipment: dispatched }
+    })
+
     await renderScreen(<ShipmentDetailScreen />)
 
-    expect(await screen.findByText('CX-99')).toBeOnTheScreen()
-
-    fireEvent.press(screen.getByText('Abrir seguimiento'))
-    expect(alert).toHaveBeenCalled()
-    expect(String(alert.mock.calls[0]?.[1])).toContain(
-      'Tenda no consulta el estado con el transportista',
-    )
-
-    const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: Share.sharedAction })
-    fireEvent.press(screen.getByText('Compartir enlace público'))
-    expect(share).toHaveBeenCalledWith(
-      expect.objectContaining({ message: 'https://shop.example.test/s/public-token' }),
-    )
-    share.mockRestore()
-
-    await fireEvent.press(screen.getByRole('button', { name: 'Marcar despachado' }))
+    expect(await screen.findByText('Envío ENV-ABC')).toBeOnTheScreen()
     expect(
-      await screen.findByRole('button', { name: 'Confirmar despacho' }),
+      screen.getByText('Al registrar, enviaremos un correo a camila@example.cl', {
+        exact: false,
+      }),
     ).toBeOnTheScreen()
-    alert.mockRestore()
+    expect(screen.queryByText('Línea de tiempo')).toBeNull()
+    expect(screen.queryByText('Cadencias')).toBeNull()
+    expect(screen.queryByText('Compartir enlace público')).toBeNull()
+
+    await fireEvent.changeText(screen.getByLabelText('Transportista'), 'Chilexpress')
+    await fireEvent.changeText(screen.getByLabelText('Código de tracking (opcional)'), 'CX-99')
+    await fireEvent.changeText(screen.getByLabelText('Nota para el comprador (opcional)'), 'Sale hoy')
+    await fireEvent.press(screen.getByRole('button', { name: 'Registrar despacho' }))
+
+    expect(await screen.findByText('Se enviará un correo a camila@example.cl.')).toBeOnTheScreen()
+    await fireEvent.press(screen.getByRole('button', { name: 'Confirmar y notificar' }))
+
+    await waitFor(() =>
+      expect(mocked.registerShipmentDispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          shipmentId: 'ship-1',
+          carrier: 'Chilexpress',
+          trackingCode: 'CX-99',
+          trackingUrl: null,
+          note: 'Sale hoy',
+        }),
+      ),
+    )
+    expect(
+      await screen.findByText('Registrado. Enviamos el correo a camila@example.cl.'),
+    ).toBeOnTheScreen()
+    expect(screen.getByText('Enviado a camila@example.cl')).toBeOnTheScreen()
+    expect(screen.queryByRole('button', { name: 'Registrar despacho' })).toBeNull()
+  })
+
+  it('para retiro registra la entrega sin transportista', async () => {
+    const pickup = pendingShipment({ deliveryMode: 'pickup', buyerEmail: '' })
+    const delivered = {
+      ...pickup,
+      status: 'delivered',
+      statusLabel: 'Entregado',
+      deliveredAt: '2026-08-27T10:00:00Z',
+      allowedActions: { registerShipmentDispatch: false, generateShipmentLabel: true },
+    }
+    let current: ReturnType<typeof pendingShipment> = pickup
+    mocked.fetchShipment.mockImplementation(async () => current)
+    mocked.registerShipmentDispatch.mockImplementation(async () => {
+      current = delivered
+      return { replayed: false, shipment: delivered }
+    })
+
+    await renderScreen(<ShipmentDetailScreen />)
+
+    expect(await screen.findByRole('header', { name: 'Registrar entrega' })).toBeOnTheScreen()
+    expect(screen.queryByLabelText('Transportista')).toBeNull()
+    expect(
+      screen.getByText('El comprador no dejó correo.', { exact: false }),
+    ).toBeOnTheScreen()
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Registrar entrega' }))
+    await fireEvent.press(await screen.findByRole('button', { name: 'Confirmar y notificar' }))
+
+    await waitFor(() =>
+      expect(mocked.registerShipmentDispatch).toHaveBeenCalledWith(
+        expect.objectContaining({ shipmentId: 'ship-1', carrier: null, note: null }),
+      ),
+    )
+    expect(
+      await screen.findByText('No se envió (sin correo registrado)'),
+    ).toBeOnTheScreen()
+    expect(screen.getAllByText('Entregado').length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: 'Registrar entrega' })).toBeNull()
   })
 })

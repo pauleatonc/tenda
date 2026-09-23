@@ -215,18 +215,21 @@ function ShippingSummary() {
   }
 
   const data = summary.data
-  const pending = data.attentionCount
+  const pending = data.pendingCount
   const metrics = [
     { label: 'Pendientes', value: data.pendingCount },
-    { label: 'En preparación', value: data.preparingCount },
-    { label: 'Chequeo de entrega', value: data.deliveryCheckCount },
-    { label: 'Incidencias', value: data.issueCount },
+    { label: 'Despachados', value: data.dispatchedCount },
+    { label: 'Entregados', value: data.deliveredCount },
   ]
 
   return (
     <SectionCard title="Despachos">
       <MobileStatusChip
-        label={pending ? `${pending} acciones pendientes` : 'Despachos al día'}
+        label={
+          pending
+            ? `${pending} ${pending === 1 ? 'envío por registrar' : 'envíos por registrar'}`
+            : 'Despachos al día'
+        }
         tone={pending ? 'warning' : 'success'}
       />
       <View style={styles.metrics}>

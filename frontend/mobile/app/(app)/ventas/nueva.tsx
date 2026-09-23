@@ -52,11 +52,12 @@ import {
   clearSaleDraft,
   createEmptySaleDraft,
   createSaleDraftLine,
-  loadSaleDraft,
+  resolveSaleDraftOnEnter,
   saveSaleDraft,
   validateSaleDraftLines,
   type SaleDraft,
   type SaleDraftLine,
+  type SaleDraftResult,
   type SaleDraftStep,
 } from '../../../lib/sales-draft'
 
@@ -270,6 +271,7 @@ function DraftLineCard({
 export default function NewSaleScreen() {
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState<SaleDraft>(createEmptySaleDraft)
+  const [completedNotice, setCompletedNotice] = useState<SaleDraftResult | null>(null)
   const [hydrated, setHydrated] = useState(false)
   const [apiError, setApiError] = useState<MobileApiError | null>(null)
   const [confirmCash, setConfirmCash] = useState(false)
@@ -281,9 +283,10 @@ export default function NewSaleScreen() {
 
   useEffect(() => {
     let active = true
-    void loadSaleDraft().then((stored) => {
+    void resolveSaleDraftOnEnter().then(({ draft: stored, completed }) => {
       if (!active) return
       setDraft(stored)
+      setCompletedNotice(completed)
       setHydrated(true)
     })
     return () => {
@@ -455,12 +458,36 @@ export default function NewSaleScreen() {
         >
           <View style={styles.topBar}>
             <StepHeading step={draft.step} />
-            {draft.step !== 'result' ? (
-              <Pressable accessibilityRole="button" onPress={() => router.back()}>
-                <Text style={styles.close}>Cerrar</Text>
-              </Pressable>
-            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                if (draft.step === 'result') {
+                  void clearSaleDraft()
+                  setDraft(createEmptySaleDraft())
+                  setCompletedNotice(null)
+                }
+                router.back()
+              }}
+            >
+              <Text style={styles.close}>Cerrar</Text>
+            </Pressable>
           </View>
+
+          {completedNotice ? (
+            <View accessibilityRole="summary" style={styles.completedNotice}>
+              <Text style={styles.completedTitle}>
+                La venta {completedNotice.orderNumber} ya está creada
+              </Text>
+              <Text style={salesStyles.muted}>
+                Ábrela para copiar el enlace o sigue con una venta nueva.
+              </Text>
+              <PrimaryButton
+                label="Ver ficha"
+                variant="secondary"
+                onPress={() => router.push(`/ventas/${completedNotice.orderId}`)}
+              />
+            </View>
+          ) : null}
 
           {apiError ? (
             <>
@@ -695,7 +722,13 @@ export default function NewSaleScreen() {
                 <PrimaryButton
                   label="Ver detalle de la venta"
                   variant="secondary"
-                  onPress={() => router.replace(`/ventas/${draft.result?.orderId ?? ''}`)}
+                  onPress={() => {
+                    const orderId = draft.result?.orderId ?? ''
+                    void clearSaleDraft()
+                    setDraft(createEmptySaleDraft())
+                    setCompletedNotice(null)
+                    router.replace(`/ventas/${orderId}`)
+                  }}
                 />
                 <PrimaryButton
                   label="Enviar por correo"
@@ -714,6 +747,7 @@ export default function NewSaleScreen() {
                   onPress={() => {
                     void clearSaleDraft()
                     setDraft(createEmptySaleDraft())
+                    setCompletedNotice(null)
                     setApiError(null)
                     setEmail('')
                     setEmailSent(false)
@@ -826,6 +860,15 @@ const styles = StyleSheet.create({
   },
   title: { color: colors.ink, fontSize: 28, fontWeight: '800', letterSpacing: -1 },
   close: { color: colors.green, fontSize: 14, fontWeight: '800', paddingVertical: 10 },
+  completedNotice: {
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 8,
+    padding: 16,
+  },
+  completedTitle: { color: colors.ink, fontSize: 16, fontWeight: '800' },
   inlineMessage: { gap: 10 },
   errorText: { color: colors.error, fontSize: 14 },
   productResult: {

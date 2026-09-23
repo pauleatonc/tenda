@@ -1,84 +1,9 @@
-fragment ShipmentTimelineEvent on ShipmentEventType {
-  id
-  eventType
-  fromStatus
-  toStatus
-  title
-  detail
-  isPublic
-  actorName
-  createdAt
-}
-
 fragment ShipmentLabel on LabelDocumentType {
   id
   downloadUrl
   expiresAt
   createdAt
   fileName
-}
-
-fragment ShipmentConfirmation on DeliveryConfirmationType {
-  outcome
-  comment
-  createdAt
-}
-
-fragment TicketMessage on TicketMessageType {
-  id
-  authorKind
-  body
-  createdAt
-}
-
-fragment TicketSummary on TicketType {
-  id
-  number
-  status
-  statusLabel
-  category
-  categoryLabel
-  createdAt
-}
-
-fragment TicketDetail on TicketType {
-  ...TicketSummary
-  contactName
-  contactEmail
-  contactPhone
-  resolvedAt
-  closedAt
-  messages {
-    ...TicketMessage
-  }
-  shipment {
-    id
-    number
-    orderNumber
-  }
-}
-
-fragment FollowUp on FollowUpType {
-  id
-  kind
-  kindLabel
-  status
-  statusLabel
-  dueAt
-  sentAt
-  parameterKey
-  parameterSource
-  parameterSourceLabel
-  parameterLabel
-}
-
-fragment ReturnCase on ReturnCaseType {
-  id
-  kind
-  kindLabel
-  notes
-  stockConfirmedAt
-  createdAt
 }
 
 fragment ShipmentSummary on ShipmentType {
@@ -93,12 +18,10 @@ fragment ShipmentSummary on ShipmentType {
   carrier
   trackingCode
   trackingUrl
-  nextAction
   allowedActions
+  dispatchedAt
+  deliveredAt
   createdAt
-  nextFollowUp {
-    ...FollowUp
-  }
   order {
     id
     number
@@ -111,30 +34,11 @@ fragment ShipmentDetail on ShipmentType {
   recipientTaxId
   addressLine
   deliveryNotes
-  dispatchedAt
-  deliveredAt
+  dispatchNote
+  buyerEmail
   updatedAt
-  publicUrl
-  confirmation {
-    ...ShipmentConfirmation
-  }
   latestLabel {
     ...ShipmentLabel
-  }
-  timeline {
-    ...ShipmentTimelineEvent
-  }
-  activeTicket {
-    ...TicketSummary
-  }
-  tickets {
-    ...TicketSummary
-  }
-  followUps {
-    ...FollowUp
-  }
-  returnCases {
-    ...ReturnCase
   }
 }
 
@@ -142,11 +46,8 @@ query ShippingDashboard {
   shippingDashboard {
     total
     pending
-    preparing
     dispatched
-    deliveryCheck
-    issue
-    attention
+    delivered
   }
 }
 
@@ -169,37 +70,14 @@ query Shipment($id: ID!) {
   }
 }
 
-query ShipmentTimeline($id: ID!) {
-  shipmentTimeline(id: $id) {
-    ...ShipmentTimelineEvent
-  }
-}
-
-mutation UpdateShipment(
+mutation RegisterShipmentDispatch(
   $shipmentId: ID!
-  $input: UpdateShipmentInput!
+  $input: RegisterShipmentDispatchInput!
   $idempotencyKey: String!
 ) {
-  updateShipment(
+  registerShipmentDispatch(
     shipmentId: $shipmentId
     input: $input
-    idempotencyKey: $idempotencyKey
-  ) {
-    replayed
-    shipment {
-      ...ShipmentDetail
-    }
-  }
-}
-
-mutation MarkShipmentDispatched(
-  $shipmentId: ID!
-  $comment: String
-  $idempotencyKey: String!
-) {
-  markShipmentDispatched(
-    shipmentId: $shipmentId
-    comment: $comment
     idempotencyKey: $idempotencyKey
   ) {
     replayed
@@ -214,156 +92,6 @@ mutation GenerateShipmentLabel($shipmentId: ID!, $idempotencyKey: String!) {
     replayed
     label {
       ...ShipmentLabel
-    }
-    shipment {
-      ...ShipmentDetail
-    }
-  }
-}
-
-fragment PublicShipment on PublicShipmentType {
-  number
-  publicStatus
-  publicStatusLabel
-  orderNumber
-  carrier
-  trackingCode
-  trackingUrl
-  dispatchedAt
-  canConfirm
-  allowedActions
-  tokenExpiresAt
-  seller {
-    name
-    phone
-    businessEmail
-  }
-  lines {
-    productName
-    quantity
-  }
-  timeline {
-    title
-    detail
-    createdAt
-  }
-  confirmation {
-    ...ShipmentConfirmation
-  }
-  ticket {
-    ...TicketDetail
-  }
-  buyerContact {
-    name
-    email
-    phone
-  }
-}
-
-query PublicShipment($token: String!) {
-  publicShipment(token: $token) {
-    ...PublicShipment
-  }
-}
-
-query Ticket($id: ID!) {
-  ticket(id: $id) {
-    ...TicketDetail
-  }
-}
-
-mutation OpenPublicTicket(
-  $token: String!
-  $input: OpenPublicTicketInput!
-  $idempotencyKey: String!
-) {
-  openPublicTicket(token: $token, input: $input, idempotencyKey: $idempotencyKey) {
-    replayed
-    ticket {
-      ...TicketDetail
-    }
-  }
-}
-
-mutation SendTicketMessage(
-  $ticketId: ID!
-  $body: String!
-  $idempotencyKey: String!
-  $token: String
-  $turnstileToken: String
-) {
-  sendTicketMessage(
-    ticketId: $ticketId
-    body: $body
-    idempotencyKey: $idempotencyKey
-    token: $token
-    turnstileToken: $turnstileToken
-  ) {
-    replayed
-    ticket {
-      ...TicketDetail
-    }
-  }
-}
-
-mutation ResolveTicket($ticketId: ID!, $comment: String, $idempotencyKey: String!) {
-  resolveTicket(ticketId: $ticketId, comment: $comment, idempotencyKey: $idempotencyKey) {
-    replayed
-    ticket {
-      ...TicketDetail
-    }
-  }
-}
-
-mutation RescheduleFollowUp(
-  $followUpId: ID!
-  $dueAt: DateTime!
-  $reason: String!
-  $idempotencyKey: String!
-) {
-  rescheduleFollowUp(
-    followUpId: $followUpId
-    dueAt: $dueAt
-    reason: $reason
-    idempotencyKey: $idempotencyKey
-  ) {
-    replayed
-    followUp {
-      ...FollowUp
-    }
-    shipment {
-      ...ShipmentDetail
-    }
-  }
-}
-
-mutation RegisterReturnCase(
-  $shipmentId: ID!
-  $kind: String!
-  $notes: String
-  $idempotencyKey: String!
-) {
-  registerReturnCase(
-    shipmentId: $shipmentId
-    kind: $kind
-    notes: $notes
-    idempotencyKey: $idempotencyKey
-  ) {
-    replayed
-    returnCase {
-      ...ReturnCase
-    }
-    shipment {
-      ...ShipmentDetail
-    }
-  }
-}
-
-mutation ConfirmReturnToStock($returnCaseId: ID!, $idempotencyKey: String!) {
-  confirmReturnToStock(returnCaseId: $returnCaseId, idempotencyKey: $idempotencyKey) {
-    replayed
-    returnCase {
-      ...ReturnCase
     }
     shipment {
       ...ShipmentDetail

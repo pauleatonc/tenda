@@ -183,6 +183,33 @@ describe('Crear venta mobile', () => {
     expect(router.replace).toHaveBeenCalledWith('/ventas/order-cash')
   })
 
+  it('abre una venta nueva si el resultado anterior quedó guardado', async () => {
+    ;(SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+      JSON.stringify({
+        version: 1,
+        step: 'result',
+        idempotencyKey: 'used-key',
+        lines: [],
+        deliveryMode: 'shipping',
+        paymentMethod: 'bank_transfer',
+        result: {
+          orderId: 'order-ready',
+          orderNumber: 'V-1042',
+          publicUrl: 'https://tenda.test/p/token',
+        },
+        updatedAt: '2026-09-23T12:00:00.000Z',
+      }),
+    )
+    await renderScreen(<NewSaleScreen />)
+
+    expect(
+      await screen.findByText('La venta V-1042 ya está creada'),
+    ).toBeOnTheScreen()
+    expect(screen.getByText('Productos y precios')).toBeOnTheScreen()
+    expect(screen.getByRole('button', { name: 'Ver ficha' })).toBeOnTheScreen()
+    expect(screen.queryByText('Tu enlace está listo')).not.toBeOnTheScreen()
+  })
+
   it('envía el enlace por correo desde el resultado', async () => {
     sales.createOrder.mockResolvedValue({
       replayed: false,

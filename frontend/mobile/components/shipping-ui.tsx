@@ -5,17 +5,15 @@ import type { ShipmentCard } from '../lib/shipping-api'
 import { MobileStatusChip } from './app-ui'
 import { colors } from './auth-ui'
 
+export const shipmentStatuses = ['pending', 'dispatched', 'delivered'] as const
+
 export const shipmentStatusLabels: Record<string, string> = {
   pending: 'Pendiente',
-  preparing: 'En preparación',
   dispatched: 'Despachado',
-  delivery_check: 'Chequeo de entrega',
   delivered: 'Entregado',
-  issue: 'Incidencia',
-  returned: 'Devuelto',
-  cancelled: 'Cancelado',
-  closed: 'Cerrado',
 }
+
+export const deliveryModes = ['shipping', 'pickup', 'coordinated'] as const
 
 export const deliveryModeLabels: Record<string, string> = {
   shipping: 'Despacho',
@@ -23,46 +21,26 @@ export const deliveryModeLabels: Record<string, string> = {
   coordinated: 'Entrega coordinada',
 }
 
-export const nextActionLabels: Record<string, string> = {
-  prepare: 'Preparar envío',
-  dispatch: 'Marcar despachado',
-  check_delivery: 'Chequear entrega',
-  confirm_delivery: 'Confirmar entrega',
-  review_issue: 'Revisar incidencia',
-  reply_ticket: 'Responder consulta',
-  close: 'Cerrar envío',
-  none: 'Sin acción pendiente',
+function statusTone(status: string): 'success' | 'warning' {
+  return status === 'pending' ? 'warning' : 'success'
 }
 
-export const ticketStatusLabels: Record<string, string> = {
-  open: 'Abierta',
-  awaiting_seller: 'Espera tu respuesta',
-  awaiting_buyer: 'Espera al comprador',
-  resolved: 'Resuelta',
-  closed: 'Cerrada',
+export function requiresCarrier(deliveryMode: string): boolean {
+  return deliveryMode === 'shipping'
 }
 
-export const followUpKindLabels: Record<string, string> = {
-  delivery_check: 'Chequeo de entrega',
-  reminder: 'Recordatorio',
-  autoclose: 'Autocierre',
+export function registrationLabel(deliveryMode: string): string {
+  return requiresCarrier(deliveryMode) ? 'Registrar despacho' : 'Registrar entrega'
 }
 
-export const returnCaseKindLabels: Record<string, string> = {
-  lost: 'Pérdida',
-  rejected: 'Rechazo',
-  returned: 'Devolución',
-  other: 'Otro',
-}
-
-function statusTone(status: string): 'success' | 'warning' | 'neutral' {
-  if (status === 'dispatched' || status === 'delivered' || status === 'closed') {
-    return 'success'
-  }
-  if (status === 'cancelled' || status === 'returned' || status === 'issue') {
-    return 'neutral'
-  }
-  return 'warning'
+export function registeredAt(shipment: {
+  status: string
+  dispatchedAt: string | null
+  deliveredAt: string | null
+}): string | null {
+  if (shipment.status === 'dispatched') return shipment.dispatchedAt
+  if (shipment.status === 'delivered') return shipment.deliveredAt
+  return null
 }
 
 export function destinationLine(shipment: {
@@ -85,6 +63,14 @@ export function ShipmentStatus({ status }: { status: string }) {
   )
 }
 
+function carrierLine(shipment: ShipmentCard): string {
+  if (!requiresCarrier(shipment.deliveryMode)) {
+    return deliveryModeLabels[shipment.deliveryMode] ?? shipment.deliveryMode
+  }
+  const parts = [shipment.carrier, shipment.trackingCode].filter(Boolean)
+  return parts.length ? parts.join(' · ') : 'Sin transportista aún'
+}
+
 export function ShipmentCardView({
   shipment,
   onPress,
@@ -93,8 +79,9 @@ export function ShipmentCardView({
   onPress: () => void
 }) {
   const recipient = shipment.recipientName.trim() || 'Sin destinatario'
-  const nextAction = nextActionLabels[shipment.nextAction] ?? shipment.nextAction
   const place = destinationLine(shipment)
+  const pending = shipment.status === 'pending'
+  const when = registeredAt(shipment) ?? shipment.createdAt
 
   return (
     <Pressable
@@ -114,19 +101,19 @@ export function ShipmentCardView({
         <Text style={styles.place}>
           {place || deliveryModeLabels[shipment.deliveryMode]}
         </Text>
+        <Text style={styles.metaText}>{carrierLine(shipment)}</Text>
         <Text style={styles.metaText}>
-          {shipment.trackingCode ? `Tracking ${shipment.trackingCode}` : 'Sin tracking'}
-        </Text>
-        <Text style={styles.metaText}>
-          {shipment.nextFollowUp
-            ? `Vence ${formatDate(shipment.nextFollowUp.dueAt)}`
-            : formatDate(shipment.createdAt)}
+          {pending ? `Creado ${formatDate(when)}` : formatDate(when)}
         </Text>
       </View>
-      <View style={styles.nextAction}>
-        <Text style={styles.nextActionLabel}>Siguiente acción</Text>
-        <Text style={styles.nextActionValue}>{nextAction}</Text>
-      </View>
+      {pending ? (
+        <View style={styles.nextAction}>
+          <Text style={styles.nextActionLabel}>Pendiente</Text>
+          <Text style={styles.nextActionValue}>
+            {registrationLabel(shipment.deliveryMode)}
+          </Text>
+        </View>
+      ) : null}
     </Pressable>
   )
 }

@@ -22,7 +22,10 @@ import {
 } from '../../../components/sales-ui'
 import {
   ShipmentCardView,
+  deliveryModeLabels,
+  deliveryModes,
   shipmentStatusLabels,
+  shipmentStatuses,
 } from '../../../components/shipping-ui'
 import { MobileApiError } from '../../../lib/auth-api'
 import {
@@ -32,14 +35,6 @@ import {
 } from '../../../lib/shipping-api'
 
 const PAGE_SIZE = 20
-
-const STATUSES = [
-  'pending',
-  'preparing',
-  'dispatched',
-  'delivery_check',
-  'issue',
-] as const
 
 function toggle(values: string[], value: string): string[] {
   return values.includes(value)
@@ -51,7 +46,7 @@ export default function ShippingScreen() {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statuses, setStatuses] = useState<string[]>([])
-  const [attention, setAttention] = useState(false)
+  const [deliveryMode, setDeliveryMode] = useState<string | null>(null)
 
   useEffect(() => {
     const handle = setTimeout(() => setDebouncedSearch(search.trim()), 280)
@@ -62,9 +57,9 @@ export default function ShippingScreen() {
     () => ({
       search: debouncedSearch || null,
       statuses: statuses.length ? statuses : null,
-      attention: attention || null,
+      deliveryMode,
     }),
-    [attention, debouncedSearch, statuses],
+    [debouncedSearch, deliveryMode, statuses],
   )
   const variables = useMemo(
     () => ({ filter, first: PAGE_SIZE, after: null }),
@@ -89,7 +84,7 @@ export default function ShippingScreen() {
     [shipments.data],
   )
   const totalCount = shipments.data?.pages[0]?.totalCount ?? 0
-  const hasFilters = Boolean(debouncedSearch) || statuses.length > 0 || attention
+  const hasFilters = Boolean(debouncedSearch) || statuses.length > 0 || Boolean(deliveryMode)
   const refreshing =
     (shipments.isRefetching && !shipments.isFetchingNextPage) || dashboard.isRefetching
 
@@ -114,17 +109,24 @@ export default function ShippingScreen() {
           onChangeText={setSearch}
         />
         <View style={salesStyles.chips}>
-          <InventoryChip
-            label="Requieren atención"
-            selected={attention}
-            onPress={() => setAttention((current) => !current)}
-          />
-          {STATUSES.map((status) => (
+          {shipmentStatuses.map((status) => (
             <InventoryChip
               key={status}
               label={shipmentStatusLabels[status]}
               selected={statuses.includes(status)}
               onPress={() => setStatuses((current) => toggle(current, status))}
+            />
+          ))}
+        </View>
+        <View style={salesStyles.chips}>
+          {deliveryModes.map((mode) => (
+            <InventoryChip
+              key={mode}
+              label={deliveryModeLabels[mode]}
+              selected={deliveryMode === mode}
+              onPress={() =>
+                setDeliveryMode((current) => (current === mode ? null : mode))
+              }
             />
           ))}
         </View>
@@ -166,14 +168,14 @@ export default function ShippingScreen() {
                   onPress={() => setStatuses(['pending'])}
                 />
                 <SalesMetric
-                  label="En preparación"
-                  value={String(dashboard.data.preparingCount)}
-                  onPress={() => setStatuses(['preparing'])}
+                  label="Despachados"
+                  value={String(dashboard.data.dispatchedCount)}
+                  onPress={() => setStatuses(['dispatched'])}
                 />
                 <SalesMetric
-                  label="Incidencias"
-                  value={String(dashboard.data.issueCount)}
-                  onPress={() => setStatuses(['issue'])}
+                  label="Entregados"
+                  value={String(dashboard.data.deliveredCount)}
+                  onPress={() => setStatuses(['delivered'])}
                 />
               </View>
             ) : null}
@@ -201,7 +203,7 @@ export default function ShippingScreen() {
               description={
                 hasFilters
                   ? 'Ningún despacho coincide con los filtros aplicados.'
-                  : 'Cuando una venta se pague, Tenda crea el envío para que prepares y despaches.'
+                  : 'Cuando una venta se pague, Tenda crea el envío para que registres el despacho o la entrega.'
               }
             />
           )

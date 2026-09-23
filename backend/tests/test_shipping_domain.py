@@ -10,8 +10,8 @@ from apps.organisations.selectors import TenantContext, resolve_tenant_context
 from apps.organisations.services import create_organisation_for_owner
 from apps.sales.models import Order
 from apps.sales.order_services import confirm_manual_payment, create_order, set_buyer_details
-from apps.shipping.models import Shipment, ShipmentEvent
-from apps.shipping.services import ensure_shipment_for_paid_order, transition_shipment
+from apps.shipping.models import Shipment
+from apps.shipping.services import ensure_shipment_for_paid_order, register_shipment_dispatch
 from apps.users.models import User
 from tenda.crypto import decrypt_credential
 from tenda.errors import DomainError
@@ -29,7 +29,11 @@ def identity(email: str) -> tuple[User, TenantContext]:
     return user, resolve_tenant_context(user)
 
 
-def reserved_order(context: TenantContext) -> Order:
+def reserved_order(
+    context: TenantContext,
+    *,
+    delivery_mode: str = Order.DeliveryMode.SHIPPING,
+) -> Order:
     product = create_product(
         context=context,
         name="Velón",
@@ -42,37 +46,39 @@ def reserved_order(context: TenantContext) -> Order:
         lines=[
             {
                 "productId": str(product.public_id),
-                "quantity": 1,
+                "quantity": 2,
                 "unitSalePrice": "1000",
             }
         ],
-        delivery_mode=Order.DeliveryMode.SHIPPING,
+        delivery_mode=delivery_mode,
         payment_method=Order.PaymentMethod.CASH,
         idempotency_key=f"create-{product.public_id}",
     ).order
 
 
-def paid_order(context: TenantContext) -> Order:
-    order = reserved_order(context)
+def paid_order(
+    context: TenantContext,
+    *,
+    delivery_mode: str = Order.DeliveryMode.SHIPPING,
+    email: str = "camila@example.cl",
+) -> Order:
+    order = reserved_order(context, delivery_mode=delivery_mode)
     token = decrypt_credential(order.public_token_ciphertext)
-    set_buyer_details(
-        token=token,
-        details={
-            "name": "Camila Soto",
-            "email": "camila@example.cl",
-            "phone": "+56911111111",
-            "recipientName": "Camila Soto",
-            "recipientTaxId": "11.111.111-1",
-            "addressLine": "Los Aromos 123",
-            "commune": "Ñuñoa",
-            "region": "Región Metropolitana de Santiago",
-        },
-        correlation_id="buyer",
-    )
+    details = {
+        "name": "Camila Soto",
+        "email": email,
+        "phone": "+56911111111",
+        "recipientName": "Camila Soto",
+        "recipientTaxId": "11.111.111-1",
+        "addressLine": "Los Aromos 123",
+        "commune": "Ñuñoa",
+        "region": "Región Metropolitana de Santiago",
+    }
+    set_buyer_details(token=token, details=details, correlation_id="buyer")
     confirm_manual_payment(
         context=context,
         order_id=order.public_id,
-        amount="1000",
+        amount="2000",
         paid_at=timezone.now(),
         note="Pago en efectivo",
         idempotency_key=f"pay-{order.public_id}",
@@ -80,6 +86,15 @@ def paid_order(context: TenantContext) -> Order:
     )
     order.refresh_from_db()
     return order
+
+
+def _notifications(shipment: Shipment) -> list[OutboxEvent]:
+    return list(
+        OutboxEvent.objects.filter(
+            aggregate_public_id=str(shipment.public_id),
+            event_type="shipping.shipment_notification",
+        )
+    )
 
 
 def test_unpaid_order_cannot_create_shipment() -> None:
@@ -93,7 +108,7 @@ def test_unpaid_order_cannot_create_shipment() -> None:
     assert Shipment.objects.filter(order=order).count() == 0
 
 
-def test_paid_order_creates_one_shipment_and_replays() -> None:
+def test_paid_order_creates_one_shipment_with_label_and_replays() -> None:
     _user, context = identity("ship-paid@example.com")
     order = paid_order(context)
 
@@ -104,14 +119,8 @@ def test_paid_order_creates_one_shipment_and_replays() -> None:
     assert second.replayed is True
     assert Shipment.objects.filter(order=order).count() == 1
     assert first.shipment.status == Shipment.Status.PENDING
-    assert (
-        ShipmentEvent.objects.filter(
-            shipment=first.shipment,
-            event_type="shipment.created",
-        ).count()
-        == 1
-    )
     assert first.shipment.labels.count() == 1
+    assert _notifications(first.shipment) == []
 
 
 def test_buyer_snapshot_edits_do_not_change_shipment_address() -> None:
@@ -133,66 +142,155 @@ def test_buyer_snapshot_edits_do_not_change_shipment_address() -> None:
         shipment.save()
 
 
-def test_repeated_transition_does_not_duplicate_event_or_notification() -> None:
-    user, context = identity("ship-transition@example.com")
+def test_register_dispatch_sets_terminal_status_and_emails_buyer_once() -> None:
+    _user, context = identity("ship-dispatch@example.com")
     order = paid_order(context)
     shipment = order.shipment
+    payload = {
+        "carrier": "Chilexpress",
+        "tracking_code": "CX-99",
+        "tracking_url": "https://chilexpress.cl/track/CX-99",
+        "note": "Sale hoy en la tarde",
+    }
 
-    first = transition_shipment(
-        context,
+    first = register_shipment_dispatch(
+        context=context,
         shipment_id=shipment.public_id,
-        target=Shipment.Status.PREPARING,
-        comment="Armando el pedido",
-        actor=user,
-        correlation_id="prep",
+        payload=payload,
+        idempotency_key="dispatch-1",
     )
-    second = transition_shipment(
-        context,
+    replay = register_shipment_dispatch(
+        context=context,
         shipment_id=shipment.public_id,
-        target=Shipment.Status.PREPARING,
-        comment="Armando el pedido",
-        actor=user,
-        correlation_id="prep",
+        payload=payload,
+        idempotency_key="dispatch-1",
     )
 
     assert first.replayed is False
-    assert second.replayed is True
-    events = list(ShipmentEvent.objects.filter(shipment=shipment).order_by("created_at"))
-    assert [event.event_type for event in events] == [
-        "shipment.created",
-        "shipment.label_generated",
-        "shipment.preparing",
+    assert replay.replayed is True
+    registered = first.shipment
+    assert registered.status == Shipment.Status.DISPATCHED
+    assert registered.dispatched_at is not None
+    assert registered.delivered_at is None
+    assert registered.carrier == "Chilexpress"
+    assert registered.tracking_code == "CX-99"
+    assert registered.dispatch_note == "Sale hoy en la tarde"
+
+    events = _notifications(registered)
+    assert len(events) == 1
+    payload_sent = events[0].payload
+    assert payload_sent["recipient"] == "camila@example.cl"
+    assert payload_sent["template"] == "shipment.dispatched"
+    parameters = payload_sent["parameters"]
+    assert parameters["orderNumber"] == order.number
+    assert parameters["carrier"] == "Chilexpress"
+    assert parameters["trackingCode"] == "CX-99"
+    assert parameters["actionUrl"] == "https://chilexpress.cl/track/CX-99"
+    assert parameters["note"] == "Sale hoy en la tarde"
+    assert parameters["addressLine"] == "Los Aromos 123"
+    assert parameters["items"] == [
+        {
+            "productName": "Velón",
+            "quantity": 2,
+            "unitSalePrice": "1000",
+            "lineTotal": "2000",
+        }
     ]
-    assert (
-        OutboxEvent.objects.filter(
-            aggregate_public_id=str(shipment.public_id),
-            event_type="shipping.shipment_notification",
-        ).count()
-        == 1
+    assert parameters["total"] == str(order.total_amount)
+
+
+def test_register_dispatch_requires_carrier_for_shipping_orders() -> None:
+    _user, context = identity("ship-carrier@example.com")
+    order = paid_order(context)
+
+    with pytest.raises(DomainError) as exc:
+        register_shipment_dispatch(
+            context=context,
+            shipment_id=order.shipment.public_id,
+            payload={"tracking_code": "CX-1"},
+            idempotency_key="no-carrier",
+        )
+
+    assert exc.value.code == "VALIDATION_ERROR"
+    assert "carrier" in exc.value.field_errors
+    order.shipment.refresh_from_db()
+    assert order.shipment.status == Shipment.Status.PENDING
+    assert _notifications(order.shipment) == []
+
+
+def test_pickup_order_registers_delivery_without_carrier() -> None:
+    _user, context = identity("ship-pickup@example.com")
+    order = paid_order(context, delivery_mode=Order.DeliveryMode.PICKUP)
+
+    result = register_shipment_dispatch(
+        context=context,
+        shipment_id=order.shipment.public_id,
+        payload={"carrier": "Ignorado", "note": "Retirado en tienda"},
+        idempotency_key="pickup-1",
     )
+
+    shipment = result.shipment
+    assert shipment.status == Shipment.Status.DELIVERED
+    assert shipment.delivered_at is not None
+    assert shipment.dispatched_at is None
+    assert shipment.carrier == ""
+    events = _notifications(shipment)
+    assert len(events) == 1
+    assert events[0].payload["template"] == "shipment.delivered"
+    assert events[0].payload["parameters"]["note"] == "Retirado en tienda"
+
+
+def test_register_dispatch_is_terminal() -> None:
+    _user, context = identity("ship-terminal@example.com")
+    order = paid_order(context)
+    register_shipment_dispatch(
+        context=context,
+        shipment_id=order.shipment.public_id,
+        payload={"carrier": "Starken"},
+        idempotency_key="first",
+    )
+
+    with pytest.raises(DomainError) as exc:
+        register_shipment_dispatch(
+            context=context,
+            shipment_id=order.shipment.public_id,
+            payload={"carrier": "Chilexpress"},
+            idempotency_key="second",
+        )
+
+    assert exc.value.code == "SHIPMENT_ALREADY_REGISTERED"
+    order.shipment.refresh_from_db()
+    assert order.shipment.carrier == "Starken"
+    assert len(_notifications(order.shipment)) == 1
+
+
+def test_register_dispatch_without_buyer_email_skips_notification() -> None:
+    _user, context = identity("ship-noemail@example.com")
+    order = paid_order(context, email="")
+
+    result = register_shipment_dispatch(
+        context=context,
+        shipment_id=order.shipment.public_id,
+        payload={"carrier": "Blue Express"},
+        idempotency_key="silent",
+    )
+
+    assert result.shipment.status == Shipment.Status.DISPATCHED
+    assert _notifications(result.shipment) == []
 
 
 def test_unpaid_order_cannot_be_dispatched() -> None:
-    user, context = identity("ship-dispatch@example.com")
+    _user, context = identity("ship-unpaid-dispatch@example.com")
     order = paid_order(context)
-    shipment = order.shipment
-    transition_shipment(
-        context,
-        shipment_id=shipment.public_id,
-        target=Shipment.Status.PREPARING,
-        actor=user,
-        correlation_id="prep",
-    )
     order.status = Order.Status.RESERVED
     order.paid_at = None
     order.save(update_fields=("status", "paid_at", "updated_at"))
 
     with pytest.raises(DomainError) as exc:
-        transition_shipment(
-            context,
-            shipment_id=shipment.public_id,
-            target=Shipment.Status.DISPATCHED,
-            actor=user,
-            correlation_id="dispatch",
+        register_shipment_dispatch(
+            context=context,
+            shipment_id=order.shipment.public_id,
+            payload={"carrier": "Chilexpress"},
+            idempotency_key="dispatch",
         )
     assert exc.value.code == "ORDER_NOT_PAID"

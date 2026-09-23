@@ -17,7 +17,7 @@ Nginx (único puerto público en Dev/Prod)
     └─ proxy → Django ASGI (GraphQL, REST público, health)
                 ├─ PostgreSQL 17  (estado durable)
                 ├─ Redis 7        (broker/caché, no fuente de negocio)
-                └─ Celery worker + beat (outbox, cadencias, jobs)
+                └─ Celery worker + beat (outbox, expiración de reservas, jobs)
 ```
 
 Las pantallas no hablan SQL. Web y mobile llaman operaciones GraphQL o REST
@@ -38,7 +38,7 @@ app/
 │   │   ├── notifications/   Outbox de email (Brevo o fake)
 │   │   ├── inventory/       Catálogo, stock inmutable, import/export
 │   │   ├── sales/           Pedidos, pagos, balance comercial
-│   │   └── shipping/        Envíos, tickets, cadencias, devoluciones
+│   │   └── shipping/        Envíos: registro de despacho/entrega y etiqueta interna
 │   ├── tenda/               Settings Local/Dev/Prod, seguridad, ASGI
 │   └── tests/               pytest contra PostgreSQL cuando hay HOST
 ├── frontend/
@@ -48,8 +48,8 @@ app/
 │   │       ├── app/         Shell autenticado y dashboard
 │   │       ├── inventory/   Listado, ficha, import/export, media
 │   │       ├── sales/       Ventas, pagos, balances
-│   │       ├── shipping/    Despachos y tickets del vendedor
-│   │       ├── public/      Checkout, comprobante, seguimiento /s/:token
+│   │       ├── shipping/    Despachos del vendedor (registrar y notificar)
+│   │       ├── public/      Checkout, comprobante y estado del pedido
 │   │       ├── components/  Primitivas accesibles (modal, upload, chips)
 │   │       └── lib/         HTTP, CSRF, GraphQL
 │   └── mobile/              Expo Router
@@ -90,13 +90,13 @@ identificadores públicos son UUID; las PK internas no salen por la API.
 | --------------- | ------------------------------------------------------------------- |
 | `users`         | Email, verificación, OIDC fake, CSRF, rate limit durable            |
 | `organisations` | Tienda, inventario activo, roles y permisos                   |
-| `configuration` | Parámetros versionados (cadencias, comisiones)                      |
+| `configuration` | Parámetros versionados (reserva, revisión de comprobante)           |
 | `audit`         | Trazas de operaciones críticas                                      |
 | `media_assets`  | Presign/complete, propósito, tenant y tipo/tamaño                   |
 | `notifications` | Outbox transaccional; el worker envía después del commit            |
 | `inventory`     | Productos, movimientos inmutables, `available = on_hand - reserved` |
 | `sales`         | Reserva 8 h, checkout público, comprobante, MP fake, balance        |
-| `shipping`      | Shipment, etiqueta PDF, tracking manual, tickets, ReturnCase        |
+| `shipping`      | Shipment (pending → dispatched \| delivered), etiqueta PDF, correo  |
 
 Settings:
 
@@ -109,7 +109,10 @@ Settings:
 La web autenticada vive bajo `/app/*`. Los flujos públicos no piden cuenta:
 
 - Pedido: `/p/:token`, `/p/:token/comprar`, `/p/:token/comprobante`, `/p/:token/estado`
-- Envío: `/s/:token`, `/s/:token/confirmar`, `/s/:token/consulta`
+
+El despacho no tiene página pública: cuando el vendedor registra el despacho o
+la entrega, el comprador recibe un correo con transportista, tracking y detalle
+del pedido. No hay seguimiento, confirmación ni consultas posteriores.
 
 Mobile replica las mismas operaciones con Expo Router y SecureStore. No comparte
 componentes visuales con la web; sí comparte `@tenda/api-client`.
@@ -175,7 +178,7 @@ bloqueos humanos: `docs/go-live.md`.
 | Mobile smoke | `frontend/mobile/.maestro`      | `maestro test frontend/mobile/.maestro/smoke.yaml` |
 
 El journey E2E cubre
-login → inventario → venta → pago con comprobante → balance → despacho →
-recepción o consulta. Reutiliza el owner `e2e.owner@tenda.test` creado por
+login → inventario → venta → pago con comprobante → balance → registro de
+despacho. Reutiliza el owner `e2e.owner@tenda.test` creado por
 `prepare_e2e_journey`, que también limpia buckets de rate limit de auth para
 no bloquear corridas repetidas contra la misma base.

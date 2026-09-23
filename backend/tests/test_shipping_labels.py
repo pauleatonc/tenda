@@ -22,7 +22,6 @@ mutation Generate($id: ID!, $key: String!) {
       id
       allowedActions
       latestLabel { id downloadUrl expiresAt }
-      timeline { eventType title isPublic }
     }
   }
 }
@@ -92,13 +91,6 @@ def test_generate_label_renders_internal_pdf_with_expiring_url() -> None:
     assert INTERNAL_LABEL_DISCLAIMER.encode("latin-1") in pdf
     assert order.number.encode("latin-1") in pdf
     assert "generateShipmentLabel" in payload["shipment"]["allowedActions"]
-    internal = [
-        item
-        for item in payload["shipment"]["timeline"]
-        if item["eventType"] == "shipment.label_generated"
-    ]
-    assert internal
-    assert internal[0]["isPublic"] is False
     assert payload["shipment"]["latestLabel"]["id"] == label["id"]
 
 

@@ -19,9 +19,6 @@ import { ProductFormPage } from './inventory/ProductFormPage'
 import { PublicCheckoutPage } from './public/PublicCheckoutPage'
 import { PublicOrderPage } from './public/PublicOrderPage'
 import { PublicProofPage } from './public/PublicProofPage'
-import { PublicShipmentConfirmPage } from './public/PublicShipmentConfirmPage'
-import { PublicShipmentHelpPage } from './public/PublicShipmentHelpPage'
-import { PublicShipmentPage } from './public/PublicShipmentPage'
 import { PublicStatusPage } from './public/PublicStatusPage'
 import { BalancesPage } from './sales/BalancesPage'
 import { NewSalePage } from './sales/NewSalePage'
@@ -30,7 +27,6 @@ import { ReconciliationsPage } from './sales/ReconciliationsPage'
 import { SaleDetailPage } from './sales/SaleDetailPage'
 import { SalesListPage } from './sales/SalesListPage'
 import { ShipmentDetailPage } from './shipping/ShipmentDetailPage'
-import { ShipmentTicketPage } from './shipping/ShipmentTicketPage'
 import { ShippingListPage } from './shipping/ShippingListPage'
 import './inventory/inventory.css'
 import './sales/sales.css'
@@ -194,9 +190,6 @@ function App() {
       <Route path="/p/:token/comprar" element={<PublicCheckoutPage />} />
       <Route path="/p/:token/comprobante" element={<PublicProofPage />} />
       <Route path="/p/:token/estado" element={<PublicStatusPage />} />
-      <Route path="/s/:token" element={<PublicShipmentPage />} />
-      <Route path="/s/:token/confirmar" element={<PublicShipmentConfirmPage />} />
-      <Route path="/s/:token/consulta" element={<PublicShipmentHelpPage />} />
       <Route path="/app" element={<ApplicationShell />}>
         <Route index element={<DashboardPage />} />
         <Route path="inventario" element={<InventoryListPage />} />
@@ -226,7 +219,6 @@ function App() {
         <Route path="ventas/:id" element={<SaleDetailPage />} />
         <Route path="despachos" element={<ShippingListPage />} />
         <Route path="despachos/:id" element={<ShipmentDetailPage />} />
-        <Route path="despachos/:id/tickets/:ticketId" element={<ShipmentTicketPage />} />
         <Route path="balances" element={<BalancesPage />} />
         <Route path="mas" element={<MorePage />} />
         <Route path="configuracion/pagos" element={<PaymentsSettingsPage />} />

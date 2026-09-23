@@ -1,32 +1,32 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
-import { EmptyState, Modal, StatusChip, Timeline } from '../components/ui'
+import { EmptyState, Modal, StatusChip } from '../components/ui'
 import { TendaApiError, newIdempotencyKey } from '../lib/http'
 import {
-  confirmReturnToStock,
   fetchShipment,
   generateShipmentLabel,
-  markShipmentDispatched,
-  registerReturnCase,
-  rescheduleFollowUp,
+  registerShipmentDispatch,
   shippingKeys,
-  updateShipment,
   type SellerShipment,
 } from './api'
 import {
   deliveryModeLabels,
   destinationLine,
-  followUpKindLabels,
   formatDate,
-  fromDateTimeLocal,
-  returnCaseKindLabels,
+  registeredAt,
+  registrationLabel,
+  requiresCarrier,
   shipmentStatusLabels,
   statusTone,
-  toDateTimeLocal,
   translated,
 } from './model'
+
+function fieldError(error: Error | null, field: string): string | null {
+  if (!(error instanceof TendaApiError)) return null
+  return error.fieldErrors[field]?.[0] ?? null
+}
 
 export function ShipmentDetailPage() {
   const { id = '' } = useParams<{ id: string }>()
@@ -34,24 +34,14 @@ export function ShipmentDetailPage() {
   const [carrier, setCarrier] = useState('')
   const [trackingCode, setTrackingCode] = useState('')
   const [trackingUrl, setTrackingUrl] = useState('')
-  const [comment, setComment] = useState('')
-  const [internalNote, setInternalNote] = useState(false)
-  const [copied, setCopied] = useState<'tracking' | 'public' | null>(null)
-  const [externalOpen, setExternalOpen] = useState(false)
-  const [dispatchOpen, setDispatchOpen] = useState(false)
+  const [note, setNote] = useState('')
+  const [copied, setCopied] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const [labelOpen, setLabelOpen] = useState(false)
   const [previewLabel, setPreviewLabel] = useState<SellerShipment['latestLabel']>(null)
   const [actionError, setActionError] = useState<Error | null>(null)
-  const [updateKey, setUpdateKey] = useState(newIdempotencyKey)
-  const [dispatchKey, setDispatchKey] = useState(newIdempotencyKey)
+  const [registerKey, setRegisterKey] = useState(newIdempotencyKey)
   const [labelKey, setLabelKey] = useState(newIdempotencyKey)
-  const [dueAt, setDueAt] = useState('')
-  const [rescheduleReason, setRescheduleReason] = useState('')
-  const [rescheduleKey, setRescheduleKey] = useState(newIdempotencyKey)
-  const [returnKind, setReturnKind] = useState('returned')
-  const [returnNotes, setReturnNotes] = useState('')
-  const [returnKey, setReturnKey] = useState(newIdempotencyKey)
-  const [stockKey, setStockKey] = useState(newIdempotencyKey)
 
   const shipment = useQuery({
     queryKey: shippingKeys.shipment(id),
@@ -59,54 +49,27 @@ export function ShipmentDetailPage() {
     enabled: Boolean(id),
   })
 
-  useEffect(() => {
-    if (!shipment.data) return
-    setCarrier(shipment.data.carrier)
-    setTrackingCode(shipment.data.trackingCode)
-    setTrackingUrl(shipment.data.trackingUrl)
-    if (shipment.data.nextFollowUp) {
-      setDueAt(toDateTimeLocal(shipment.data.nextFollowUp.dueAt))
-    }
-  }, [shipment.data])
-
-  const saveTracking = useMutation({
+  const register = useMutation({
     mutationFn: () =>
-      updateShipment({
+      registerShipmentDispatch({
         shipmentId: id,
-        carrier,
-        trackingCode,
-        trackingUrl,
-        comment: comment || null,
-        internalNote,
-        idempotencyKey: updateKey,
+        carrier: carrier.trim() || null,
+        trackingCode: trackingCode.trim() || null,
+        trackingUrl: trackingUrl.trim() || null,
+        note: note.trim() || null,
+        idempotencyKey: registerKey,
       }),
     onSuccess: (result) => {
       queryClient.setQueryData(shippingKeys.shipment(id), result.shipment)
       void queryClient.invalidateQueries({ queryKey: shippingKeys.root })
-      setComment('')
-      setInternalNote(false)
-      setUpdateKey(newIdempotencyKey())
+      setConfirmOpen(false)
+      setRegisterKey(newIdempotencyKey())
       setActionError(null)
     },
-    onError: (error: Error) => setActionError(error),
-  })
-
-  const dispatch = useMutation({
-    mutationFn: () =>
-      markShipmentDispatched({
-        shipmentId: id,
-        comment: comment || null,
-        idempotencyKey: dispatchKey,
-      }),
-    onSuccess: (result) => {
-      queryClient.setQueryData(shippingKeys.shipment(id), result.shipment)
-      void queryClient.invalidateQueries({ queryKey: shippingKeys.root })
-      setDispatchOpen(false)
-      setComment('')
-      setDispatchKey(newIdempotencyKey())
-      setActionError(null)
+    onError: (error: Error) => {
+      setConfirmOpen(false)
+      setActionError(error)
     },
-    onError: (error: Error) => setActionError(error),
   })
 
   const generateLabel = useMutation({
@@ -126,61 +89,10 @@ export function ShipmentDetailPage() {
     onError: (error: Error) => setActionError(error),
   })
 
-  const reschedule = useMutation({
-    mutationFn: () =>
-      rescheduleFollowUp({
-        followUpId: shipment.data?.nextFollowUp?.id ?? '',
-        dueAt: fromDateTimeLocal(dueAt),
-        reason: rescheduleReason,
-        idempotencyKey: rescheduleKey,
-      }),
-    onSuccess: (result) => {
-      queryClient.setQueryData(shippingKeys.shipment(id), result.shipment)
-      void queryClient.invalidateQueries({ queryKey: shippingKeys.root })
-      setRescheduleReason('')
-      setRescheduleKey(newIdempotencyKey())
-      setActionError(null)
-    },
-    onError: (error: Error) => setActionError(error),
-  })
-
-  const registerCase = useMutation({
-    mutationFn: () =>
-      registerReturnCase({
-        shipmentId: id,
-        kind: returnKind,
-        notes: returnNotes || null,
-        idempotencyKey: returnKey,
-      }),
-    onSuccess: (result) => {
-      queryClient.setQueryData(shippingKeys.shipment(id), result.shipment)
-      void queryClient.invalidateQueries({ queryKey: shippingKeys.root })
-      setReturnNotes('')
-      setReturnKey(newIdempotencyKey())
-      setActionError(null)
-    },
-    onError: (error: Error) => setActionError(error),
-  })
-
-  const confirmStock = useMutation({
-    mutationFn: (returnCaseId: string) =>
-      confirmReturnToStock({
-        returnCaseId,
-        idempotencyKey: stockKey,
-      }),
-    onSuccess: (result) => {
-      queryClient.setQueryData(shippingKeys.shipment(id), result.shipment)
-      void queryClient.invalidateQueries({ queryKey: shippingKeys.root })
-      setStockKey(newIdempotencyKey())
-      setActionError(null)
-    },
-    onError: (error: Error) => setActionError(error),
-  })
-
-  async function copyValue(kind: 'tracking' | 'public', value: string) {
+  async function copyTracking(value: string) {
     await navigator.clipboard.writeText(value)
-    setCopied(kind)
-    window.setTimeout(() => setCopied(null), 2000)
+    setCopied(true)
+    window.setTimeout(() => setCopied(false), 2000)
   }
 
   if (shipment.isError) {
@@ -228,21 +140,17 @@ export function ShipmentDetailPage() {
   }
 
   const detail: SellerShipment = shipment.data
-  const canUpdate = detail.allowedActions.updateShipment
-  const canDispatch = detail.allowedActions.markShipmentDispatched
+  const canRegister = detail.allowedActions.registerShipmentDispatch
   const canGenerateLabel = detail.allowedActions.generateShipmentLabel
-  const canReschedule =
-    Boolean(detail.nextFollowUp) && detail.allowedActions.rescheduleFollowUp
-  const canRegisterReturn = detail.allowedActions.registerReturnCase
+  const needsCarrier = requiresCarrier(detail.deliveryMode)
+  const actionLabel = registrationLabel(detail.deliveryMode)
   const destination = destinationLine(detail)
-  const busy =
-    saveTracking.isPending ||
-    dispatch.isPending ||
-    generateLabel.isPending ||
-    reschedule.isPending ||
-    registerCase.isPending ||
-    confirmStock.isPending
+  const busy = register.isPending || generateLabel.isPending
   const savedLabel = detail.latestLabel
+  const carrierError = fieldError(actionError, 'carrier')
+  const trackingUrlError = fieldError(actionError, 'trackingUrl')
+  const registeredOn = registeredAt(detail)
+  const formValid = !needsCarrier || carrier.trim().length > 0
 
   return (
     <>
@@ -287,7 +195,7 @@ export function ShipmentDetailPage() {
         </div>
       </header>
 
-      {actionError ? (
+      {actionError && !carrierError && !trackingUrlError ? (
         <div className="form-message form-message--error" role="alert">
           <strong>No se pudo completar la acción</strong>
           <span>
@@ -326,6 +234,10 @@ export function ShipmentDetailPage() {
                 <dd>{detail.deliveryNotes}</dd>
               </div>
             ) : null}
+            <div>
+              <dt>Correo del comprador</dt>
+              <dd>{detail.buyerEmail || 'Sin correo registrado'}</dd>
+            </div>
           </dl>
           <p>
             <Link to={`/app/ventas/${detail.order.id}`}>Abrir venta asociada</Link>
@@ -333,364 +245,217 @@ export function ShipmentDetailPage() {
         </article>
 
         <article className="detail-card">
-          <h2>Seguimiento</h2>
-          {detail.trackingCode ? (
-            <div className="shipping-tracking">
-              <code>{detail.trackingCode}</code>
-              <button
-                className="button button--secondary"
-                type="button"
-                onClick={() => void copyValue('tracking', detail.trackingCode)}
+          <h2>{canRegister ? actionLabel : 'Registro'}</h2>
+          {canRegister ? (
+            <>
+              <p className="shipping-notice">
+                {detail.buyerEmail ? (
+                  <>
+                    Al registrar, enviaremos un correo a <strong>{detail.buyerEmail}</strong>{' '}
+                    con estos datos. No se hace seguimiento posterior.
+                  </>
+                ) : (
+                  <>
+                    <strong>El comprador no dejó correo.</strong> Registraremos el envío sin
+                    enviar notificación.
+                  </>
+                )}
+              </p>
+              <form
+                className="shipping-form"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  if (!busy && formValid) setConfirmOpen(true)
+                }}
               >
-                {copied === 'tracking' ? 'Copiado' : 'Copiar tracking'}
-              </button>
-              {detail.trackingUrl ? (
-                <button
-                  className="button button--secondary"
-                  type="button"
-                  onClick={() => setExternalOpen(true)}
-                >
-                  Abrir seguimiento
-                </button>
-              ) : null}
-            </div>
-          ) : (
-            <p>Todavía no hay un código de tracking.</p>
-          )}
-          <div className="shipping-tracking">
-            <button
-              className="button button--secondary"
-              type="button"
-              onClick={() => void copyValue('public', detail.publicUrl)}
-            >
-              {copied === 'public' ? 'Copiado' : 'Copiar enlace de seguimiento'}
-            </button>
-            <a
-              className="button button--secondary"
-              href={detail.publicUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Abrir seguimiento público
-            </a>
-          </div>
-          {detail.confirmation ? (
-            <p>
-              El comprador respondió:{' '}
-              {detail.confirmation.outcome === 'received'
-                ? 'Sí, lo recibí'
-                : 'No, necesito ayuda'}
-              .
-            </p>
-          ) : null}
-          {detail.activeTicket ? (
-            <p>
-              <Link
-                className="button button--primary"
-                to={`/app/despachos/${detail.id}/tickets/${detail.activeTicket.id}`}
-              >
-                Abrir consulta {detail.activeTicket.number}
-              </Link>
-            </p>
-          ) : null}
-          {canUpdate ? (
-            <form
-              className="shipping-form"
-              onSubmit={(event) => {
-                event.preventDefault()
-                if (!saveTracking.isPending) saveTracking.mutate()
-              }}
-            >
-              <label htmlFor="shipment-carrier">
-                <span>Transportista</span>
-                <input
-                  id="shipment-carrier"
-                  value={carrier}
-                  onChange={(event) => setCarrier(event.target.value)}
-                />
-              </label>
-              <label htmlFor="shipment-tracking-code">
-                <span>Código de tracking</span>
-                <input
-                  id="shipment-tracking-code"
-                  value={trackingCode}
-                  onChange={(event) => setTrackingCode(event.target.value)}
-                />
-              </label>
-              <label htmlFor="shipment-tracking-url">
-                <span>URL de seguimiento</span>
-                <input
-                  id="shipment-tracking-url"
-                  value={trackingUrl}
-                  onChange={(event) => setTrackingUrl(event.target.value)}
-                  placeholder="https://"
-                />
-              </label>
-              <label>
-                <span>Comentario en la línea de tiempo</span>
-                <textarea
-                  value={comment}
-                  onChange={(event) => setComment(event.target.value)}
-                />
-              </label>
-              <label className="shipping-note-flag">
-                <input
-                  type="checkbox"
-                  checked={internalNote}
-                  onChange={(event) => setInternalNote(event.target.checked)}
-                />
-                <span>Nota interna (no visible en el seguimiento público)</span>
-              </label>
-              <div className="shipping-form__actions">
-                <button className="button button--primary" type="submit" disabled={busy}>
-                  {saveTracking.isPending ? 'Guardando…' : 'Guardar seguimiento'}
-                </button>
-                {canDispatch ? (
-                  <button
-                    className="button button--secondary"
-                    type="button"
-                    disabled={busy}
-                    onClick={() => setDispatchOpen(true)}
-                  >
-                    Marcar despachado
-                  </button>
+                {needsCarrier ? (
+                  <>
+                    <label htmlFor="shipment-carrier">
+                      <span>Transportista</span>
+                      <input
+                        id="shipment-carrier"
+                        value={carrier}
+                        required
+                        aria-invalid={carrierError ? true : undefined}
+                        aria-describedby={carrierError ? 'shipment-carrier-error' : undefined}
+                        onChange={(event) => setCarrier(event.target.value)}
+                        placeholder="Chilexpress, Starken, Blue Express…"
+                      />
+                    </label>
+                    {carrierError ? (
+                      <small id="shipment-carrier-error" className="field-error" role="alert">
+                        {carrierError}
+                      </small>
+                    ) : null}
+                    <label htmlFor="shipment-tracking-code">
+                      <span>Código de tracking (opcional)</span>
+                      <input
+                        id="shipment-tracking-code"
+                        value={trackingCode}
+                        onChange={(event) => setTrackingCode(event.target.value)}
+                      />
+                    </label>
+                    <label htmlFor="shipment-tracking-url">
+                      <span>URL de seguimiento (opcional)</span>
+                      <input
+                        id="shipment-tracking-url"
+                        value={trackingUrl}
+                        aria-invalid={trackingUrlError ? true : undefined}
+                        aria-describedby={
+                          trackingUrlError ? 'shipment-tracking-url-error' : undefined
+                        }
+                        onChange={(event) => setTrackingUrl(event.target.value)}
+                        placeholder="https://"
+                      />
+                    </label>
+                    {trackingUrlError ? (
+                      <small
+                        id="shipment-tracking-url-error"
+                        className="field-error"
+                        role="alert"
+                      >
+                        {trackingUrlError}
+                      </small>
+                    ) : null}
+                  </>
                 ) : null}
-              </div>
-            </form>
-          ) : (
-            <dl>
-              <div>
-                <dt>Transportista</dt>
-                <dd>{detail.carrier || '—'}</dd>
-              </div>
-              {canDispatch ? (
+                <label htmlFor="shipment-note">
+                  <span>Nota para el comprador (opcional)</span>
+                  <textarea
+                    id="shipment-note"
+                    value={note}
+                    maxLength={500}
+                    onChange={(event) => setNote(event.target.value)}
+                    placeholder={
+                      needsCarrier
+                        ? 'Ej: sale hoy en la tarde, llega en 2 días hábiles.'
+                        : 'Ej: entregado en mano a las 18:00.'
+                    }
+                  />
+                </label>
                 <div className="shipping-form__actions">
                   <button
                     className="button button--primary"
-                    type="button"
-                    disabled={busy}
-                    onClick={() => setDispatchOpen(true)}
+                    type="submit"
+                    disabled={busy || !formValid}
                   >
-                    Marcar despachado
+                    {actionLabel}
                   </button>
                 </div>
+              </form>
+            </>
+          ) : (
+            <dl>
+              <div>
+                <dt>{detail.status === 'delivered' ? 'Entregado' : 'Despachado'}</dt>
+                <dd>{formatDate(registeredOn)}</dd>
+              </div>
+              {needsCarrier ? (
+                <div>
+                  <dt>Transportista</dt>
+                  <dd>{detail.carrier || '—'}</dd>
+                </div>
               ) : null}
+              {detail.trackingCode ? (
+                <div>
+                  <dt>Tracking</dt>
+                  <dd>
+                    <div className="shipping-tracking">
+                      <code>{detail.trackingCode}</code>
+                      <button
+                        className="button button--secondary"
+                        type="button"
+                        onClick={() => void copyTracking(detail.trackingCode)}
+                      >
+                        {copied ? 'Copiado' : 'Copiar tracking'}
+                      </button>
+                      {detail.trackingUrl ? (
+                        <a
+                          className="button button--secondary"
+                          href={detail.trackingUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Abrir seguimiento
+                        </a>
+                      ) : null}
+                    </div>
+                  </dd>
+                </div>
+              ) : null}
+              {detail.dispatchNote ? (
+                <div>
+                  <dt>Nota</dt>
+                  <dd>{detail.dispatchNote}</dd>
+                </div>
+              ) : null}
+              <div>
+                <dt>Correo al comprador</dt>
+                <dd>
+                  {detail.buyerEmail
+                    ? `Enviado a ${detail.buyerEmail}`
+                    : 'No se envió (sin correo registrado)'}
+                </dd>
+              </div>
             </dl>
           )}
         </article>
       </div>
 
-      <section className="detail-section">
-        <article className="detail-card">
-          <h2>Cadencias</h2>
-          {detail.nextFollowUp ? (
-            <>
-              <dl>
-                <div>
-                  <dt>Próximo vencimiento</dt>
-                  <dd>
-                    {translated(followUpKindLabels, detail.nextFollowUp.kind)} ·{' '}
-                    {formatDate(detail.nextFollowUp.dueAt)}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Origen del parámetro</dt>
-                  <dd>
-                    {detail.nextFollowUp.parameterSourceLabel} ·{' '}
-                    {detail.nextFollowUp.parameterKey} (
-                    {detail.nextFollowUp.parameterLabel})
-                  </dd>
-                </div>
-              </dl>
-              {canReschedule ? (
-                <form
-                  className="shipping-form"
-                  onSubmit={(event) => {
-                    event.preventDefault()
-                    if (!reschedule.isPending) reschedule.mutate()
-                  }}
-                >
-                  <label>
-                    <span>Nueva fecha</span>
-                    <input
-                      type="datetime-local"
-                      value={dueAt}
-                      onChange={(event) => setDueAt(event.target.value)}
-                    />
-                  </label>
-                  <label>
-                    <span>Motivo</span>
-                    <textarea
-                      value={rescheduleReason}
-                      onChange={(event) => setRescheduleReason(event.target.value)}
-                      placeholder="Por qué se reprograma esta cadencia"
-                    />
-                  </label>
-                  <button
-                    className="button button--secondary"
-                    type="submit"
-                    disabled={busy}
-                  >
-                    {reschedule.isPending ? 'Reprogramando…' : 'Reprogramar seguimiento'}
-                  </button>
-                </form>
-              ) : null}
-            </>
-          ) : (
-            <p>No hay una cadencia programada para este envío.</p>
-          )}
-        </article>
-      </section>
-
-      <section className="detail-section">
-        <article className="detail-card">
-          <h2>Incidencia o devolución</h2>
-          <p>
-            Registrar un caso no repone stock. La reposición pide una confirmación aparte
-            después de inspeccionar el bulto.
-          </p>
-          {canRegisterReturn ? (
-            <form
-              className="shipping-form"
-              onSubmit={(event) => {
-                event.preventDefault()
-                if (!registerCase.isPending) registerCase.mutate()
-              }}
-            >
-              <label>
-                <span>Resultado</span>
-                <select
-                  value={returnKind}
-                  onChange={(event) => setReturnKind(event.target.value)}
-                >
-                  {Object.entries(returnCaseKindLabels).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>Notas</span>
-                <textarea
-                  value={returnNotes}
-                  onChange={(event) => setReturnNotes(event.target.value)}
-                />
-              </label>
-              <button className="button button--primary" type="submit" disabled={busy}>
-                {registerCase.isPending ? 'Registrando…' : 'Registrar incidencia'}
-              </button>
-            </form>
-          ) : null}
-          {detail.returnCases.length === 0 ? (
-            <p>Todavía no hay un caso de incidencia o devolución.</p>
-          ) : (
-            <ul className="shipping-return-list">
-              {detail.returnCases.map((item) => (
-                <li key={item.id}>
-                  <strong>{translated(returnCaseKindLabels, item.kind)}</strong>
-                  <span>
-                    {item.stockConfirmedAt
-                      ? `Stock repuesto ${formatDate(item.stockConfirmedAt)}`
-                      : 'Sin reposición de stock'}
-                  </span>
-                  {item.notes ? <span>{item.notes}</span> : null}
-                  {!item.stockConfirmedAt ? (
-                    <button
-                      className="button button--secondary"
-                      type="button"
-                      disabled={busy}
-                      onClick={() => confirmStock.mutate(item.id)}
-                    >
-                      {confirmStock.isPending ? 'Confirmando…' : 'Confirmar reposición'}
-                    </button>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </article>
-      </section>
-
-      <section className="detail-section">
-        <h2>Línea de tiempo</h2>
-        <Timeline
-          items={detail.timeline.map((item: SellerShipment['timeline'][number]) => ({
-            id: item.id,
-            title: item.title,
-            detail: [
-              item.detail,
-              item.isPublic ? 'Visible al comprador' : 'Nota interna',
-              item.actorName,
-            ]
-              .filter(Boolean)
-              .join(' · '),
-            date: formatDate(item.createdAt),
-          }))}
-        />
-      </section>
-
-      {externalOpen && detail.trackingUrl ? (
+      {confirmOpen ? (
         <Modal
-          title="Abrir seguimiento externo"
-          description="Tenda no consulta el estado con el transportista. Vas a salir a un sitio externo."
-          onClose={() => setExternalOpen(false)}
-          footer={
-            <>
-              <button
-                className="button button--secondary"
-                type="button"
-                onClick={() => setExternalOpen(false)}
-              >
-                Cancelar
-              </button>
-              <a
-                className="button button--primary"
-                href={detail.trackingUrl}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => setExternalOpen(false)}
-              >
-                Abrir sitio del transportista
-              </a>
-            </>
+          title={actionLabel}
+          description={
+            needsCarrier
+              ? 'El envío quedará como despachado y no admite cambios posteriores.'
+              : 'El envío quedará como entregado y no admite cambios posteriores.'
           }
-        >
-          <p className="shipping-warning">
-            <strong>Este enlace no está verificado por Tenda.</strong>
-            El estado que veas allí lo publica el transportista, no esta plataforma.
-          </p>
-        </Modal>
-      ) : null}
-
-      {dispatchOpen ? (
-        <Modal
-          title="Marcar despachado"
-          description="El envío dejará de admitir cambios de tracking."
-          onClose={() => !dispatch.isPending && setDispatchOpen(false)}
+          onClose={() => !register.isPending && setConfirmOpen(false)}
           footer={
             <>
               <button
                 className="button button--secondary"
                 type="button"
-                disabled={dispatch.isPending}
-                onClick={() => setDispatchOpen(false)}
+                disabled={register.isPending}
+                onClick={() => setConfirmOpen(false)}
               >
                 Cancelar
               </button>
               <button
                 className="button button--primary"
                 type="button"
-                disabled={dispatch.isPending}
-                onClick={() => dispatch.mutate()}
+                disabled={register.isPending}
+                onClick={() => register.mutate()}
               >
-                {dispatch.isPending ? 'Despachando…' : 'Confirmar despacho'}
+                {register.isPending ? 'Registrando…' : 'Confirmar y notificar'}
               </button>
             </>
           }
         >
+          <dl>
+            {needsCarrier ? (
+              <>
+                <div>
+                  <dt>Transportista</dt>
+                  <dd>{carrier.trim()}</dd>
+                </div>
+                <div>
+                  <dt>Tracking</dt>
+                  <dd>{trackingCode.trim() || '—'}</dd>
+                </div>
+              </>
+            ) : null}
+            {note.trim() ? (
+              <div>
+                <dt>Nota</dt>
+                <dd>{note.trim()}</dd>
+              </div>
+            ) : null}
+          </dl>
           <p>
-            Confirma que el pedido ya salió. Esta acción es idempotente si se reintenta.
+            {detail.buyerEmail
+              ? `Se enviará un correo a ${detail.buyerEmail}.`
+              : 'No se enviará correo porque el comprador no dejó uno.'}
           </p>
         </Modal>
       ) : null}

@@ -107,7 +107,7 @@ export async function completeBankTransferPurchase(
   await expect(page.getByRole('heading', { name: 'Comprobante enviado' })).toBeVisible()
 }
 
-export async function approveProofAndOpenShipment(page: Page): Promise<string> {
+export async function approveProofAndRegisterDispatch(page: Page): Promise<void> {
   await page.goto('/app/ventas')
   await expect(page.getByRole('heading', { name: 'Ventas' })).toBeVisible()
   await page.locator('.sales-table__number').first().click()
@@ -122,18 +122,13 @@ export async function approveProofAndOpenShipment(page: Page): Promise<string> {
   await page.getByRole('link', { name: 'Despachos', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Despachos' })).toBeVisible()
   await page.locator('.sales-table__number').first().click()
-  await expect(
-    page.getByRole('heading', { name: /preparación|Pendiente/i }),
-  ).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Pendiente' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Registrar despacho' })).toBeVisible()
   await page.getByLabel('Transportista').fill('Chilexpress')
-  await page.getByLabel('Código de tracking').fill('CX-E2E-01')
-  await page.getByRole('button', { name: 'Guardar seguimiento' }).click()
-  await page.getByRole('button', { name: 'Marcar despachado' }).click()
-  await page.getByRole('button', { name: 'Confirmar despacho' }).click()
+  await page.getByLabel('Código de tracking (opcional)').fill('CX-E2E-01')
+  await page.getByRole('button', { name: 'Registrar despacho' }).click()
+  await page.getByRole('button', { name: 'Confirmar y notificar' }).click()
   await expect(page.getByRole('heading', { name: 'Despachado' })).toBeVisible()
-  const publicUrl = await page
-    .getByRole('link', { name: 'Abrir seguimiento público' })
-    .getAttribute('href')
-  expect(publicUrl).toContain('/s/')
-  return publicUrl ?? ''
+  await expect(page.getByText('CX-E2E-01')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Registrar despacho' })).toHaveCount(0)
 }

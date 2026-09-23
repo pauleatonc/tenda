@@ -139,7 +139,7 @@ smoke. Sin un ensayo aprobado, el go-live queda bloqueado.
 Es el mantenedor general de los modelos del backend (identidad, catálogo, ventas,
 despachos, configuración, auditoría y notificaciones). Los ledgers append-only
 (movimientos de stock, líneas de tiempo, auditoría) se pueden crear y consultar,
-no reescribir ni borrar. Pedidos, envíos, tickets y devoluciones no se eliminan.
+no reescribir ni borrar. Pedidos y envíos no se eliminan.
 
 - En local: `http://localhost:8000/admin/` con un superusuario
   (`manage.py createsuperuser`).

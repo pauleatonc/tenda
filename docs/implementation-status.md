@@ -41,8 +41,9 @@ Graphene, React/Vite y Expo; la Etapa 4 no se implementa y solo se anuncia como
 | T1.1–T1.5 | Completado       | Catálogo, ledger, contrato e inventario web y mobile.    |
 | T1.6–T1.8 | Completado       | Media/jobs, alertas/auditoría y agente desactivado.      |
 | T2.1–T2.8 | Completado       | Ventas, checkout público, pagos y balance.               |
-| T3.1–T3.6 | Completado       | Despacho, tickets, cadencias e incidencias.              |
+| T3.1–T3.6 | Completado       | Despacho, tickets, cadencias e incidencias (histórico).  |
 | T3.7      | Completado       | E2E Playwright, axe, Maestro, docs de go-live.           |
+| T3.8      | Completado       | Despachos simplificados a «registrar y notificar».       |
 | T4        | Fuera de alcance | Requiere autorización post-MVP. No hay código de IA.     |
 
 ## Invariantes
@@ -57,8 +58,9 @@ Graphene, React/Vite y Expo; la Etapa 4 no se implementa y solo se anuncia como
 - Redis no es fuente durable de estado de negocio.
 - El precio y costo de una venta se conservan como snapshots.
 - Un reembolso no repone stock automáticamente.
-- Crear un `ReturnCase` o una respuesta pública no repone stock.
 - Un pedido impago no puede despacharse.
+- Registrar el despacho o la entrega es un paso único y terminal; el correo al
+  comprador sale por outbox después del commit y no se repite en reintentos.
 
 ## Checkpoints
 
@@ -785,3 +787,55 @@ Decisiones/deuda:
 
 Próximo paquete habilitado: ninguno de producto. El MVP de Etapas 0–3 está
 cerrado en código. T4 permanece fuera de alcance.
+
+### T3.8 — Despachos simplificados a «registrar y notificar»
+
+El flujo de T3.1–T3.6 (máquina de 9 estados, línea de tiempo, seguimiento
+público, tickets, cadencias y devoluciones) se retiró. Lo que sigue vigente:
+
+- `Shipment` nace al pagar la venta y solo tiene tres estados: `pending`,
+  `dispatched` y `delivered`. Conserva el snapshot de destino y la etiqueta
+  interna PDF (`LabelDocument`, `generateShipmentLabel`, «Ver etiqueta»).
+- Una sola mutation idempotente, `registerShipmentDispatch(shipmentId, input,
+  idempotencyKey)`. Con modalidad `shipping` exige transportista (tracking y
+  URL opcionales) y deja el envío en `dispatched`; con `pickup` o
+  `coordinated` no pide transportista y lo deja en `delivered`. Un envío ya
+  registrado responde `SHIPMENT_ALREADY_REGISTERED`; un pedido impago,
+  `ORDER_NOT_PAID`.
+- Al registrar se encola `shipping.shipment_notification` con plantilla
+  `shipment.dispatched` («Tu pedido va en camino»: transportista, tracking,
+  botón «Seguir envío», destino, nota, detalle e importe) o
+  `shipment.delivered` («Tu pedido fue entregado»). Si el comprador no dejó
+  correo, no se envía nada y la UI lo advierte antes de confirmar.
+- Se eliminaron `ShipmentEvent`, `DeliveryConfirmation`, `FollowUpSchedule`,
+  `Ticket`, `TicketMessage`, `ReturnCase`, el token público, las rutas `/s/*`
+  y `/api/v1/public/shipments/*`, la tarea `process_due_follow_ups`, los
+  parámetros `shipping.*` y los rate limits públicos de envío. Migraciones
+  `shipping.0007` (colapsa estados y borra tablas) y `configuration.0006`.
+- `inventory.activeFulfilment` considera liquidado un envío en `dispatched`
+  o `delivered`.
+- Web: listado con tarjetas Pendientes/Despachados/Entregados, filtros por
+  estado y modalidad, columna «Transportista / Tracking»; detalle con tarjeta
+  «Destino» y formulario «Registrar despacho» / «Registrar entrega» con
+  modal de confirmación que anuncia el correo. Después del registro la
+  tarjeta queda de solo lectura. Mobile replica el flujo con `Sheet`.
+- E2E: el journey termina en el registro del despacho y verifica la fila
+  «Chilexpress · CX-E2E-01» en el listado.
+
+Validación ejecutada:
+
+- Backend: 147 pruebas aprobadas (incluye 9 de dominio de despacho, 4 de
+  operación GraphQL, 4 de etiqueta y 2 de render de correo); ruff y mypy sin
+  hallazgos nuevos en `shipping`, `notifications`, `inventory` y `sales`;
+  `makemigrations --check` limpio.
+- `@tenda/api-client`: schema exportado, codegen y build.
+- Web Vitest: 75 pruebas aprobadas (5 de despachos).
+- Mobile Jest: 48 pruebas aprobadas (6 de despachos).
+
+Decisiones/deuda:
+
+- La reposición de stock por devolución dejó de existir como flujo; si se
+  necesita, se resuelve con un ajuste manual de inventario.
+- Los envíos históricos en `preparing` quedaron en `pending`; los que estaban
+  en `delivery_check`, `issue`, `returned` o `cancelled` pasaron a
+  `dispatched`; `closed` pasó a `delivered`.

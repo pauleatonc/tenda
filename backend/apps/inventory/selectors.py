@@ -33,10 +33,8 @@ SORTABLE_FIELDS: dict[str, str] = {
 STOCK_STATES = frozenset({"available", "out_of_stock", "reserved"})
 SETTLED_FULFILMENT_STATUSES = frozenset(
     {
+        Shipment.Status.DISPATCHED,
         Shipment.Status.DELIVERED,
-        Shipment.Status.CLOSED,
-        Shipment.Status.RETURNED,
-        Shipment.Status.CANCELLED,
     }
 )
 

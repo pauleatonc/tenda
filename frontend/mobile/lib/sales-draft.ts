@@ -222,3 +222,19 @@ export async function saveSaleDraft(draft: SaleDraft): Promise<void> {
 export async function clearSaleDraft(): Promise<void> {
   await SecureStore.deleteItemAsync(SALE_DRAFT_STORAGE_KEY)
 }
+
+export function isCompletedSaleDraft(draft: SaleDraft): boolean {
+  return draft.step === 'result' && draft.result !== null
+}
+
+export async function resolveSaleDraftOnEnter(): Promise<{
+  draft: SaleDraft
+  completed: SaleDraftResult | null
+}> {
+  const draft = await loadSaleDraft()
+  if (!isCompletedSaleDraft(draft) || !draft.result) {
+    return { draft, completed: null }
+  }
+  await clearSaleDraft()
+  return { draft: createEmptySaleDraft(), completed: draft.result }
+}

@@ -20,10 +20,11 @@ import {
   createEmptySaleDraft,
   discountedPrice,
   formatClp,
-  loadSaleDraft,
   paymentMethodLabels,
+  resolveSaleDraftOnEnter,
   saleDraftTotal,
   saveSaleDraft,
+  type CompletedSaleNotice,
   type SaleDraft,
   type SaleDraftLine,
   validateDraftLines,
@@ -66,7 +67,11 @@ export function NewSalePage() {
   const hasBankDetails = viewer
     ? organisationHasBankDetails(viewer.organisation)
     : true
-  const [draft, setDraft] = useState<SaleDraft>(loadSaleDraft)
+  const [entry] = useState(resolveSaleDraftOnEnter)
+  const [draft, setDraft] = useState<SaleDraft>(entry.draft)
+  const [completedNotice, setCompletedNotice] = useState<CompletedSaleNotice | null>(
+    entry.completed,
+  )
   const [search, setSearch] = useState('')
   const [submitError, setSubmitError] = useState<Error | null>(null)
   const [copied, setCopied] = useState(false)
@@ -224,6 +229,7 @@ export function NewSalePage() {
     clearSaleDraft()
     const empty = createEmptySaleDraft()
     setDraft(empty)
+    setCompletedNotice(null)
     setSubmitError(null)
     setCopied(false)
     setEmailOpen(false)
@@ -231,6 +237,15 @@ export function NewSalePage() {
     setEmailSent(false)
     setEmailError(null)
     setEmailKey(newIdempotencyKey())
+  }
+
+  function leaveToSales() {
+    if (draft.step === 4) {
+      clearSaleDraft()
+      setDraft(createEmptySaleDraft())
+      setCompletedNotice(null)
+    }
+    navigate('/app/ventas')
   }
 
   return (
@@ -243,10 +258,18 @@ export function NewSalePage() {
             El borrador se guarda en este equipo hasta que completes o descartes la venta.
           </p>
         </div>
-        <Link className="button button--secondary" to="/app/ventas">
+        <button className="button button--secondary" type="button" onClick={leaveToSales}>
           Volver a ventas
-        </Link>
+        </button>
       </header>
+
+      {completedNotice ? (
+        <div className="sales-notice" role="status">
+          <strong>La venta ya está creada</strong>
+          <span>Ábrela para copiar el enlace o sigue con una venta nueva.</span>
+          <Link to={`/app/ventas/${completedNotice.orderId}`}>Ver ficha</Link>
+        </div>
+      ) : null}
 
       <nav className="sale-steps" aria-label="Pasos de la venta">
         {steps.map((label, index) => {
@@ -760,11 +783,7 @@ export function NewSalePage() {
             <button className="text-link" type="button" onClick={reset}>
               Crear otra venta
             </button>
-            <button
-              className="text-link"
-              type="button"
-              onClick={() => navigate('/app/ventas')}
-            >
+            <button className="text-link" type="button" onClick={leaveToSales}>
               Volver al listado
             </button>
           </div>

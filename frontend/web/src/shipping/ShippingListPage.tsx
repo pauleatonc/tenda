@@ -11,27 +11,17 @@ import {
 } from './api'
 import {
   deliveryModeLabels,
+  deliveryModes,
   destinationLine,
   formatDate,
-  nextActionLabels,
+  registeredAt,
   shipmentStatusLabels,
+  shipmentStatuses,
   statusTone,
   translated,
 } from './model'
 
 const PAGE_SIZE = 25
-
-const shipmentStatuses = [
-  'pending',
-  'preparing',
-  'dispatched',
-  'delivery_check',
-  'delivered',
-  'issue',
-  'returned',
-  'cancelled',
-  'closed',
-] as const
 
 function ErrorMessage({
   title,
@@ -67,7 +57,7 @@ function ShippingDashboardCards() {
     return (
       <section className="sales-metrics sales-metrics--loading" aria-busy="true">
         <span className="sr-only">Cargando resumen de despachos…</span>
-        {Array.from({ length: 5 }).map((_, index) => (
+        {Array.from({ length: 3 }).map((_, index) => (
           <div key={index} />
         ))}
       </section>
@@ -90,39 +80,37 @@ function ShippingDashboardCards() {
       <article className={summary.pendingCount ? 'is-warning' : ''}>
         <span>Pendientes</span>
         <strong>{summary.pendingCount}</strong>
-        <Link to="/app/despachos?estado=pending">Preparar</Link>
-      </article>
-      <article className={summary.preparingCount ? 'is-warning' : ''}>
-        <span>En preparación</span>
-        <strong>{summary.preparingCount}</strong>
-        <Link to="/app/despachos?estado=preparing">Despachar</Link>
+        <Link to="/app/despachos?estado=pending">Registrar</Link>
       </article>
       <article>
         <span>Despachados</span>
         <strong>{summary.dispatchedCount}</strong>
         <Link to="/app/despachos?estado=dispatched">Ver envíos</Link>
       </article>
-      <article className={summary.deliveryCheckCount ? 'is-warning' : ''}>
-        <span>Chequeo de entrega</span>
-        <strong>{summary.deliveryCheckCount}</strong>
-        <Link to="/app/despachos?estado=delivery_check">Revisar</Link>
-      </article>
-      <article className={summary.issueCount ? 'is-warning' : ''}>
-        <span>Incidencias</span>
-        <strong>{summary.issueCount}</strong>
-        <Link to="/app/despachos?estado=issue">Atender</Link>
+      <article>
+        <span>Entregados</span>
+        <strong>{summary.deliveredCount}</strong>
+        <Link to="/app/despachos?estado=delivered">Ver entregas</Link>
       </article>
     </section>
   )
+}
+
+function carrierCell(shipment: ShipmentSummary): string {
+  if (shipment.deliveryMode !== 'shipping') {
+    return shipment.status === 'pending' ? '—' : 'Sin transportista'
+  }
+  const parts = [shipment.carrier, shipment.trackingCode].filter(Boolean)
+  return parts.length ? parts.join(' · ') : '—'
 }
 
 export function ShippingListPage() {
   const [params, setParams] = useSearchParams()
   const search = params.get('q') ?? ''
   const status = params.get('estado') ?? ''
-  const attention = params.get('atencion') === '1'
+  const deliveryMode = params.get('modalidad') ?? ''
   const cursor = params.get('cursor')
-  const activeFilters = [search, status, attention ? '1' : ''].filter(Boolean).length
+  const activeFilters = [search, status, deliveryMode].filter(Boolean).length
 
   function updateParam(name: string, value: string) {
     const next = new URLSearchParams(params)
@@ -136,7 +124,7 @@ export function ShippingListPage() {
     filter: {
       search: search || null,
       statuses: status ? [status] : null,
-      attention: attention || null,
+      deliveryMode: deliveryMode || null,
     },
     first: PAGE_SIZE,
     after: cursor,
@@ -186,13 +174,17 @@ export function ShippingListPage() {
           </select>
         </label>
         <label>
-          <span>Atención</span>
+          <span>Modalidad</span>
           <select
-            value={attention ? '1' : ''}
-            onChange={(event) => updateParam('atencion', event.target.value)}
+            value={deliveryMode}
+            onChange={(event) => updateParam('modalidad', event.target.value)}
           >
-            <option value="">Todos</option>
-            <option value="1">Requieren atención</option>
+            <option value="">Todas</option>
+            {deliveryModes.map((value) => (
+              <option key={value} value={value}>
+                {deliveryModeLabels[value]}
+              </option>
+            ))}
           </select>
         </label>
         {activeFilters ? (
@@ -241,7 +233,7 @@ export function ShippingListPage() {
         ) : (
           <EmptyState
             title="Aún no tienes despachos"
-            description="Cuando una venta se pague, Tenda crea el envío para que prepares y despaches."
+            description="Cuando una venta se pague, Tenda crea el envío para que registres el despacho o la entrega."
           />
         )
       ) : null}
@@ -254,11 +246,10 @@ export function ShippingListPage() {
                 <th scope="col">Envío</th>
                 <th scope="col">Destinatario</th>
                 <th scope="col">Destino</th>
-                <th scope="col">Tracking</th>
+                <th scope="col">Modalidad</th>
+                <th scope="col">Transportista / Tracking</th>
                 <th scope="col">Estado</th>
-                <th scope="col">Vencimiento</th>
                 <th scope="col">Fecha</th>
-                <th scope="col">Próxima acción</th>
               </tr>
             </thead>
             <tbody>
@@ -274,28 +265,16 @@ export function ShippingListPage() {
                     <small>{shipment.order.number}</small>
                   </td>
                   <td>{shipment.recipientName || 'Sin destinatario'}</td>
-                  <td>
-                    {destinationLine(shipment) ||
-                      translated(deliveryModeLabels, shipment.deliveryMode)}
-                  </td>
-                  <td>{shipment.trackingCode || '—'}</td>
+                  <td>{destinationLine(shipment) || '—'}</td>
+                  <td>{translated(deliveryModeLabels, shipment.deliveryMode)}</td>
+                  <td>{carrierCell(shipment)}</td>
                   <td>
                     <StatusChip
                       status={statusTone(shipment.status)}
                       label={translated(shipmentStatusLabels, shipment.status)}
                     />
                   </td>
-                  <td>
-                    {shipment.nextFollowUp
-                      ? formatDate(shipment.nextFollowUp.dueAt)
-                      : '—'}
-                  </td>
-                  <td>{formatDate(shipment.createdAt)}</td>
-                  <td>
-                    <Link to={`/app/despachos/${shipment.id}`}>
-                      {translated(nextActionLabels, shipment.nextAction)}
-                    </Link>
-                  </td>
+                  <td>{formatDate(registeredAt(shipment) ?? shipment.createdAt)}</td>
                 </tr>
               ))}
             </tbody>

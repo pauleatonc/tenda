@@ -61,6 +61,7 @@ function renderPage() {
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={['/app/ventas/nueva']}>
         <Routes>
+          <Route path="/app/ventas" element={<p>Listado de ventas</p>} />
           <Route path="/app/ventas/nueva" element={<NewSalePage />} />
           <Route path="/app/ventas/:id" element={<p>Ficha de venta</p>} />
         </Routes>
@@ -151,13 +152,72 @@ describe('envío idempotente de nueva venta', () => {
     expect(await screen.findByText('Ficha de venta')).toBeInTheDocument()
   })
 
-  it('envía el enlace por correo desde la pantalla de enlace listo', async () => {
+  it('abre una venta nueva si el resultado anterior quedó guardado', async () => {
     saveSaleDraft({
       ...seedReviewDraft(),
       step: 4,
-      createdOrderId: 'order-1',
+      createdOrderId: 'order-ready',
       publicUrl: 'https://shop.test/p/token',
     })
+    renderPage()
+
+    expect(await screen.findByText('La venta ya está creada')).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Productos, cantidades y precios efectivos' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Ver ficha' })).toHaveAttribute(
+      'href',
+      '/app/ventas/order-ready',
+    )
+    expect(loadSaleDraft().step).toBe(1)
+    expect(loadSaleDraft().createdOrderId).toBeNull()
+  })
+
+  it('conserva el borrador incompleto al volver a ventas', async () => {
+    seedReviewDraft()
+    renderPage()
+    expect(
+      await screen.findByRole('heading', { name: 'Revisa antes de generar venta' }),
+    ).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Volver a ventas' }))
+    expect(await screen.findByText('Listado de ventas')).toBeInTheDocument()
+    expect(loadSaleDraft().step).toBe(3)
+    expect(loadSaleDraft().lines).toHaveLength(1)
+  })
+
+  it('limpia el resultado al volver al listado', async () => {
+    seedReviewDraft()
+    mocked.createOrder.mockResolvedValue({
+      replayed: false,
+      order: { id: 'order-1', number: 'V-1' },
+    } as never)
+    mocked.publishOrderLink.mockResolvedValue({
+      replayed: false,
+      publicUrl: 'https://shop.test/p/token',
+      order: { id: 'order-1' },
+    } as never)
+
+    renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Generar venta' }))
+    expect(await screen.findByRole('heading', { name: 'Tu enlace está listo' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Volver al listado' }))
+
+    expect(await screen.findByText('Listado de ventas')).toBeInTheDocument()
+    expect(loadSaleDraft().step).toBe(1)
+    expect(loadSaleDraft().createdOrderId).toBeNull()
+  })
+
+  it('envía el enlace por correo desde la pantalla de enlace listo', async () => {
+    seedReviewDraft()
+    mocked.createOrder.mockResolvedValue({
+      replayed: false,
+      order: { id: 'order-1', number: 'V-1' },
+    } as never)
+    mocked.publishOrderLink.mockResolvedValue({
+      replayed: false,
+      publicUrl: 'https://shop.test/p/token',
+      order: { id: 'order-1' },
+    } as never)
     mocked.sendOfferLink.mockResolvedValue({
       replayed: false,
       publicUrl: 'https://shop.test/p/token',
@@ -165,6 +225,7 @@ describe('envío idempotente de nueva venta', () => {
     } as never)
 
     renderPage()
+    await userEvent.click(await screen.findByRole('button', { name: 'Generar venta' }))
     await userEvent.click(await screen.findByRole('button', { name: 'Enviar por correo' }))
     expect(
       screen.getByText('Ingresa el correo del comprador para enviarle el enlace.'),

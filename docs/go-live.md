@@ -11,11 +11,10 @@ La Etapa 4 no se despliega. `AGENT_FEATURE_STATUS` permanece en `coming_soon`.
 | Criterio                                                           | Estado en código     | Pendiente humano     |
 | ------------------------------------------------------------------ | -------------------- | -------------------- |
 | Pedido impago no despacha                                          | Cubierto (T3.1)      | —                    |
-| Etiqueta interna y tracking coherentes con la vista pública        | Cubierto (T3.3–T3.4) | Impresión física     |
-| Confirmación pública repetida idempotente                          | API + E2E TST-DSP-02 | —                    |
-| «No» crea/reutiliza ticket sin marcar incidencia                   | Cubierto + E2E       | —                    |
-| ReturnCase no repone stock hasta `confirmReturnToStock`            | Cubierto (T3.6)      | —                    |
-| Producto recibido sale de operaciones activas y conserva historial | Cubierto             | —                    |
+| Etiqueta interna coherente con el destino registrado               | Cubierto (T3.3)      | Impresión física     |
+| Registro de despacho/entrega idempotente y terminal                | Cubierto (T3.8) + E2E| —                    |
+| Correo al comprador con transportista, tracking y detalle          | Cubierto (T3.8)      | Brevo real           |
+| Envío registrado sale de operaciones activas y conserva historial  | Cubierto             | —                    |
 | Playwright journey + axe                                           | `pnpm test:e2e`      | Revisión manual WCAG |
 | Backup/restore, rollback, Kuma                                     | Scripts + runbook    | Ensayo real en VPS   |
 | Agente solo «Próximamente»                                         | Tests + E2E          | —                    |
@@ -23,7 +22,7 @@ La Etapa 4 no se despliega. `AGENT_FEATURE_STATUS` permanece en `coming_soon`.
 ## Matriz de configuración de Producción
 
 Los valores de desarrollo (Turnstile fake solo en local/E2E, R2 fake, Brevo
-fake, Mercado Pago fake, cadencias seed) **no** son una aprobación de
+fake, Mercado Pago fake, parámetros seed) **no** son una aprobación de
 Producción. Dev y Prod usan Turnstile real.
 
 | Dependencia          | Sin credencial (Dev/E2E)            | Requerido para Producción                        | Go-live   |
@@ -35,8 +34,8 @@ Producción. Dev y Prod usan Turnstile real.
 | Google OIDC          | Adapter fake                        | Client ID/secret y callback Prod                 | Opcional  |
 | LinkedIn OIDC        | Flag off                            | Solo si producto OIDC está habilitado            | Fuera     |
 | Mercado Pago Chile   | Fake; transferencia/efectivo operan | OAuth, pago, refund, webhook, fee, desconexión   | Bloqueado |
-| Cadencias            | Seeds 72 h / 48 h / 7 d / 24 h      | Valores de Producción firmados                   | Bloqueado |
-| Retención/privacidad | Sin jobs de borrado                 | Política de comprador, tickets, fotos, analítica | Bloqueado |
+| Parámetros           | Seeds reserva 8 h / revisión 24 h   | Valores de Producción firmados                   | Bloqueado |
+| Retención/privacidad | Sin jobs de borrado                 | Política de comprador, envíos, fotos, analítica  | Bloqueado |
 | Analítica            | No hay tracker                      | Consentimiento si se incorpora                   | Bloqueado |
 | App stores           | Build local / EAS interno + Maestro | Cuentas, privacy disclosures, deep links         | Bloqueado |
 | VPS App/Ops          | Un solo host alcanza para Dev       | WireGuard, Kuma, Netdata/Portainer restringidos  | Bloqueado |

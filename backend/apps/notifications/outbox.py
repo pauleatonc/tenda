@@ -160,7 +160,6 @@ def _dispatch(event: OutboxEvent) -> None:
     if event.event_type in {
         "sales.order_notification",
         "shipping.shipment_notification",
-        "shipping.ticket_notification",
     }:
         _sales_delivery(event)
         return

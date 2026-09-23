@@ -6,7 +6,6 @@ from django.urls import include, path
 
 from apps.notifications.api import contact
 from apps.sales.api import public_order_page
-from apps.shipping.api import public_shipment_page
 from tenda.admin import configure_admin_site
 from tenda.graphql_validation import QueryBudgetRule
 from tenda.graphql_view import TendaGraphQLView
@@ -29,10 +28,8 @@ urlpatterns = [
     path("api/v1/media/", include("apps.media_assets.urls")),
     path("api/v1/public/contact", contact, name="public-contact"),
     path("api/v1/public/", include("apps.sales.public_urls")),
-    path("api/v1/public/", include("apps.shipping.public_urls")),
     path("api/v1/webhooks/", include("apps.sales.urls")),
     path("p/<str:token>", public_order_page, name="public-order"),
-    path("s/<str:token>", public_shipment_page, name="public-shipment"),
     path("health/live/", live, name="health-live"),
     path("health/ready/", ready, name="health-ready"),
 ]

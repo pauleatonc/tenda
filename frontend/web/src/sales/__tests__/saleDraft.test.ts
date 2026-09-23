@@ -4,6 +4,7 @@ import {
   aggregateQuantities,
   createEmptySaleDraft,
   loadSaleDraft,
+  resolveSaleDraftOnEnter,
   saleDraftTotal,
   saveSaleDraft,
   type SaleDraftLine,
@@ -82,5 +83,37 @@ describe('borrador de nueva venta', () => {
     )
     expect(restoredAfterNetworkFailure.lines).toEqual(original.lines)
     expect(restoredAfterNetworkFailure.step).toBe(3)
+  })
+
+  it('retoma un borrador incompleto y descarta un resultado ya creado', () => {
+    const storage = memoryStorage()
+    const incomplete = {
+      ...createEmptySaleDraft(),
+      lines: [line({ clientId: 'line-open' })],
+      step: 2 as const,
+    }
+    saveSaleDraft(incomplete, storage)
+    expect(resolveSaleDraftOnEnter(storage)).toEqual({
+      draft: expect.objectContaining({ step: 2, lines: incomplete.lines }),
+      completed: null,
+    })
+
+    saveSaleDraft(
+      {
+        ...createEmptySaleDraft(),
+        step: 4,
+        createdOrderId: 'order-ready',
+        publicUrl: 'https://shop.test/p/token',
+      },
+      storage,
+    )
+    const resolved = resolveSaleDraftOnEnter(storage)
+    expect(resolved.completed).toEqual({
+      orderId: 'order-ready',
+      publicUrl: 'https://shop.test/p/token',
+    })
+    expect(resolved.draft.step).toBe(1)
+    expect(resolved.draft.createdOrderId).toBeNull()
+    expect(loadSaleDraft(storage).step).toBe(1)
   })
 })

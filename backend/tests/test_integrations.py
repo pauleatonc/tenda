@@ -342,6 +342,78 @@ def test_expired_order_email_includes_order_items() -> None:
     assert "<img" not in rendered.html
 
 
+def test_shipment_dispatched_email_includes_carrier_tracking_and_items() -> None:
+    rendered = render_email(
+        "shipment.dispatched",
+        {
+            "orderNumber": "TN-2001",
+            "shipmentNumber": "ENV-2001",
+            "carrier": "Chilexpress",
+            "trackingCode": "CX-99",
+            "actionUrl": "https://chilexpress.cl/track/CX-99",
+            "registeredAt": "2026-09-23T15:30:00+00:00",
+            "note": "Sale hoy en la tarde",
+            "recipientName": "Camila Soto",
+            "addressLine": "Los Aromos 123",
+            "commune": "Ñuñoa",
+            "region": "Región Metropolitana de Santiago",
+            "total": "10000",
+            "items": [
+                {
+                    "productName": "Vela de soya",
+                    "quantity": 2,
+                    "unitSalePrice": "5000",
+                    "lineTotal": "10000",
+                }
+            ],
+        },
+    )
+
+    assert rendered.subject == "Tenda · Tu pedido va en camino"
+    assert "Tu pedido TN-2001 fue entregado al transportista." in rendered.text
+    assert "Transportista: Chilexpress" in rendered.text
+    assert "Código de seguimiento: CX-99" in rendered.text
+    assert "Fecha: 23-09-2026 12:30" in rendered.text
+    assert "Los Aromos 123, Ñuñoa, Región Metropolitana de Santiago" in rendered.text
+    assert "Nota del vendedor: Sale hoy en la tarde" in rendered.text
+    assert "Vela de soya × 2 · $10.000" in rendered.text
+    assert "Total: $10.000" in rendered.text
+    assert "https://chilexpress.cl/track/CX-99" in rendered.html
+    assert "Seguir envío" in rendered.html
+    assert "<img" not in rendered.html
+
+
+def test_shipment_delivered_email_omits_carrier_and_button() -> None:
+    rendered = render_email(
+        "shipment.delivered",
+        {
+            "orderNumber": "TN-2002",
+            "carrier": "",
+            "trackingCode": "",
+            "actionUrl": "",
+            "registeredAt": "2026-09-23T15:30:00+00:00",
+            "note": "",
+            "total": "5000",
+            "items": [
+                {
+                    "productName": "Vela de soya",
+                    "quantity": 1,
+                    "unitSalePrice": "5000",
+                    "lineTotal": "5000",
+                }
+            ],
+        },
+    )
+
+    assert rendered.subject == "Tenda · Tu pedido fue entregado"
+    assert "Tu pedido TN-2002 fue entregado." in rendered.text
+    assert "Transportista" not in rendered.text
+    assert "Seguir envío" not in rendered.html
+    assert "Nota del vendedor" not in rendered.text
+    assert "Vela de soya × 1 · $5.000" in rendered.text
+    assert "Total: $5.000" in rendered.text
+
+
 @override_settings(
     BREVO_API_KEY="test-key",
     BREVO_SENDER_EMAIL="hola@tenda.test",
