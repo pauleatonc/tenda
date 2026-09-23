@@ -17,7 +17,7 @@ export type DeliveryDraft = {
 
 export type DeliveryErrors = Partial<Record<keyof DeliveryDraft, string>>
 
-export function emptyDeliveryDraft(): DeliveryDraft {
+function emptyDeliveryDraft(): DeliveryDraft {
   return {
     recipientName: '',
     recipientTaxId: '',

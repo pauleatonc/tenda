@@ -28,26 +28,12 @@
   outline: 0;
 }
 
-.search-field button,
-.filter-panel button {
+.search-field button {
   background: transparent;
   border: 0;
   color: var(--green);
   cursor: pointer;
   min-height: 36px;
-}
-
-.filter-panel {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 18px;
-}
-
-.filter-panel__header {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
 }
 
 .status-chip {

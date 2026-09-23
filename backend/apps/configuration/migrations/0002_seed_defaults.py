@@ -1,6 +1,5 @@
 from django.db import migrations
 
-
 PARAMETERS = (
     (
         "commission_mode",
@@ -17,11 +16,16 @@ PARAMETERS = (
         0,
         "Comisión mínima operacional en CLP.",
     ),
+    (
+        "sales.reservation_ttl_hours",
+        24,
+        "Hours a reserved sale and its public link stay valid.",
+    ),
 )
 ZERO_FEE_FLAG = "mercado_pago_zero_fee"
 
 
-def seed_payment_configuration(apps, schema_editor):
+def seed_defaults(apps, schema_editor):
     del schema_editor
     operational_parameter = apps.get_model("configuration", "OperationalParameter")
     feature_flag = apps.get_model("configuration", "FeatureFlag")
@@ -48,7 +52,7 @@ def seed_payment_configuration(apps, schema_editor):
     )
 
 
-def remove_payment_configuration(apps, schema_editor):
+def remove_defaults(apps, schema_editor):
     del schema_editor
     operational_parameter = apps.get_model("configuration", "OperationalParameter")
     feature_flag = apps.get_model("configuration", "FeatureFlag")
@@ -64,12 +68,9 @@ def remove_payment_configuration(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("configuration", "0002_encryptedcredential"),
+        ("configuration", "0001_initial"),
     ]
 
     operations = [
-        migrations.RunPython(
-            seed_payment_configuration,
-            remove_payment_configuration,
-        ),
+        migrations.RunPython(seed_defaults, remove_defaults),
     ]

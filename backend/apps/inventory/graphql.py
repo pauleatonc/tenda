@@ -31,7 +31,6 @@ from .bulk import (
     confirm_inventory_import,
     import_template_columns,
     inventory_export_download_url,
-    inventory_export_for_context,
     inventory_exports_for_context,
     inventory_import_for_context,
     inventory_import_report_url,
@@ -1277,11 +1276,6 @@ class InventoryQuery(graphene.ObjectType):  # type: ignore[misc]
         first=graphene.Int(),
         after=graphene.String(),
     )
-    inventory_alerts = graphene.List(
-        graphene.NonNull(InventoryAlertType),
-        required=True,
-        limit=graphene.Int(),
-    )
     inventory_import = graphene.Field(
         InventoryImportType,
         id=graphene.ID(required=True),
@@ -1289,10 +1283,6 @@ class InventoryQuery(graphene.ObjectType):  # type: ignore[misc]
     inventory_imports = graphene.List(
         graphene.NonNull(InventoryImportType),
         required=True,
-    )
-    inventory_export = graphene.Field(
-        InventoryExportType,
-        id=graphene.ID(required=True),
     )
     inventory_exports = graphene.List(
         graphene.NonNull(InventoryExportType),
@@ -1558,17 +1548,6 @@ class InventoryQuery(graphene.ObjectType):  # type: ignore[misc]
         }
 
     @staticmethod
-    def resolve_inventory_alerts(
-        _root: object,
-        info: GraphQLResolveInfo,
-        limit: int = 20,
-    ) -> list[InventoryAlert]:
-        try:
-            return active_stock_alerts(context_from_info(info), limit=limit)
-        except DomainError as exc:
-            raise graphql_error(info, exc) from exc
-
-    @staticmethod
     def resolve_inventory_import(
         _root: object,
         info: GraphQLResolveInfo,
@@ -1589,20 +1568,6 @@ class InventoryQuery(graphene.ObjectType):  # type: ignore[misc]
     ) -> list[InventoryImport]:
         try:
             return inventory_imports_for_context(context_from_info(info))
-        except DomainError as exc:
-            raise graphql_error(info, exc) from exc
-
-    @staticmethod
-    def resolve_inventory_export(
-        _root: object,
-        info: GraphQLResolveInfo,
-        id: str,
-    ) -> InventoryExport:
-        try:
-            return inventory_export_for_context(
-                context_from_info(info),
-                _uuid_or_not_found(id),
-            )
         except DomainError as exc:
             raise graphql_error(info, exc) from exc
 

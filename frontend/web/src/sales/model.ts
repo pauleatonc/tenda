@@ -112,7 +112,7 @@ export type SaleDraft = {
   updatedAt: string
 }
 
-export const SALE_DRAFT_STORAGE_KEY = 'tenda.sales.new-draft.v1'
+const SALE_DRAFT_STORAGE_KEY = 'tenda.sales.new-draft.v1'
 
 export function createEmptySaleDraft(): SaleDraft {
   return {
@@ -171,7 +171,7 @@ export type CompletedSaleNotice = {
   publicUrl: string | null
 }
 
-export function isCompletedSaleDraft(draft: SaleDraft): boolean {
+function isCompletedSaleDraft(draft: SaleDraft): boolean {
   return draft.step === 4 && Boolean(draft.createdOrderId)
 }
 

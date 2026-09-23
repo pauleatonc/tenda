@@ -6,10 +6,6 @@ import logging
 import pytest
 from django.test import Client, override_settings
 
-from apps.configuration.models import EncryptedCredential
-from apps.configuration.services import credential_secret, store_credential
-from apps.organisations.services import create_organisation_for_owner
-from apps.users.models import User
 from tenda.observability import RedactingJsonFormatter, scrub_sentry_event
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -19,14 +15,6 @@ TEST_STORAGES = {
         "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
-
-
-def organisation_for(email: str):
-    user = User.objects.create_user(
-        email=email,
-        password="Correct-Horse-Battery-42",
-    )
-    return create_organisation_for_owner(owner=user, name=email).organisation
 
 
 def test_structured_logs_redact_pii_credentials_and_tokens() -> None:
@@ -57,44 +45,6 @@ def test_security_headers_and_correlation_are_present() -> None:
     assert "default-src 'self'" in response["Content-Security-Policy"]
     assert response["X-Content-Type-Options"] == "nosniff"
     assert "camera=()" in response["Permissions-Policy"]
-
-
-def test_credentials_are_encrypted_rotatable_and_tenant_scoped() -> None:
-    first_organisation = organisation_for("secret-one@example.com")
-    second_organisation = organisation_for("secret-two@example.com")
-    first = store_credential(
-        organisation=first_organisation,
-        provider="mercado_pago",
-        secret="first-sensitive-access-token",
-    )
-    second = store_credential(
-        organisation=first_organisation,
-        provider="mercado_pago",
-        secret="rotated-sensitive-access-token",
-    )
-    store_credential(
-        organisation=second_organisation,
-        provider="mercado_pago",
-        secret="foreign-sensitive-access-token",
-    )
-
-    first.refresh_from_db()
-    assert first.is_active is False
-    assert second.is_active is True
-    assert "rotated-sensitive-access-token" not in second.ciphertext
-    assert (
-        credential_secret(
-            organisation=first_organisation,
-            provider="mercado_pago",
-        )
-        == "rotated-sensitive-access-token"
-    )
-    assert (
-        EncryptedCredential.objects.filter(
-            organisation=first_organisation,
-        ).count()
-        == 2
-    )
 
 
 def test_sentry_scrubber_removes_default_pii() -> None:

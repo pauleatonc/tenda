@@ -781,19 +781,6 @@ button.sale-method {
   font-size: 13px;
 }
 
-.alert-settings {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  margin-bottom: 18px;
-  padding: 12px 16px;
-}
-
-.alert-settings summary {
-  cursor: pointer;
-  font-weight: 700;
-}
-
 .inventory-settings .threshold-setting {
   margin-top: 0;
 }

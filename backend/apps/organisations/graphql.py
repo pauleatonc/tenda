@@ -17,14 +17,7 @@ from tenda.graphql import context_from_info, graphql_error
 
 from .bank import has_complete_bank_details
 from .models import Membership, Organisation
-from .permissions import OrganisationPermission, require_permission
-from .selectors import members_for_context
-from .services import (
-    add_member,
-    remove_member,
-    update_member,
-    update_organisation,
-)
+from .services import update_organisation
 
 
 class OrganisationType(graphene.ObjectType):  # type: ignore[misc]
@@ -194,42 +187,6 @@ class UpdateOrganisation(graphene.Mutation):  # type: ignore[misc]
         return UpdateOrganisation(organisation=organisation)
 
 
-class AddMemberInput(graphene.InputObjectType):  # type: ignore[misc]
-    email = graphene.String(required=True)
-    role = graphene.String(default_value=Membership.Role.OPERATOR)
-
-
-class AddOrganisationMember(graphene.Mutation):  # type: ignore[misc]
-    class Arguments:
-        input = graphene.Argument(AddMemberInput, required=True)
-
-    member = graphene.Field(MemberType, required=True)
-
-    @staticmethod
-    def mutate(
-        _root: object,
-        info: GraphQLResolveInfo,
-        input: dict[str, Any],
-    ) -> AddOrganisationMember:
-        try:
-            member = add_member(
-                context=context_from_info(info),
-                email=str(input.get("email", "")),
-                role=str(input.get("role", Membership.Role.OPERATOR)),
-            )
-        except DomainError as exc:
-            raise graphql_error(info, exc) from exc
-        return AddOrganisationMember(member=member)
-
-
-class UpdateMemberInput(graphene.InputObjectType):  # type: ignore[misc]
-    member_id = graphene.ID(required=True)
-    role = graphene.String(required=True)
-    view_financials = graphene.Boolean(required=True)
-    manage_members = graphene.Boolean(required=True)
-    manage_sensitive_configuration = graphene.Boolean(required=True)
-
-
 def _uuid_or_not_found(value: object) -> uuid.UUID:
     try:
         return uuid.UUID(str(value))
@@ -237,59 +194,10 @@ def _uuid_or_not_found(value: object) -> uuid.UUID:
         raise ResourceNotFound() from exc
 
 
-class UpdateOrganisationMember(graphene.Mutation):  # type: ignore[misc]
-    class Arguments:
-        input = graphene.Argument(UpdateMemberInput, required=True)
-
-    member = graphene.Field(MemberType, required=True)
-
-    @staticmethod
-    def mutate(
-        _root: object,
-        info: GraphQLResolveInfo,
-        input: dict[str, Any],
-    ) -> UpdateOrganisationMember:
-        try:
-            member = update_member(
-                context=context_from_info(info),
-                member_id=_uuid_or_not_found(input.get("member_id")),
-                role=str(input.get("role", "")),
-                view_financials=bool(input.get("view_financials")),
-                manage_members=bool(input.get("manage_members")),
-                manage_sensitive_configuration=bool(input.get("manage_sensitive_configuration")),
-            )
-        except DomainError as exc:
-            raise graphql_error(info, exc) from exc
-        return UpdateOrganisationMember(member=member)
-
-
-class RemoveOrganisationMember(graphene.Mutation):  # type: ignore[misc]
-    class Arguments:
-        member_id = graphene.ID(required=True)
-
-    removed_member_id = graphene.ID(required=True)
-
-    @staticmethod
-    def mutate(
-        _root: object,
-        info: GraphQLResolveInfo,
-        member_id: object,
-    ) -> RemoveOrganisationMember:
-        try:
-            member = remove_member(
-                context=context_from_info(info),
-                member_id=_uuid_or_not_found(member_id),
-            )
-        except DomainError as exc:
-            raise graphql_error(info, exc) from exc
-        return RemoveOrganisationMember(removed_member_id=str(member.public_id))
-
-
 class OrganisationsQuery(graphene.ObjectType):  # type: ignore[misc]
     organisation = graphene.Field(OrganisationType)
     active_inventory = graphene.Field(InventoryContextType)
     active_membership = graphene.Field(MemberType)
-    members = graphene.List(graphene.NonNull(MemberType), required=True)
 
     @staticmethod
     def resolve_organisation(
@@ -321,24 +229,6 @@ class OrganisationsQuery(graphene.ObjectType):  # type: ignore[misc]
         except DomainError as exc:
             raise graphql_error(info, exc) from exc
 
-    @staticmethod
-    def resolve_members(
-        _root: object,
-        info: GraphQLResolveInfo,
-    ) -> list[Membership]:
-        try:
-            context = context_from_info(info)
-            require_permission(
-                context.membership,
-                OrganisationPermission.MANAGE_MEMBERS,
-            )
-            return list(members_for_context(context))
-        except DomainError as exc:
-            raise graphql_error(info, exc) from exc
-
 
 class OrganisationsMutation(graphene.ObjectType):  # type: ignore[misc]
     update_organisation = UpdateOrganisation.Field(required=True)
-    add_organisation_member = AddOrganisationMember.Field(required=True)
-    update_organisation_member = UpdateOrganisationMember.Field(required=True)
-    remove_organisation_member = RemoveOrganisationMember.Field(required=True)

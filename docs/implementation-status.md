@@ -117,8 +117,9 @@ Decisiones/deuda:
 - Verificación de email y recuperación usan tokens hasheados, de un uso y con
   expiración. Las respuestas públicas no permiten enumerar cuentas.
 - Rate limiting de autenticación durable en PostgreSQL.
-- Google OIDC dispone de adapter fake determinista; LinkedIn permanece detrás
-  de flag. No se almacenan ni registran tokens sin hash.
+- Google OIDC dispone de adapter fake determinista; es el único proveedor
+  social (el scaffold LinkedIn se retiró). No se almacenan ni registran tokens
+  sin hash.
 - Selectores tenant-safe ocultan IDs de otra Tienda.
 - REST versionado, contrato GraphQL de identidad/Tienda, cliente generado,
   Django Admin, pantallas web y flujos Expo implementados.
@@ -232,8 +233,8 @@ Próximo paquete habilitado: T0.6, integraciones externas y adapters fake.
   valida firma antes de persistir y deduplica por evento de proveedor.
 - La firma Mercado Pago sigue el manifest oficial, convierte `data.id` a
   minúsculas y omite segmentos ausentes.
-- Turnstile mantiene adapter real y fake local explícito; Google OIDC fake y
-  LinkedIn apagado siguen vigentes.
+- Turnstile mantiene adapter real y fake local explícito; Google OIDC fake
+  sigue vigente.
 - Credenciales y selección de proveedores quedan exclusivamente en ambiente.
 
 Validación ejecutada:
@@ -302,7 +303,6 @@ recuperación.
   Admin o prefijo privado de Admin. `check --deploy` corre en CI.
 - Django Admin queda fuera de rutas conocidas, restringido por red de
   administración, sin caché y con límite de intentos durable en PostgreSQL.
-  Las credenciales cifradas no se muestran ni editan.
 - CI agrega auditoría de dependencias JavaScript y Python, escaneo de código,
   configuración y secretos, validación de Compose de operación y lint de los
   scripts operativos.
@@ -344,8 +344,7 @@ Decisiones/deuda:
 
 - Local y Dev levantan desde checkout limpio; health y readiness responden y
   las migraciones son repetibles y sin drift.
-- Registro, login, verificación, recuperación y Google fake funcionan;
-  LinkedIn permanece detrás de flag.
+- Registro, login, verificación, recuperación y Google fake funcionan.
 - Aislamiento por Tienda y matriz de permisos verificados
   automáticamente.
 - GraphQL y REST comparten envelope de error, idempotencia y correlation ID; el

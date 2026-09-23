@@ -19,8 +19,7 @@ import { graphqlRequest } from '../lib/http'
 
 export type { GenerateShipmentLabelRequest, RegisterShipmentDispatchRequest, ShipmentFilter }
 
-export type ShippingDashboard = Awaited<ReturnType<typeof fetchShippingDashboard>>
-export type ShipmentListPage = Awaited<ReturnType<typeof fetchShipments>>
+type ShipmentListPage = Awaited<ReturnType<typeof fetchShipments>>
 export type ShipmentSummary = ShipmentListPage['nodes'][number]
 export type SellerShipment = NonNullable<Awaited<ReturnType<typeof fetchShipment>>>
 

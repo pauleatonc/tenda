@@ -115,21 +115,6 @@ def ensure_shipment_for_paid_order(
     return ShipmentResult(shipment=shipment, replayed=False)
 
 
-def shipment_for_context(context: TenantContext, shipment_id: Any) -> Shipment:
-    shipment = (
-        Shipment.objects.filter(
-            public_id=shipment_id,
-            organisation=context.organisation,
-            inventory=context.inventory,
-        )
-        .select_related("order", "order__buyer")
-        .first()
-    )
-    if shipment is None:
-        raise ResourceNotFound()
-    return shipment
-
-
 def _tenant_context_for_label(shipment: Shipment, actor: Any) -> TenantContext | None:
     if actor is not None:
         membership = (

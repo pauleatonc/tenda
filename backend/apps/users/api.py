@@ -502,15 +502,10 @@ def social_start_view(request: HttpRequest, provider: str) -> HttpResponse:
         identity=provider,
         ip_address=_client_ip(request),
     )
-    callback_url = (
-        settings.GOOGLE_OIDC_CALLBACK_URL
-        if provider == "google"
-        else settings.LINKEDIN_OIDC_CALLBACK_URL
-    )
     start = begin_oidc(
         provider_name=provider,
         client=client,
-        callback_url=str(callback_url),
+        callback_url=str(settings.GOOGLE_OIDC_CALLBACK_URL),
         return_to=request.GET.get("returnTo", ""),
     )
     return success({"authorizationUrl": start.authorization_url, "provider": provider})

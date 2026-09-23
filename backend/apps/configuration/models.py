@@ -91,32 +91,3 @@ class FeatureFlag(models.Model):
 
     def __str__(self) -> str:
         return self.key
-
-
-class EncryptedCredential(models.Model):
-    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
-    organisation = models.ForeignKey(
-        "organisations.Organisation",
-        on_delete=models.CASCADE,
-        related_name="encrypted_credentials",
-    )
-    provider = models.CharField(max_length=80)
-    ciphertext = models.TextField(editable=False)
-    key_version = models.PositiveSmallIntegerField(default=1)
-    metadata = models.JSONField(default=dict, blank=True)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ("provider", "-created_at")
-        constraints = [
-            models.UniqueConstraint(
-                fields=("organisation", "provider"),
-                condition=Q(is_active=True),
-                name="configuration_active_credential_unique",
-            )
-        ]
-
-    def __str__(self) -> str:
-        return f"{self.provider} · {self.organisation}"

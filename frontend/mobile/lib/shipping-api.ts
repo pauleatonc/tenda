@@ -69,8 +69,7 @@ export async function generateShipmentLabel(input: GenerateShipmentLabelRequest)
   }
 }
 
-export type ShippingDashboard = Awaited<ReturnType<typeof fetchShippingDashboard>>
-export type ShipmentListPage = Awaited<ReturnType<typeof fetchShipments>>
+type ShipmentListPage = Awaited<ReturnType<typeof fetchShipments>>
 export type ShipmentCard = ShipmentListPage['nodes'][number]
 export type SellerShipment = NonNullable<Awaited<ReturnType<typeof fetchShipment>>>
 

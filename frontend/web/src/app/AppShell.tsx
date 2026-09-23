@@ -4,7 +4,7 @@ import { Link, NavLink, Outlet, useNavigate, useOutletContext } from 'react-rout
 
 import { getViewer, logout, TendaApiError, type ViewerPayload } from '../auth/api'
 import { AuthenticatedImage, PersonAvatar } from '../components/AuthenticatedImage'
-import { ConnectivityBanner, EmptyState, StatusChip } from '../components/ui'
+import { ConnectivityBanner, StatusChip } from '../components/ui'
 import { InventorySummary } from '../inventory/InventorySummary'
 import { SalesAttentionSummary } from '../sales/SalesAttentionSummary'
 import { ShippingHomeSummary } from '../shipping/ShippingHomeSummary'
@@ -211,60 +211,6 @@ export function DashboardPage() {
         <ShippingHomeSummary />
       </section>
     </>
-  )
-}
-
-export function SectionPlaceholder({
-  title,
-  description,
-  stage,
-}: {
-  title: string
-  description: string
-  stage: string
-}) {
-  return (
-    <>
-      <header className="page-heading">
-        <div>
-          <p className="eyebrow">{stage}</p>
-          <h1>{title}</h1>
-          <p>{description}</p>
-        </div>
-      </header>
-      <EmptyState
-        title={`${title} está preparado`}
-        description="La navegación y los estados base ya están disponibles. El contenido de dominio se habilita en su paquete funcional."
-        action={<StatusChip status="coming_soon" />}
-      />
-    </>
-  )
-}
-
-export function BalancesPlaceholder() {
-  const data = useViewerContext()
-  if (!data.membership.permissions.viewFinancials) {
-    return (
-      <>
-        <header className="page-heading">
-          <div>
-            <p className="eyebrow">Permiso requerido</p>
-            <h1>Balances</h1>
-          </div>
-        </header>
-        <EmptyState
-          title="No tienes acceso a información financiera"
-          description="Un titular puede habilitar el permiso view_financials para tu membresía."
-        />
-      </>
-    )
-  }
-  return (
-    <SectionPlaceholder
-      title="Balances"
-      description="Resumen comercial basado en ventas confirmadas."
-      stage="Etapa 2"
-    />
   )
 }
 

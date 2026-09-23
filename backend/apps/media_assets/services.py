@@ -39,10 +39,6 @@ _PURPOSE_RULES: dict[str, tuple[set[str], int]] = {
         {"image/jpeg", "image/png", "image/webp", "application/pdf"},
         15 * 1024 * 1024,
     ),
-    MediaAsset.Purpose.SHIPPING_EVIDENCE: (
-        {"image/jpeg", "image/png", "image/webp", "application/pdf"},
-        15 * 1024 * 1024,
-    ),
     MediaAsset.Purpose.IMPORT_FILE: (
         {
             "text/csv",

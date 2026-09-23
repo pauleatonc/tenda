@@ -5,7 +5,7 @@ import * as WebBrowser from 'expo-web-browser'
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000'
 const TOKEN_KEY = 'tenda.mobile.access-token'
 
-export type MobileViewer = {
+type MobileViewer = {
   viewer: {
     id: string
     email: string
@@ -92,7 +92,7 @@ async function saveAuth(response: AuthResponse): Promise<MobileViewer> {
   return response
 }
 
-export async function clearStoredToken() {
+async function clearStoredToken() {
   await SecureStore.deleteItemAsync(TOKEN_KEY)
 }
 

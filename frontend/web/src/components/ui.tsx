@@ -43,30 +43,6 @@ export function SearchField({
   )
 }
 
-export function FilterPanel({
-  children,
-  activeCount = 0,
-  onClear,
-}: {
-  children: ReactNode
-  activeCount?: number
-  onClear?: () => void
-}) {
-  return (
-    <aside className="filter-panel" aria-label="Filtros">
-      <div className="filter-panel__header">
-        <strong>Filtros {activeCount ? `(${activeCount})` : ''}</strong>
-        {activeCount && onClear ? (
-          <button type="button" onClick={onClear}>
-            Limpiar
-          </button>
-        ) : null}
-      </div>
-      {children}
-    </aside>
-  )
-}
-
 const statusLabels: Record<string, string> = {
   active: 'Activo',
   available: 'Disponible',
@@ -162,7 +138,7 @@ export function UploadField({
   )
 }
 
-export type TimelineItem = {
+type TimelineItem = {
   id: string
   title: string
   detail?: string

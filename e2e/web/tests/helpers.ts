@@ -3,8 +3,8 @@ import { execFileSync } from 'node:child_process'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-export const E2E_EMAIL = 'e2e.owner@tenda.test'
-export const E2E_PASSWORD = 'Correct-Horse-Battery-42'
+const E2E_EMAIL = 'e2e.owner@tenda.test'
+const E2E_PASSWORD = 'Correct-Horse-Battery-42'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 

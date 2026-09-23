@@ -2,10 +2,10 @@ import * as SecureStore from 'expo-secure-store'
 
 import { newIdempotencyKey } from './graphql'
 
-export const SALE_DRAFT_STORAGE_KEY = 'tenda.mobile.sale-draft.v1'
+const SALE_DRAFT_STORAGE_KEY = 'tenda.mobile.sale-draft.v1'
 
-export type SaleDeliveryMode = 'shipping' | 'pickup'
-export type SalePaymentMethod = 'bank_transfer' | 'cash' | 'mercado_pago'
+type SaleDeliveryMode = 'shipping' | 'pickup'
+type SalePaymentMethod = 'bank_transfer' | 'cash' | 'mercado_pago'
 export type SaleDraftStep = 'products' | 'terms' | 'review' | 'result'
 
 export type SaleDraftLine = {
@@ -200,7 +200,7 @@ export function validateSaleDraftLines(lines: SaleDraftLine[]): SaleDraftValidat
   }
 }
 
-export async function loadSaleDraft(): Promise<SaleDraft> {
+async function loadSaleDraft(): Promise<SaleDraft> {
   const stored = await SecureStore.getItemAsync(SALE_DRAFT_STORAGE_KEY)
   if (!stored) return createEmptySaleDraft()
   try {
@@ -223,7 +223,7 @@ export async function clearSaleDraft(): Promise<void> {
   await SecureStore.deleteItemAsync(SALE_DRAFT_STORAGE_KEY)
 }
 
-export function isCompletedSaleDraft(draft: SaleDraft): boolean {
+function isCompletedSaleDraft(draft: SaleDraft): boolean {
   return draft.step === 'result' && draft.result !== null
 }
 

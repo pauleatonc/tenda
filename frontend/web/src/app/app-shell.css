@@ -288,8 +288,7 @@
   gap: 20px;
 }
 
-.attention-card,
-.context-card {
+.attention-card {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 20px;
@@ -307,8 +306,7 @@
   margin: 18px 0 8px;
 }
 
-.attention-card p,
-.context-card p {
+.attention-card p {
   color: var(--ink-soft);
   line-height: 1.55;
   margin: 0;
@@ -322,24 +320,6 @@
 
 .attention-card--warning {
   border-color: #d9bf70;
-}
-
-.context-card {
-  display: grid;
-  gap: 8px;
-}
-
-.context-card > span {
-  color: var(--ink-muted);
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.context-card > strong {
-  color: var(--ink);
-  font-size: 20px;
-  margin-bottom: 6px;
 }
 
 .settings-list {

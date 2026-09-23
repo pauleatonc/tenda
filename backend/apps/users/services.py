@@ -538,14 +538,9 @@ def complete_oidc(
         )
     state.consumed_at = timezone.now()
     state.save(update_fields=("consumed_at",))
-    callback_url = (
-        str(settings.GOOGLE_OIDC_CALLBACK_URL)
-        if provider_name == "google"
-        else str(settings.LINKEDIN_OIDC_CALLBACK_URL)
-    )
     identity = get_oidc_provider(provider_name).exchange(
         code=code,
-        callback_url=callback_url,
+        callback_url=str(settings.GOOGLE_OIDC_CALLBACK_URL),
     )
     if not identity.email_verified:
         raise DomainError(
@@ -566,14 +561,6 @@ def complete_oidc(
         client=state.client,
         return_to=state.return_to,
     )
-
-
-def oidc_state_client(*, raw_state: str, provider_name: str) -> str | None:
-    state = OIDCLoginState.objects.filter(
-        state_digest=_token_digest(raw_state),
-        provider=provider_name,
-    ).first()
-    return state.client if state is not None else None
 
 
 def _rate_key(*, action: str, identity: str, ip_address: str) -> str:

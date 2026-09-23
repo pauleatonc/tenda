@@ -30,7 +30,7 @@ export const deliveryModeLabels: Record<string, string> = {
   coordinated: 'Retiro / coordinación',
 }
 
-export const nextActionLabels: Record<string, string> = {
+const nextActionLabels: Record<string, string> = {
   share_link: 'Compartir enlace',
   await_buyer: 'Esperar datos del comprador',
   await_payment: 'Esperar pago',
@@ -240,7 +240,6 @@ export const salesStyles = StyleSheet.create({
   filterHeading: { color: colors.ink, fontSize: 15, fontWeight: '800' },
   footerItem: { flex: 1 },
   actions: { gap: 10 },
-  actionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
 })
 
 const styles = StyleSheet.create({

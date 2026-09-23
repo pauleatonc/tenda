@@ -78,9 +78,6 @@ def provision_generated_fields(obj: models.Model) -> None:
             token = secrets.token_urlsafe(32)
             digest = _digest(token)
 
-    if "ciphertext" in fields and not getattr(obj, "ciphertext", ""):
-        obj.ciphertext = encrypt_credential("")  # type: ignore[attr-defined]
-
     if "token_prefix" in fields and not getattr(obj, "token_prefix", ""):
         obj.token_prefix = secrets.token_hex(6)  # type: ignore[attr-defined]
 

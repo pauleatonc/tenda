@@ -18,7 +18,6 @@ jest.mock('../../../lib/sales-api', () => ({
   cancelOrder: jest.fn(),
   restoreOrder: jest.fn(),
   refundPayment: jest.fn(),
-  resendOrderLink: jest.fn(),
   reissueBankTransferOffer: jest.fn(),
   sendOfferLink: jest.fn(),
   updateOrderBuyer: jest.fn(),

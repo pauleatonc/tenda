@@ -9,7 +9,6 @@ import {
   RefundPaymentDocument,
   RestoreOrderDocument,
   ReissueBankTransferOfferDocument,
-  ResendOrderLinkDocument,
   SendOfferLinkDocument,
   ReviewPaymentProofDocument,
   SalesBalanceBreakdownDocument,
@@ -33,7 +32,6 @@ import {
   type RefundPaymentRequest,
   type RestoreOrderRequest,
   type ReissueBankTransferOfferRequest,
-  type ResendOrderLinkRequest,
   type SendOfferLinkRequest,
   type ReviewPaymentProofRequest,
   type UpdateOrderBuyerRequest,
@@ -158,18 +156,6 @@ export async function refundPayment(input: RefundPaymentRequest) {
   }
 }
 
-export async function resendOrderLink(input: ResendOrderLinkRequest) {
-  const data = await graphqlRequest(ResendOrderLinkDocument, {
-    orderId: input.orderId,
-    idempotencyKey: input.idempotencyKey,
-  })
-  return {
-    replayed: data.resendOrderLink.replayed,
-    publicUrl: data.resendOrderLink.order.publicUrl,
-    order: mapSellerOrder(data.resendOrderLink.order),
-  }
-}
-
 export async function updateOrderBuyer(input: UpdateOrderBuyerRequest) {
   const data = await graphqlRequest(UpdateOrderBuyerDocument, {
     orderId: input.orderId,
@@ -244,16 +230,11 @@ export async function disconnectMercadoPagoConnection() {
   return data.disconnectMercadoPagoConnection.connection
 }
 
-export type SalesDashboard = Awaited<ReturnType<typeof fetchSalesDashboard>>
-export type SalesOrderPage = Awaited<ReturnType<typeof fetchOrders>>
+type SalesOrderPage = Awaited<ReturnType<typeof fetchOrders>>
 export type SalesOrderCard = SalesOrderPage['nodes'][number]
 export type SellerOrder = NonNullable<Awaited<ReturnType<typeof fetchOrder>>>
-export type SalesBalance = Awaited<ReturnType<typeof fetchSalesBalance>>
-export type SalesBalanceBreakdownPage = Awaited<
-  ReturnType<typeof fetchSalesBalanceBreakdown>
->
+type SalesBalanceBreakdownPage = Awaited<ReturnType<typeof fetchSalesBalanceBreakdown>>
 export type SalesBalanceBreakdownRow = SalesBalanceBreakdownPage['nodes'][number]
-export type SellerPaymentData = Awaited<ReturnType<typeof fetchSellerPaymentConnection>>
 
 export const salesKeys = {
   root: ['sales'] as const,

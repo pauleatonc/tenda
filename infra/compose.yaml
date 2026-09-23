@@ -149,7 +149,7 @@ services:
         'watchfiles',
         '--filter',
         'python',
-        'celery -A tenda worker --loglevel=INFO --queues=default,email,imports,payments',
+        'celery -A tenda worker --loglevel=INFO --queues=default,imports,payments',
         '/app/apps',
         '/app/tenda',
       ]

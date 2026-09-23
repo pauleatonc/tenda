@@ -16,7 +16,7 @@ function normalizeAttributes(attrs: Record<string, unknown>): Record<string, unk
   return next
 }
 
-export function normalizeIdentityDraft(draft: ProductIdentityDraft): ProductIdentityDraft {
+function normalizeIdentityDraft(draft: ProductIdentityDraft): ProductIdentityDraft {
   return {
     name: draft.name.trim().toLocaleLowerCase('es-CL'),
     catalogStatus: draft.catalogStatus,

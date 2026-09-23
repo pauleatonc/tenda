@@ -29,7 +29,7 @@ class NotificationAdmin(MaintainerModelAdmin):
     list_display = ("template", "channel", "status", "recipient", "created_at")
     list_filter = ("status", "channel", "template")
     search_fields = ("public_id", "recipient")
-    autocomplete_fields = ("organisation", "user", "outbox_event")
+    autocomplete_fields = ("organisation", "outbox_event")
     inlines = (NotificationDeliveryInline,)
 
 

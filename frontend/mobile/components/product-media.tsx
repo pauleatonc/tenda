@@ -184,7 +184,7 @@ export function MobileProductMedia({
   )
 }
 
-export const MAX_CREATE_PHOTOS = 10
+const MAX_CREATE_PHOTOS = 10
 
 export function MobilePendingPhotoQueue({
   photos,

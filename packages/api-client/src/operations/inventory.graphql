@@ -314,12 +314,6 @@ mutation ReorderCustomFields($fieldIds: [ID!]!) {
   }
 }
 
-query InventoryAlerts($limit: Int) {
-  inventoryAlerts(limit: $limit) {
-    ...InventoryAlert
-  }
-}
-
 query InventoryImport($id: ID!) {
   inventoryImport(id: $id) {
     ...InventoryImportJob
@@ -329,12 +323,6 @@ query InventoryImport($id: ID!) {
 query InventoryImports {
   inventoryImports {
     ...InventoryImportJob
-  }
-}
-
-query InventoryExport($id: ID!) {
-  inventoryExport(id: $id) {
-    ...InventoryExportJob
   }
 }
 

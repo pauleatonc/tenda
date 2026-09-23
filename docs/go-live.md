@@ -32,7 +32,6 @@ Producción. Dev y Prod usan Turnstile real.
 | Backup R2 + age      | No corre off-site                   | Recipient, bucket privado, retención aprobada    | Bloqueado |
 | Brevo                | Outbox fake                         | Dominio autenticado, webhook bounce              | Bloqueado |
 | Google OIDC          | Adapter fake                        | Client ID/secret y callback Prod                 | Opcional  |
-| LinkedIn OIDC        | Flag off                            | Solo si producto OIDC está habilitado            | Fuera     |
 | Mercado Pago Chile   | Fake; transferencia/efectivo operan | OAuth, pago, refund, webhook, fee, desconexión   | Bloqueado |
 | Parámetros           | Seeds reserva 8 h / revisión 24 h   | Valores de Producción firmados                   | Bloqueado |
 | Retención/privacidad | Sin jobs de borrado                 | Política de comprador, envíos, fotos, analítica  | Bloqueado |
@@ -48,8 +47,9 @@ este repositorio.
 
 ## Seguridad ya implementada (no rehacer)
 
-- Tokens públicos opacos y con TTL (pedido y envío).
-- Rate limit durable en PostgreSQL para auth, Admin, confirmación y consulta.
+- Tokens públicos opacos y con TTL (pedido).
+- Rate limit durable en PostgreSQL para auth, Admin, acciones del pedido público
+  y formulario de contacto.
 - CSRF cookie + header en web; mobile bearer sin cookie de sesión.
 - CORS acotado a `WEB_ORIGIN`; CSP en Django y Nginx.
 - Uploads con propósito, tipo, tamaño y aislamiento tenant.

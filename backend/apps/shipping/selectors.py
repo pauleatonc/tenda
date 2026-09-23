@@ -17,7 +17,6 @@ from .models import Shipment
 STATUS_LABELS: dict[str, str] = dict(Shipment.Status.choices)
 
 REGISTRABLE_STATUSES = frozenset({Shipment.Status.PENDING})
-SETTLED_STATUSES = frozenset({Shipment.Status.DISPATCHED, Shipment.Status.DELIVERED})
 
 
 @dataclass(frozen=True, slots=True)

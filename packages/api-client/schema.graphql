@@ -60,16 +60,13 @@ type Query {
     first: Int
     after: String
   ): ProductShipmentConnectionType!
-  inventoryAlerts(limit: Int): [InventoryAlertType!]!
   inventoryImport(id: ID!): InventoryImportType
   inventoryImports: [InventoryImportType!]!
-  inventoryExport(id: ID!): InventoryExportType
   inventoryExports: [InventoryExportType!]!
   inventoryImportTemplate: InventoryImportTemplateType!
   organisation: OrganisationType
   activeInventory: InventoryContextType
   activeMembership: MemberType
-  members: [MemberType!]!
   viewer: ViewerType
   health: String!
 }
@@ -855,9 +852,6 @@ type Mutation {
     threshold: Int
   ): UpdateProductLowStockThreshold!
   updateOrganisation(input: UpdateOrganisationInput!): UpdateOrganisation!
-  addOrganisationMember(input: AddMemberInput!): AddOrganisationMember!
-  updateOrganisationMember(input: UpdateMemberInput!): UpdateOrganisationMember!
-  removeOrganisationMember(memberId: ID!): RemoveOrganisationMember!
   updateProfile(input: UpdateProfileInput!): UpdateProfile!
 }
 
@@ -1157,31 +1151,6 @@ input UpdateOrganisationInput {
   bankAccountNumber: String
   bankHolderTaxId: String
   bankConfirmationEmail: String
-}
-
-type AddOrganisationMember {
-  member: MemberType!
-}
-
-input AddMemberInput {
-  email: String!
-  role: String = "operator"
-}
-
-type UpdateOrganisationMember {
-  member: MemberType!
-}
-
-input UpdateMemberInput {
-  memberId: ID!
-  role: String!
-  viewFinancials: Boolean!
-  manageMembers: Boolean!
-  manageSensitiveConfiguration: Boolean!
-}
-
-type RemoveOrganisationMember {
-  removedMemberId: ID!
 }
 
 type UpdateProfile {

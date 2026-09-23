@@ -20,24 +20,6 @@ BANK_ACCOUNT_TYPES = {
     "cuenta_rut": "CuentaRUT",
 }
 
-CHILEAN_BANKS = (
-    "Banco de Chile",
-    "BancoEstado",
-    "Banco Santander",
-    "BCI",
-    "Itaú",
-    "Scotiabank",
-    "Banco Falabella",
-    "Banco BICE",
-    "Banco Security",
-    "Banco Consorcio",
-    "Banco Ripley",
-    "Banco Internacional",
-    "Coopeuch",
-    "Tenpo",
-    "Mercado Pago",
-)
-
 BANK_FIELDS = (
     "bank_name",
     "bank_account_type",

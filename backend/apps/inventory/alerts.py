@@ -11,7 +11,6 @@ import uuid
 from typing import Any
 
 from django.db import transaction
-from django.db.models import QuerySet
 from django.utils import timezone
 
 from apps.audit.services import record_audit_event
@@ -120,10 +119,6 @@ def active_stock_alerts(
         .select_related("product")
         .order_by("-opened_at", "-id")[:safe_limit]
     )
-
-
-def stock_alert_history(context: TenantContext) -> QuerySet[InventoryAlert]:
-    return InventoryAlert.objects.filter(inventory=context.inventory).select_related("product")
 
 
 @transaction.atomic

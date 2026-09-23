@@ -16,14 +16,12 @@ from apps.organisations.selectors import (
     resolve_tenant_context,
 )
 from apps.organisations.services import (
-    add_member,
     create_organisation_for_owner,
-    remove_member,
     update_organisation,
 )
 from apps.users.models import MobileSession, Profile, User
 from apps.users.providers import fake_auth_delivery_provider
-from tenda.errors import DomainError, PermissionDenied, ResourceNotFound
+from tenda.errors import PermissionDenied, ResourceNotFound
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -296,22 +294,22 @@ def test_login_and_register_require_turnstile_when_enabled() -> None:
 
 
 @override_settings(GOOGLE_OIDC_PROVIDER="fake")
-def test_fake_google_oidc_is_deterministic_and_linkedin_is_off() -> None:
+def test_fake_google_oidc_is_deterministic_and_unknown_provider_is_off() -> None:
     client = Client()
     start = client.get("/api/v1/auth/social/google/start")
     authorization_url = start.json()["data"]["authorizationUrl"]
     parsed = urlparse(authorization_url)
     callback = client.get(f"{parsed.path}?{parsed.query}")
     viewer = client.get("/api/v1/auth/viewer")
-    linkedin = client.get("/api/v1/auth/social/linkedin/start")
+    unknown = client.get("/api/v1/auth/social/unknown/start")
 
     assert parse_qs(parsed.query)["code"] == ["tenda-fake-google"]
     assert callback.status_code == 302
     assert callback["Location"].endswith("/app")
     assert viewer.status_code == 200
     assert viewer.json()["data"]["viewer"]["email"] == "google.user@example.test"
-    assert linkedin.status_code == 404
-    assert linkedin.json()["error"]["code"] == "PROVIDER_UNAVAILABLE"
+    assert unknown.status_code == 404
+    assert unknown.json()["error"]["code"] == "PROVIDER_UNAVAILABLE"
 
 
 @override_settings(GOOGLE_OIDC_PROVIDER="fake")
@@ -433,25 +431,6 @@ def test_tenant_selectors_hide_foreign_ids_and_operator_defaults_are_safe() -> N
     assert owner.email != operator.email
 
 
-def test_owner_manages_members_but_cannot_remove_last_owner() -> None:
-    owner, _organisation, _inventory, _membership = verified_identity()
-    operator = User.objects.create_user(
-        email="member@example.com",
-        password="Correct-Horse-Battery-42",
-        email_verified_at=timezone.now(),
-    )
-    context = resolve_tenant_context(owner)
-
-    added = add_member(context=context, email=operator.email)
-    removed = remove_member(context=context, member_id=added.public_id)
-
-    assert added.role == Membership.Role.OPERATOR
-    assert removed.is_active is False
-    with pytest.raises(DomainError) as error:
-        remove_member(context=context, member_id=context.membership.public_id)
-    assert error.value.code == "LAST_OWNER_REQUIRED"
-
-
 def test_graphql_minimum_contract_and_permission_errors() -> None:
     owner, organisation, _inventory, _membership = verified_identity()
     client = Client()
@@ -466,7 +445,7 @@ def test_graphql_minimum_contract_and_permission_errors() -> None:
         viewer { id email emailVerified profile { fullName phone photoUrl } }
         organisation { id name timezone address description logoUrl }
         activeInventory { id name }
-        members { id email role roleLabel permissions { viewFinancials manageMembers } }
+        activeMembership { id role roleLabel permissions { viewFinancials manageMembers } }
       }
     """
     result = post_json(client, "/graphql/", {"query": query})
@@ -498,8 +477,9 @@ def test_graphql_minimum_contract_and_permission_errors() -> None:
     assert result.status_code == 200
     assert result.json()["data"]["viewer"]["email"] == owner.email
     assert result.json()["data"]["organisation"]["id"] == str(organisation.public_id)
-    assert result.json()["data"]["members"][0]["role"] == "owner"
-    assert result.json()["data"]["members"][0]["roleLabel"] == "titular"
+    assert result.json()["data"]["activeMembership"]["role"] == "owner"
+    assert result.json()["data"]["activeMembership"]["roleLabel"] == "titular"
+    assert result.json()["data"]["activeMembership"]["permissions"]["manageMembers"] is True
     assert updated.json()["data"]["updateProfile"]["profile"]["fullName"] == "Owner Updated"
     assert (
         updated.json()["data"]["updateOrganisation"]["organisation"]["name"] == "Tienda Actualizada"
@@ -509,7 +489,7 @@ def test_graphql_minimum_contract_and_permission_errors() -> None:
     )
 
 
-def test_operator_graphql_cannot_list_members_or_update_organisation() -> None:
+def test_operator_graphql_cannot_update_organisation() -> None:
     operator, _organisation, _inventory, _membership = verified_identity(
         email="graphql-operator@example.com",
         role=Membership.Role.OPERATOR,
@@ -525,8 +505,18 @@ def test_operator_graphql_cannot_list_members_or_update_organisation() -> None:
         "/graphql/",
         {
             "query": """
-              query { members { id } }
+              mutation Update($organisation: UpdateOrganisationInput!) {
+                updateOrganisation(input: $organisation) { organisation { name } }
+              }
             """,
+            "variables": {
+                "organisation": {
+                    "name": "Intento operador",
+                    "phone": "+56222222222",
+                    "businessEmail": "ventas@example.com",
+                    "timezone": "America/Santiago",
+                },
+            },
         },
     )
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import uuid
 
-from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
@@ -63,7 +62,6 @@ class OutboxEvent(models.Model):
 class Notification(models.Model):
     class Channel(models.TextChoices):
         EMAIL = "email", "Email"
-        IN_APP = "in_app", "In app"
 
     class Status(models.TextChoices):
         QUEUED = "queued", "Queued"
@@ -73,13 +71,6 @@ class Notification(models.Model):
     public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     organisation = models.ForeignKey(
         "organisations.Organisation",
-        on_delete=models.CASCADE,
-        null=True,
-        blank=True,
-        related_name="notifications",
-    )
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         null=True,
         blank=True,
@@ -109,8 +100,8 @@ class Notification(models.Model):
         ordering = ("-created_at",)
         indexes = [
             models.Index(
-                fields=("organisation", "user", "created_at"),
-                name="notifications_tenant_user_idx",
+                fields=("organisation", "created_at"),
+                name="notifications_tenant_idx",
             )
         ]
         constraints = [

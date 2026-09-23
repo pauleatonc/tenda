@@ -30,7 +30,7 @@ function storageKey(token: string): string {
   return `tenda.public-checkout.${token}.v1`
 }
 
-export function createPublicCheckoutDraft(): PublicCheckoutDraft {
+function createPublicCheckoutDraft(): PublicCheckoutDraft {
   return {
     version: 2,
     step: 1,
@@ -91,13 +91,6 @@ export function savePublicCheckoutDraft(
   storage: Storage = window.sessionStorage,
 ): void {
   storage.setItem(storageKey(token), JSON.stringify(draft))
-}
-
-export function clearPublicCheckoutDraft(
-  token: string,
-  storage: Storage = window.sessionStorage,
-): void {
-  storage.removeItem(storageKey(token))
 }
 
 export type CheckoutErrors = Partial<

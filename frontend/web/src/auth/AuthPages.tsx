@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useForm, type UseFormRegisterReturn } from 'react-hook-form'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
@@ -9,9 +9,7 @@ import { TurnstileField, turnstileSiteKey } from '../components/TurnstileField'
 import {
   TendaApiError,
   confirmPasswordReset,
-  getViewer,
   login,
-  logout,
   registerAccount,
   requestPasswordReset,
   resendVerification,
@@ -569,91 +567,5 @@ export function RecoveryPage() {
         <Link to="/login">Volver al inicio de sesión</Link>
       </p>
     </AuthShell>
-  )
-}
-
-export function AppHomePage() {
-  const navigate = useNavigate()
-  const queryClient = useQueryClient()
-  const [loggingOut, setLoggingOut] = useState(false)
-  const viewer = useQuery({
-    queryKey: ['viewer'],
-    queryFn: getViewer,
-    retry: false,
-  })
-
-  if (viewer.isPending) {
-    return (
-      <main className="app-loading" aria-live="polite">
-        <span className="wordmark">tenda</span>
-        <p>Cargando tu Tienda…</p>
-      </main>
-    )
-  }
-  if (viewer.isError) {
-    const unauthenticated =
-      viewer.error instanceof TendaApiError &&
-      viewer.error.code === 'AUTHENTICATION_REQUIRED'
-    return (
-      <main className="app-loading">
-        <span className="wordmark">tenda</span>
-        <h1>{unauthenticated ? 'Tu sesión terminó' : 'No pudimos cargar tu cuenta'}</h1>
-        <p>{viewer.error.message}</p>
-        <Link className="button button--primary" to={unauthenticated ? '/login' : '/app'}>
-          {unauthenticated ? 'Iniciar sesión' : 'Reintentar'}
-        </Link>
-      </main>
-    )
-  }
-  const data = viewer.data
-  return (
-    <main className="app-home">
-      <header className="app-home__header">
-        <span className="wordmark">tenda</span>
-        <button
-          className="button button--secondary"
-          disabled={loggingOut}
-          onClick={async () => {
-            setLoggingOut(true)
-            try {
-              await logout()
-              queryClient.removeQueries({ queryKey: ['viewer'] })
-              navigate('/login', { replace: true })
-            } finally {
-              setLoggingOut(false)
-            }
-          }}
-        >
-          {loggingOut ? 'Cerrando…' : 'Cerrar sesión'}
-        </button>
-      </header>
-      <section className="app-home__welcome">
-        <p className="eyebrow">{data.inventory.name}</p>
-        <h1>Hola, {data.viewer.profile.fullName || data.viewer.email}</h1>
-        <p>
-          Estás trabajando en <strong>{data.organisation.name}</strong>.
-        </p>
-      </section>
-      <section className="context-grid" aria-label="Contexto de la cuenta">
-        <article>
-          <span>Rol</span>
-          <strong className="profile-role">{data.membership.roleLabel}</strong>
-        </article>
-        <article>
-          <span>Finanzas</span>
-          <strong>
-            {data.membership.permissions.viewFinancials ? 'Habilitadas' : 'Restringidas'}
-          </strong>
-        </article>
-        <article>
-          <span>Miembros</span>
-          <strong>
-            {data.membership.permissions.manageMembers
-              ? 'Puedes administrar'
-              : 'Solo Owner'}
-          </strong>
-        </article>
-      </section>
-    </main>
   )
 }

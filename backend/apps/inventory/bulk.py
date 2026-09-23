@@ -1094,24 +1094,6 @@ def process_export_job(public_id: uuid.UUID) -> InventoryExport:
     return job
 
 
-def inventory_export_for_context(
-    context: TenantContext,
-    public_id: uuid.UUID,
-) -> InventoryExport:
-    job = (
-        InventoryExport.objects.filter(
-            public_id=public_id,
-            inventory=context.inventory,
-            organisation=context.organisation,
-        )
-        .select_related("file_asset")
-        .first()
-    )
-    if job is None:
-        raise ResourceNotFound()
-    return job
-
-
 def inventory_exports_for_context(context: TenantContext) -> list[InventoryExport]:
     return list(
         InventoryExport.objects.filter(

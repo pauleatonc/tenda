@@ -4,7 +4,7 @@ export type ImportColumn = {
   required: boolean
 }
 
-export const CORE_IMPORT_COLUMNS: ImportColumn[] = [
+const CORE_IMPORT_COLUMNS: ImportColumn[] = [
   { destination: 'name', header: 'Nombre', required: true },
   { destination: 'initialQuantity', header: 'Cantidad inicial', required: false },
   { destination: 'catalogStatus', header: 'Estado de catálogo', required: false },
@@ -75,7 +75,7 @@ export function mappingFromImportHeaders(
   return mapping
 }
 
-export const INVALID_IMPORT_FILE_MESSAGE =
+const INVALID_IMPORT_FILE_MESSAGE =
   'No se pudo reconocer el formato de la planilla. Por favor descargue el formato indicado e intente de nuevo.'
 
 export function humanImportFailure(code?: string | null, fallback?: string): string {

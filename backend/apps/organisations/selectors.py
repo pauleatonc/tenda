@@ -48,22 +48,6 @@ def organisation_for_user(user: User, public_id: uuid.UUID) -> Organisation:
     return organisation
 
 
-def membership_for_user(user: User, organisation: Organisation) -> Membership:
-    membership = (
-        Membership.objects.filter(
-            user=user,
-            organisation=organisation,
-            is_active=True,
-            organisation__is_active=True,
-        )
-        .select_related("organisation", "user", "user__profile")
-        .first()
-    )
-    if membership is None:
-        raise ResourceNotFound()
-    return membership
-
-
 def inventory_for_context(
     organisation: Organisation,
     public_id: uuid.UUID | None = None,
@@ -101,17 +85,3 @@ def resolve_tenant_context(
         membership=membership,
         inventory=inventory,
     )
-
-
-def members_for_context(context: TenantContext) -> QuerySet[Membership]:
-    return Membership.objects.filter(
-        organisation=context.organisation,
-        is_active=True,
-    ).select_related("user", "user__profile", "organisation")
-
-
-def member_for_context(context: TenantContext, public_id: uuid.UUID) -> Membership:
-    membership = members_for_context(context).filter(public_id=public_id).first()
-    if membership is None:
-        raise ResourceNotFound()
-    return membership

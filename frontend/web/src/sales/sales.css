@@ -1346,13 +1346,6 @@
   margin-top: 10px;
 }
 
-.public-confirm-choices {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin: 8px 0 24px;
-}
-
 .public-skeleton {
   display: grid;
   gap: 14px;

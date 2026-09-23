@@ -127,7 +127,7 @@ services:
         'tenda',
         'worker',
         '--loglevel=INFO',
-        '--queues=default,email,imports,payments',
+        '--queues=default,imports,payments',
       ]
     deploy:
       resources:

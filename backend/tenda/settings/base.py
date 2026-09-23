@@ -196,7 +196,6 @@ CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 CELERY_TASK_ROUTES = {
     "apps.notifications.tasks.dispatch_outbox": {"queue": "default"},
-    "apps.notifications.tasks.deliver_notification": {"queue": "email"},
     "apps.inventory.tasks.analyse_inventory_import": {"queue": "imports"},
     "apps.inventory.tasks.process_inventory_import": {"queue": "imports"},
     "apps.inventory.tasks.process_inventory_export": {"queue": "imports"},
@@ -281,11 +280,6 @@ elif GOOGLE_OIDC_CLIENT_ID and GOOGLE_OIDC_CLIENT_SECRET:
     GOOGLE_OIDC_PROVIDER = "google"
 else:
     GOOGLE_OIDC_PROVIDER = "fake"
-LINKEDIN_OIDC_ENABLED = env_bool("LINKEDIN_OIDC_ENABLED", False)
-LINKEDIN_OIDC_CALLBACK_URL = os.getenv(
-    "LINKEDIN_OIDC_CALLBACK_URL",
-    "http://localhost:8000/api/v1/auth/social/linkedin/callback",
-)
 TURNSTILE_SECRET_KEY = os.getenv("TURNSTILE_SECRET_KEY", "")
 TURNSTILE_FAKE_MODE = env_bool("TURNSTILE_FAKE_MODE", False)
 EMAIL_PROVIDER = os.getenv("EMAIL_PROVIDER", "fake")

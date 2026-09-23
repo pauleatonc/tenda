@@ -26,14 +26,12 @@ import {
   type OperationProductMediaFragment,
   type OperationProductRowFragment,
   type OperationRecordStockMovementInput,
-  type OperationStockMovementRowFragment,
   type OperationUpdateProductInput,
 } from '@tenda/api-client'
 
 import { graphqlRequest } from './graphql'
 
 export type CustomField = OperationCustomFieldDefinitionFragment
-export type StockMovement = OperationStockMovementRowFragment
 export type ProductMedia = Omit<OperationProductMediaFragment, 'createdAt'> & {
   createdAt: string
 }
@@ -67,7 +65,7 @@ function toProductCard(product: OperationProductRowFragment): ProductCard {
   return { ...product, extraAttributes: parseAttributes(product.extraAttributes) }
 }
 
-export type ProductPage = {
+type ProductPage = {
   totalCount: number
   hasNextPage: boolean
   endCursor: string
@@ -106,7 +104,7 @@ export async function fetchDashboard() {
   return data.inventoryDashboard
 }
 
-export type ProductDetail = {
+type ProductDetail = {
   product: ProductCard & {
     createdAt: string
     updatedAt: string

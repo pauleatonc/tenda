@@ -196,18 +196,6 @@ class GoogleOIDCProvider:
 
 
 def get_oidc_provider(provider: str) -> OIDCProvider:
-    if provider == "linkedin":
-        if not bool(getattr(settings, "LINKEDIN_OIDC_ENABLED", False)):
-            raise DomainError(
-                "PROVIDER_UNAVAILABLE",
-                "Este método de acceso no está disponible.",
-                status=404,
-            )
-        raise DomainError(
-            "PROVIDER_UNAVAILABLE",
-            "Este método de acceso no está disponible.",
-            status=503,
-        )
     if provider != "google":
         raise DomainError(
             "PROVIDER_UNAVAILABLE",

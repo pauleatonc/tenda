@@ -141,5 +141,5 @@ archivos privados de compradores.
   y rollback de imágenes (`infra/scripts/deploy.sh`).
 - Backup/restore, WireGuard, Kuma, Netdata, Portainer y endurecimiento de
   Django Admin: `docs/runbooks/operations.md`.
-- Dominios, R2, Brevo, Mercado Pago real, cadencias y retención de Producción
+- Dominios, R2, Brevo, Mercado Pago real y retención de Producción
   no están aprobados por este repositorio: `docs/go-live.md`.

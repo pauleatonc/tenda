@@ -14,7 +14,6 @@ class MediaAsset(models.Model):
         PROFILE_PHOTO = "profile_photo", "Profile photo"
         ORGANISATION_LOGO = "organisation_logo", "Organisation logo"
         PAYMENT_RECEIPT = "payment_receipt", "Payment receipt"
-        SHIPPING_EVIDENCE = "shipping_evidence", "Shipping evidence"
         IMPORT_FILE = "import_file", "Import file"
         IMPORT_REPORT = "import_report", "Import report"
         INVENTORY_EXPORT = "inventory_export", "Inventory export"

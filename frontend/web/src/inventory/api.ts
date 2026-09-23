@@ -4,9 +4,7 @@ import {
   ConfirmInventoryImportDocument,
   CreateCustomFieldDocument,
   CreateProductDocument,
-  InventoryAlertsDocument,
   InventoryDashboardDocument,
-  InventoryExportDocument,
   InventoryExportsDocument,
   InventoryImportDocument,
   InventoryImportsDocument,
@@ -43,7 +41,6 @@ import {
   type OperationProductRowFragment,
   type OperationProductsQuery,
   type OperationRecordStockMovementInput,
-  type OperationStockMovementRowFragment,
   type OperationUpdateCustomFieldInput,
   type OperationUpdateProductInput,
 } from '@tenda/api-client'
@@ -51,11 +48,10 @@ import {
 import { graphqlRequest, request, uploadBinary } from '../lib/http'
 
 export type CustomField = OperationCustomFieldDefinitionFragment
-export type StockMovement = OperationStockMovementRowFragment
 export type ProductMedia = Omit<OperationProductMediaFragment, 'createdAt'> & {
   createdAt: string
 }
-export type InventoryAlert = Omit<
+type InventoryAlert = Omit<
   OperationInventoryAlertFragment,
   'openedAt' | 'updatedAt'
 > & {
@@ -88,7 +84,7 @@ function toProductRow(product: OperationProductRowFragment): ProductRow {
   return { ...product, extraAttributes: parseAttributes(product.extraAttributes) }
 }
 
-export type ImportRowError = {
+type ImportRowError = {
   row: number
   code: string
   message: string
@@ -437,11 +433,6 @@ export async function startInventoryExport(input: {
   return toExportJob(data.startInventoryExport.exportJob)
 }
 
-export async function fetchInventoryExport(id: string): Promise<InventoryExportJob | null> {
-  const data = await graphqlRequest(InventoryExportDocument, { id })
-  return data.inventoryExport ? toExportJob(data.inventoryExport) : null
-}
-
 export async function fetchInventoryExports(): Promise<InventoryExportJob[]> {
   const data = await graphqlRequest(InventoryExportsDocument, {})
   return data.inventoryExports.map(toExportJob)
@@ -450,11 +441,6 @@ export async function fetchInventoryExports(): Promise<InventoryExportJob[]> {
 export async function retryInventoryExport(exportId: string): Promise<InventoryExportJob> {
   const data = await graphqlRequest(RetryInventoryExportDocument, { exportId })
   return toExportJob(data.retryInventoryExport.exportJob)
-}
-
-export async function fetchInventoryAlerts(limit = 20): Promise<InventoryAlert[]> {
-  const data = await graphqlRequest(InventoryAlertsDocument, { limit })
-  return data.inventoryAlerts.map(toAlert)
 }
 
 export async function updateInventoryLowStockThreshold(threshold: number): Promise<number> {
