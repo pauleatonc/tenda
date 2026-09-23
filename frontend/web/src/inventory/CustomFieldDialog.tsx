@@ -108,8 +108,8 @@ export function CustomFieldDialog({ onClose, onFieldCreated }: Props) {
 
   return (
     <Modal
-      title="Columnas del inventario"
-      description={`Puedes tener hasta ${maxActive} columnas activas. Desactivar libera un cupo y conserva los valores guardados.`}
+      title="Datos adicionales del inventario"
+      description={`Puedes tener hasta ${maxActive} columnas adicionales.`}
       onClose={onClose}
       size="large"
       footer={
@@ -208,7 +208,7 @@ export function CustomFieldDialog({ onClose, onFieldCreated }: Props) {
         ) : null}
 
         <div className="field">
-          <label htmlFor="column-label">Etiqueta</label>
+          <label htmlFor="column-label">Nombre de la columna</label>
           <input
             id="column-label"
             value={label}

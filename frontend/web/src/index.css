@@ -36,6 +36,21 @@ body {
   min-height: 100vh;
 }
 
+/* Keep authenticated desktop shell inside the viewport; only .app-workspace scrolls. */
+html:has(.app-shell),
+html:has(.app-shell) body {
+  height: 100%;
+  overflow: hidden;
+}
+
+@media (max-width: 580px) {
+  html:has(.app-shell),
+  html:has(.app-shell) body {
+    height: auto;
+    overflow: auto;
+  }
+}
+
 button,
 input,
 select,

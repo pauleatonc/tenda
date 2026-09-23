@@ -32,7 +32,7 @@ export function InventoryThresholdSetting({ current }: { current: number }) {
       }}
     >
       <label htmlFor="inventory-low-stock-threshold">
-        Umbral general de stock bajo
+        Se genera alerta cuando el stock disponible es menor a:
       </label>
       <div>
         <input
