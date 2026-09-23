@@ -10,9 +10,17 @@ from django.utils import timezone
 from apps.inventory.models import StockBalance, StockMovement
 from apps.inventory.services import create_product
 from apps.media_assets.storage import fake_object_storage
+from apps.notifications.models import OutboxEvent
 from apps.organisations.selectors import TenantContext, resolve_tenant_context
 from apps.organisations.services import create_organisation_for_owner
-from apps.sales.models import Order, OrderEvent, OrderItem, PaymentProof, StockReservation
+from apps.sales.models import (
+    BuyerSnapshot,
+    Order,
+    OrderEvent,
+    OrderItem,
+    PaymentProof,
+    StockReservation,
+)
 from apps.sales.order_services import (
     cancel_order,
     confirm_manual_payment,
@@ -264,6 +272,41 @@ def test_cancel_then_expire_releases_once_and_keeps_valid_terminal_state() -> No
     reservation = StockReservation.objects.get(order=order)
     assert reservation.released_at is not None
     assert reservation.consumed_at is None
+
+
+def test_expire_order_enqueues_expired_email_with_items() -> None:
+    _user, context = identity("sales-expire-mail@example.com")
+    order, _product = order_for(
+        context,
+        product_name="Vela vencida",
+        requested=2,
+        price="5000",
+    )
+    BuyerSnapshot.objects.create(
+        order=order,
+        name="Camila Soto",
+        email="camila@example.cl",
+    )
+    Order.objects.filter(pk=order.pk).update(
+        reservation_expires_at=timezone.now() - timedelta(seconds=1)
+    )
+
+    assert expire_order(order.pk)
+    event = OutboxEvent.objects.get(
+        event_type="sales.order_notification",
+        aggregate_public_id=str(order.public_id),
+    )
+    assert event.payload["template"] == "order_expired"
+    assert event.payload["recipient"] == "camila@example.cl"
+    assert event.payload["parameters"]["items"] == [
+        {
+            "productName": "Vela vencida",
+            "quantity": 2,
+            "unitSalePrice": "5000",
+            "lineTotal": "10000",
+        }
+    ]
+    assert event.payload["parameters"]["total"] == str(order.total_amount)
 
 
 def test_restore_cancelled_order_reserves_again_and_reopens_the_link() -> None:

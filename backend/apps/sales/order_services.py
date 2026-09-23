@@ -440,6 +440,18 @@ def _buyer_email(order: Order) -> str:
     return str(getattr(buyer, "email", "") or "")
 
 
+def _order_notification_items(order: Order) -> list[dict[str, Any]]:
+    return [
+        {
+            "productName": item.product_name,
+            "quantity": item.quantity,
+            "unitSalePrice": str(item.unit_sale_price),
+            "lineTotal": str(item.line_total),
+        }
+        for item in order.items.all()
+    ]
+
+
 def _enqueue_order_notification(
     *,
     order: Order,
@@ -2327,7 +2339,8 @@ def reissue_bank_transfer_offer(
 def expire_order(order_pk: int) -> bool:
     order = (
         Order.objects.select_for_update(of=("self",))
-        .select_related("organisation", "inventory", "created_by")
+        .select_related("organisation", "inventory", "created_by", "buyer")
+        .prefetch_related("items")
         .filter(pk=order_pk)
         .first()
     )
@@ -2352,6 +2365,10 @@ def expire_order(order_pk: int) -> bool:
         order=order,
         template="order_expired",
         deduplication_key=f"sales:expired:{order.public_id}",
+        parameters={
+            "total": str(order.total_amount),
+            "items": _order_notification_items(order),
+        },
     )
     return True
 

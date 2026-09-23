@@ -315,6 +315,33 @@ def test_app_email_templates_render_verify_and_reset_links() -> None:
     assert "templateId" not in verify.html
 
 
+def test_expired_order_email_includes_order_items() -> None:
+    rendered = render_email(
+        "order_expired",
+        {
+            "orderNumber": "TN-1042",
+            "total": "10000",
+            "items": [
+                {
+                    "productName": "Vela de soya",
+                    "quantity": 2,
+                    "unitSalePrice": "5000",
+                    "lineTotal": "10000",
+                }
+            ],
+        },
+    )
+
+    assert rendered.subject == "Tenda · Tu pedido venció"
+    assert "El pedido TN-1042 venció" in rendered.text
+    assert "Vela de soya × 2 · $10.000" in rendered.text
+    assert "Total: $10.000" in rendered.text
+    assert "Vela de soya" in rendered.html
+    assert "× 2" in rendered.html
+    assert "$10.000" in rendered.html
+    assert "<img" not in rendered.html
+
+
 @override_settings(
     BREVO_API_KEY="test-key",
     BREVO_SENDER_EMAIL="hola@tenda.test",

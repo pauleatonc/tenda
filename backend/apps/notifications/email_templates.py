@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from html import escape
 from typing import Any
@@ -41,6 +42,40 @@ def _shell(*, title: str, body_html: str, body_text: str) -> tuple[str, str]:
 </html>"""
     text = f"Tenda\n\n{title}\n\n{body_text}\n"
     return text, html
+
+
+def _format_clp(value: Any) -> str:
+    try:
+        amount = int(str(value))
+    except (TypeError, ValueError):
+        return str(value or "")
+    grouped = f"{amount:,}".replace(",", ".")
+    return f"${grouped}"
+
+
+def _order_items(parameters: Mapping[str, Any]) -> list[dict[str, str]]:
+    raw = parameters.get("items")
+    if not isinstance(raw, list):
+        return []
+    rows: list[dict[str, str]] = []
+    for item in raw:
+        if not isinstance(item, Mapping):
+            continue
+        name = str(item.get("productName") or "").strip()
+        if not name:
+            continue
+        quantity = item.get("quantity") or 1
+        unit = item.get("unitSalePrice") or ""
+        line_total = item.get("lineTotal") or ""
+        rows.append(
+            {
+                "productName": name,
+                "quantity": str(quantity),
+                "unitSalePrice": _format_clp(unit) if unit != "" else "",
+                "lineTotal": _format_clp(line_total) if line_total != "" else "",
+            }
+        )
+    return rows
 
 
 def _button(url: str, label: str) -> str:
@@ -128,10 +163,58 @@ def render_email(template: str, parameters: dict[str, Any]) -> RenderedEmail:
             html=html,
         )
 
+    if template == "order_expired":
+        title = "Tu pedido venció"
+        items = _order_items(parameters)
+        total = parameters.get("total")
+        formatted_total = _format_clp(total) if total not in (None, "") else ""
+        heading = (
+            f"El pedido {order_number} venció y ya no está reservado."
+            if order_number
+            else "Tu pedido venció y ya no está reservado."
+        )
+        text_lines = [heading]
+        html_body = f"<p>{escape(heading)}</p>"
+        if items:
+            text_lines.append("Detalle:")
+            html_rows: list[str] = []
+            for item in items:
+                quantity = f" × {item['quantity']}" if item["quantity"] else ""
+                amount = item["lineTotal"] or item["unitSalePrice"]
+                text_lines.append(
+                    f"- {item['productName']}{quantity}"
+                    + (f" · {amount}" if amount else "")
+                )
+                html_rows.append(
+                    "<tr>"
+                    f"<td style=\"padding:8px 0;border-bottom:1px solid #eee\">"
+                    f"{escape(item['productName'])}{escape(quantity)}</td>"
+                    f"<td style=\"padding:8px 0;border-bottom:1px solid #eee;text-align:right\">"
+                    f"{escape(amount)}</td>"
+                    "</tr>"
+                )
+            html_body += (
+                '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+                'style="margin:16px 0 8px">'
+                + "".join(html_rows)
+                + "</table>"
+            )
+        if formatted_total:
+            text_lines.append(f"Total: {formatted_total}")
+            html_body += f"<p><strong>Total: {escape(formatted_total)}</strong></p>"
+        if action_url:
+            text_lines.append(action_url)
+            html_body += _button(action_url, "Abrir en Tenda")
+        text, html = _shell(
+            title=title,
+            body_html=html_body,
+            body_text="\n".join(text_lines),
+        )
+        return RenderedEmail(subject=f"Tenda · {title}", text=text, html=html)
+
     title = {
         "order_paid": "Tu pedido quedó pagado",
         "order_link": "Tu enlace de pedido",
-        "order_expired": "Tu pedido venció",
         "order_cancelled": "Tu pedido fue cancelado",
         "order_refunded": "Tu pedido fue reembolsado",
         "payment_proof_received": "Recibimos tu comprobante",
