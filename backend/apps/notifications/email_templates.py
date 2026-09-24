@@ -25,23 +25,12 @@ def _shell(
     body_html: str,
     body_text: str,
     brand_name: str = "Tenda",
-    logo_url: str = "",
 ) -> tuple[str, str]:
     brand = brand_name.strip() or "Tenda"
-    if logo_url.strip():
-        brand_block = (
-            f'<img src="{escape(logo_url.strip(), quote=True)}" alt="{escape(brand)}" '
-            f'width="48" height="48" '
-            f'style="display:block;border:0;border-radius:10px;object-fit:cover;'
-            f'margin:0 0 12px">'
-            f'<div style="font-size:22px;font-weight:700;letter-spacing:-0.4px">'
-            f"{escape(brand)}</div>"
-        )
-    else:
-        brand_block = (
-            f'<div style="font-size:22px;font-weight:700;letter-spacing:-0.4px">'
-            f"{escape(brand)}</div>"
-        )
+    brand_block = (
+        f'<div style="font-size:22px;font-weight:700;letter-spacing:-0.4px">'
+        f"{escape(brand)}</div>"
+    )
     html = f"""<!doctype html>
 <html lang="es">
   <body style="margin:0;background:#f7f5ef;font-family:Arial,sans-serif;color:#17201d">
@@ -70,15 +59,12 @@ def _shell(
     return text, html
 
 
-def _branding(parameters: Mapping[str, Any]) -> tuple[str, str]:
-    name = str(parameters.get("storeName") or "").strip() or "Tenda"
-    logo = str(parameters.get("storeLogoUrl") or "").strip()
-    return name, logo
+def _store_name(parameters: Mapping[str, Any]) -> str:
+    return str(parameters.get("storeName") or "").strip() or "Tenda"
 
 
 def _branded_subject(title: str, parameters: Mapping[str, Any]) -> str:
-    brand, _logo = _branding(parameters)
-    return f"{brand} · {title}"
+    return f"{_store_name(parameters)} · {title}"
 
 
 def _render_shell(
@@ -88,13 +74,11 @@ def _render_shell(
     body_text: str,
     parameters: Mapping[str, Any],
 ) -> tuple[str, str]:
-    brand, logo = _branding(parameters)
     return _shell(
         title=title,
         body_html=body_html,
         body_text=body_text,
-        brand_name=brand,
-        logo_url=logo,
+        brand_name=_store_name(parameters),
     )
 
 
@@ -337,9 +321,6 @@ def render_email(template: str, parameters: dict[str, Any]) -> RenderedEmail:
         for label, value in facts:
             text_lines.append(f"{label}: {value}")
             html_body += f"<p><strong>{escape(label)}:</strong> {escape(value)}</p>"
-        if action_url:
-            text_lines.append(action_url)
-            html_body += _button(action_url, "Seguir envío")
         if note:
             text_lines.append(f"Nota del vendedor: {note}")
             html_body += f"<p>Nota del vendedor: {escape(note)}</p>"

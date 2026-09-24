@@ -29,7 +29,6 @@ from apps.inventory.services import (
     release_stock,
     reserve_stock,
 )
-from apps.media_assets.models import MediaAsset
 from apps.notifications.outbox import enqueue_outbox_event
 from apps.organisations.bank import format_rut, is_valid_rut
 from apps.organisations.models import Membership
@@ -454,24 +453,7 @@ def _order_notification_items(order: Order) -> list[dict[str, Any]]:
 
 
 def _store_branding_parameters(order: Order) -> dict[str, Any]:
-    organisation = order.organisation
-    branding: dict[str, Any] = {"storeName": organisation.name}
-    logo_id = organisation.logo_asset_id
-    if logo_id is None:
-        return branding
-    if not MediaAsset.objects.filter(
-        public_id=logo_id,
-        organisation_id=organisation.pk,
-        purpose=MediaAsset.Purpose.ORGANISATION_LOGO,
-        status=MediaAsset.Status.READY,
-    ).exists():
-        return branding
-    branding["storeLogoUrl"] = public_order_media_url(
-        order,
-        logo_id,
-        variant="thumbnail",
-    )
-    return branding
+    return {"storeName": order.organisation.name}
 
 
 def _enqueue_order_notification(

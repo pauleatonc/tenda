@@ -221,7 +221,6 @@ def _enqueue_dispatch_notification(shipment: Shipment) -> None:
             "deliveryMode": shipment.delivery_mode,
             "carrier": shipment.carrier,
             "trackingCode": shipment.tracking_code,
-            "actionUrl": shipment.tracking_url,
             "registeredAt": registered_at.isoformat() if registered_at else "",
             "note": shipment.dispatch_note,
             "recipientName": shipment.recipient_name,

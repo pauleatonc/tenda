@@ -336,16 +336,14 @@ def test_expired_order_email_includes_order_items() -> None:
 
     assert rendered.subject == "Velas del Sur · Tu pedido venció"
     assert rendered.text.startswith("Velas del Sur\n")
-    assert "https://api.test/logo.png" in rendered.html
-    assert "alt=\"Velas del Sur\"" in rendered.html
+    assert "https://api.test/logo.png" not in rendered.html
     assert "El pedido TN-1042 venció" in rendered.text
     assert "Vela de soya × 2 · $10.000" in rendered.text
     assert "Total: $10.000" in rendered.text
     assert "Vela de soya" in rendered.html
     assert "× 2" in rendered.html
     assert "$10.000" in rendered.html
-    assert "<img" in rendered.html
-    assert rendered.html.count("<img") == 1
+    assert "<img" not in rendered.html
 
 
 def test_cancelled_order_email_includes_order_items() -> None:
@@ -414,8 +412,8 @@ def test_shipment_dispatched_email_includes_carrier_tracking_and_items() -> None
     assert "Nota del vendedor: Sale hoy en la tarde" in rendered.text
     assert "Vela de soya × 2 · $10.000" in rendered.text
     assert "Total: $10.000" in rendered.text
-    assert "https://chilexpress.cl/track/CX-99" in rendered.html
-    assert "Seguir envío" in rendered.html
+    assert "https://chilexpress.cl/track/CX-99" not in rendered.html
+    assert "Seguir envío" not in rendered.html
     assert "<img" not in rendered.html
 
 

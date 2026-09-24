@@ -185,7 +185,7 @@ def test_register_dispatch_sets_terminal_status_and_emails_buyer_once() -> None:
     assert parameters["orderNumber"] == order.number
     assert parameters["carrier"] == "Chilexpress"
     assert parameters["trackingCode"] == "CX-99"
-    assert parameters["actionUrl"] == "https://chilexpress.cl/track/CX-99"
+    assert "actionUrl" not in parameters
     assert parameters["note"] == "Sale hoy en la tarde"
     assert parameters["addressLine"] == "Los Aromos 123"
     assert parameters["items"] == [
