@@ -1,13 +1,15 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { BankDetailsRequiredNotice } from '../app/BankDetailsRequiredNotice'
 import { Modal } from '../components/ui'
 import { TendaApiError, newIdempotencyKey } from '../lib/http'
 import {
   createOrder,
+  fetchPaymentConnection,
   publishOrderLink,
+  salesKeys,
   sendOfferLink,
 } from '../sales/api'
 import { formatClp } from '../sales/model'
@@ -21,25 +23,21 @@ const SALE_METHODS: ReadonlyArray<{
   id: SaleMethodId
   label: string
   description: string
-  enabled: boolean
 }> = [
   {
     id: 'deposit',
     label: 'Depósito',
     description: 'El comprador transfiere y sube el comprobante.',
-    enabled: true,
   },
   {
     id: 'online',
     label: 'Pago Online',
-    description: 'Próximamente',
-    enabled: false,
+    description: 'El comprador paga con Mercado Pago desde el enlace.',
   },
   {
     id: 'cash',
     label: 'Efectivo',
     description: 'Abres la ficha para completar datos y registrar el pago.',
-    enabled: true,
   },
 ]
 
@@ -77,7 +75,14 @@ export function GenerateSaleDialog({
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const available = product.stock.available
-  const [method, setMethod] = useState<'deposit' | 'cash'>('deposit')
+  const paymentConnection = useQuery({
+    queryKey: salesKeys.paymentConnection(),
+    queryFn: fetchPaymentConnection,
+  })
+  const mercadoPagoActive = ['active', 'connected'].includes(
+    paymentConnection.data?.sellerPaymentConnection?.status ?? '',
+  )
+  const [method, setMethod] = useState<SaleMethodId>('deposit')
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('shipping')
   const [confirmCash, setConfirmCash] = useState(false)
   const [quantity, setQuantity] = useState(1)
@@ -103,7 +108,7 @@ export function GenerateSaleDialog({
           },
         ],
         deliveryMode,
-        paymentMethod: 'bank_transfer',
+        paymentMethod: method === 'online' ? 'mercado_pago' : 'bank_transfer',
         idempotencyKey: createKey,
       })
       const published = await publishOrderLink({
@@ -188,7 +193,7 @@ export function GenerateSaleDialog({
           ? 'Copia el enlace o envíalo por correo. El comprador abre la ficha en el navegador.'
           : confirmCash
             ? 'Se reservará el stock y abrirás la ficha para completar los datos y registrar el pago.'
-            : 'Elige entrega y tipo de venta. Depósito comparte un enlace. Efectivo abre la ficha.'
+            : 'Elige entrega y tipo de venta. Depósito y Pago Online comparten un enlace. Efectivo abre la ficha.'
       }
       onClose={onClose}
       footer={
@@ -228,6 +233,16 @@ export function GenerateSaleDialog({
                 onClick={() => publish.mutate()}
               >
                 {publish.isPending ? 'Generando…' : 'Generar depósito'}
+              </button>
+            ) : null}
+            {method === 'online' && mercadoPagoActive ? (
+              <button
+                className="button button--primary"
+                type="button"
+                disabled={publish.isPending}
+                onClick={() => publish.mutate()}
+              >
+                {publish.isPending ? 'Generando…' : 'Generar enlace de pago'}
               </button>
             ) : null}
             {method === 'cash' ? (
@@ -340,31 +355,41 @@ export function GenerateSaleDialog({
               </fieldset>
               <fieldset className="choice-cards">
                 <legend>Tipo de venta</legend>
-                {SALE_METHODS.map((item) => (
-                  <label
-                    key={item.id}
-                    className={item.enabled ? undefined : 'is-disabled'}
-                  >
-                    <input
-                      type="radio"
-                      name="generate-sale-method"
-                      value={item.id}
-                      checked={method === item.id}
-                      disabled={!item.enabled}
-                      onChange={() => {
-                        if (!item.enabled || item.id === 'online') return
-                        setError(null)
-                        setConfirmCash(false)
-                        setMethod(item.id)
-                      }}
-                    />
-                    <span>
-                      <strong>{item.label}</strong>
-                      <small>{item.description}</small>
-                    </span>
-                  </label>
-                ))}
+                {SALE_METHODS.map((item) => {
+                  const enabled = item.id !== 'online' || mercadoPagoActive
+                  return (
+                    <label key={item.id} className={enabled ? undefined : 'is-disabled'}>
+                      <input
+                        type="radio"
+                        name="generate-sale-method"
+                        value={item.id}
+                        checked={method === item.id}
+                        disabled={!enabled}
+                        onChange={() => {
+                          if (!enabled) return
+                          setError(null)
+                          setConfirmCash(false)
+                          setMethod(item.id)
+                        }}
+                      />
+                      <span>
+                        <strong>{item.label}</strong>
+                        <small>
+                          {enabled
+                            ? item.description
+                            : 'Conecta Mercado Pago en Configuración → Pagos'}
+                        </small>
+                      </span>
+                    </label>
+                  )
+                })}
               </fieldset>
+              {!mercadoPagoActive ? (
+                <p className="field__hint">
+                  Pago Online se habilita al{' '}
+                  <Link to="/app/configuracion/pagos">conectar Mercado Pago</Link>.
+                </p>
+              ) : null}
             </>
           )}
           {confirmCash ? null : (

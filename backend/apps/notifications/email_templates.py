@@ -180,6 +180,15 @@ def _button(url: str, label: str) -> str:
     )
 
 
+def _offer_link_button_label(parameters: Mapping[str, Any]) -> str:
+    method = str(parameters.get("paymentMethod") or "")
+    if method == "mercado_pago":
+        return "Abrir pedido y pagar"
+    if method == "bank_transfer":
+        return "Abrir pedido y subir comprobante"
+    return "Abrir pedido"
+
+
 def render_email(template: str, parameters: dict[str, Any]) -> RenderedEmail:
     action_url = str(parameters.get("actionUrl") or parameters.get("orderUrl") or "")
     expires_at = str(parameters.get("expiresAt") or "")
@@ -235,7 +244,7 @@ def render_email(template: str, parameters: dict[str, Any]) -> RenderedEmail:
                 text_lines.append(product_name)
                 html_body += f"<p><strong>{escape(product_name)}</strong></p>"
         text_lines.append(action_url)
-        html_body += _button(action_url, "Abrir pedido y subir comprobante")
+        html_body += _button(action_url, _offer_link_button_label(parameters))
         if expires_at:
             text_lines.append(f"El enlace vence el {expires_at}.")
             html_body += f"<p>El enlace vence el {escape(expires_at)}.</p>"

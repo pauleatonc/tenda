@@ -10,7 +10,7 @@ from typing import Any
 import graphene
 from graphql import GraphQLResolveInfo
 
-from apps.inventory.models import CustomFieldDefinition, ProductMediaAttachment
+from apps.inventory.models import CustomFieldDefinition
 from apps.media_assets.models import MediaAsset
 from apps.media_assets.services import private_download_url
 from apps.organisations.permissions import OrganisationPermission, require_permission
@@ -36,6 +36,7 @@ from .order_services import (
     confirm_manual_payment,
     create_order,
     initiate_mercado_pago_checkout,
+    order_item_photo_urls,
     public_order_for_token,
     public_order_media_url,
     public_order_url,
@@ -226,27 +227,7 @@ class PublicProductAttributeType(graphene.ObjectType):  # type: ignore[misc]
 
 
 def _public_line_photos(item: OrderItem) -> list[str]:
-    attachments = list(
-        ProductMediaAttachment.objects.filter(
-            product=item.product,
-            asset__status=MediaAsset.Status.READY,
-        )
-        .select_related("asset")
-        .order_by("position", "id")
-    )
-    primary_id = getattr(item.product, "primary_image_id", None)
-    if primary_id:
-        attachments.sort(
-            key=lambda attachment: (
-                0 if attachment.asset_id == primary_id else 1,
-                attachment.position,
-                attachment.id,
-            )
-        )
-    return [
-        public_order_media_url(item.order, attachment.asset.public_id)
-        for attachment in attachments
-    ]
+    return order_item_photo_urls(item)
 
 
 def _public_line_attributes(item: OrderItem) -> list[dict[str, str]]:

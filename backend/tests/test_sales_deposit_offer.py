@@ -305,6 +305,7 @@ def test_send_offer_link_enqueues_product_offer_template() -> None:
     assert event.payload["parameters"]["items"]
     assert event.payload["parameters"]["total"]
     assert event.payload["parameters"]["storeName"]
+    assert event.payload["parameters"]["paymentMethod"] == Order.PaymentMethod.BANK_TRANSFER
 
     rendered = render_email(
         "product_offer_link",
@@ -316,6 +317,7 @@ def test_send_offer_link_enqueues_product_offer_template() -> None:
             "orderNumber": order.number,
             "storeName": event.payload["parameters"]["storeName"],
             "items": event.payload["parameters"]["items"],
+            "paymentMethod": event.payload["parameters"]["paymentMethod"],
         },
     )
     store_name = event.payload["parameters"]["storeName"]

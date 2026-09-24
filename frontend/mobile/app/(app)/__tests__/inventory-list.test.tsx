@@ -16,12 +16,22 @@ jest.mock('../../../lib/inventory-api', () => ({
 
 jest.mock('../../../lib/sales-api', () => ({
   createOrder: jest.fn(),
+  fetchSellerPaymentConnection: jest.fn(),
   publishOrderLink: jest.fn(),
   sendOfferLink: jest.fn(),
+  salesKeys: {
+    paymentConnection: () => ['sales', 'payment-connection'],
+  },
 }))
 
 const mocked = api as jest.Mocked<typeof api>
 const mockedSales = sales as jest.Mocked<typeof sales>
+
+function mockPaymentConnection(status: string | null) {
+  mockedSales.fetchSellerPaymentConnection.mockResolvedValue({
+    sellerPaymentConnection: status ? { status } : null,
+  } as never)
+}
 
 function makeProduct(overrides: Partial<ProductCard> = {}): ProductCard {
   return {
@@ -48,6 +58,7 @@ function renderScreen(ui: ReactElement) {
 describe('Inventario mobile', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockPaymentConnection(null)
   })
 
   it('muestra tarjetas con disponibilidad en vez de una tabla ancha', async () => {
@@ -146,7 +157,7 @@ describe('Inventario mobile', () => {
     expect(router.push).toHaveBeenCalledWith('/inventario/producto')
   })
 
-  it('abre el sheet de depósito y deja Online como próximamente', async () => {
+  it('abre el sheet de depósito y deja Online deshabilitado sin Mercado Pago', async () => {
     mocked.fetchProducts.mockResolvedValue({
       totalCount: 1,
       hasNextPage: false,
@@ -170,7 +181,10 @@ describe('Inventario mobile', () => {
     expect(screen.getByText('Depósito')).toBeOnTheScreen()
     expect(screen.getByText('Pago Online')).toBeOnTheScreen()
     expect(screen.getByText('Efectivo')).toBeOnTheScreen()
-    expect(screen.getByText('Próximamente')).toBeOnTheScreen()
+    expect(
+      await screen.findByText('Conecta Mercado Pago en Más › Pagos.'),
+    ).toBeOnTheScreen()
+    expect(screen.queryByRole('button', { name: 'Generar enlace de pago' })).toBeNull()
     expect(mockedSales.createOrder).not.toHaveBeenCalled()
 
     await fireEvent.press(screen.getByRole('button', { name: 'Generar depósito' }))
@@ -181,6 +195,46 @@ describe('Inventario mobile', () => {
         paymentMethod: 'bank_transfer',
       }),
     )
+  })
+
+  it('habilita Pago Online con Mercado Pago conectado y publica el enlace', async () => {
+    mockPaymentConnection('connected')
+    mocked.fetchProducts.mockResolvedValue({
+      totalCount: 1,
+      hasNextPage: false,
+      endCursor: '',
+      products: [makeProduct()],
+    })
+    mockedSales.createOrder.mockResolvedValue({
+      replayed: false,
+      order: { id: 'order-mp' },
+    } as never)
+    mockedSales.publishOrderLink.mockResolvedValue({
+      replayed: false,
+      publicUrl: 'https://tenda.test/p/token-mp',
+      order: { id: 'order-mp' },
+    } as never)
+
+    await renderScreen(<InventoryScreen />)
+    await fireEvent.press(await screen.findByRole('button', { name: 'Generar venta' }))
+
+    expect(
+      await screen.findByText('El comprador paga con Mercado Pago desde el enlace.'),
+    ).toBeOnTheScreen()
+    await fireEvent.press(screen.getByRole('button', { name: 'Pago Online' }))
+    await fireEvent.press(screen.getByRole('button', { name: 'Generar enlace de pago' }))
+
+    await waitFor(() => expect(mockedSales.createOrder).toHaveBeenCalledTimes(1))
+    expect(mockedSales.createOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deliveryMode: 'shipping',
+        paymentMethod: 'mercado_pago',
+      }),
+    )
+    expect(mockedSales.publishOrderLink).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: 'order-mp' }),
+    )
+    expect(await screen.findByText('https://tenda.test/p/token-mp')).toBeOnTheScreen()
   })
 
   it('confirma efectivo y abre la ficha de la venta', async () => {

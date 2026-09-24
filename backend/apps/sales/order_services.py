@@ -21,7 +21,7 @@ from django.utils import timezone
 from apps.audit.idempotency import execute_idempotent
 from apps.audit.services import record_audit_event
 from apps.configuration.services import parameter_value
-from apps.inventory.models import Product
+from apps.inventory.models import Product, ProductMediaAttachment
 from apps.inventory.services import (
     StockRequest,
     clean_reference_price,
@@ -29,6 +29,7 @@ from apps.inventory.services import (
     release_stock,
     reserve_stock,
 )
+from apps.media_assets.models import MediaAsset
 from apps.notifications.outbox import enqueue_outbox_event
 from apps.organisations.bank import format_rut, is_valid_rut
 from apps.organisations.models import Membership
@@ -49,7 +50,12 @@ from .models import (
     SellerPaymentConnection,
     StockReservation,
 )
-from .payments import PaymentPreferenceInput, PaymentSnapshot, get_payment_provider
+from .payments import (
+    PaymentPreferenceInput,
+    PaymentSnapshot,
+    PreferenceItem,
+    get_payment_provider,
+)
 
 MAX_LINE_QUANTITY = 1_000_000
 MAX_ORDER_TOTAL = Decimal("99999999999999")
@@ -235,6 +241,55 @@ def public_order_media_url(
     if variant:
         return f"{url}?variant={variant}"
     return url
+
+
+def order_item_photo_urls(
+    item: OrderItem,
+    *,
+    variant: str = "medium",
+) -> list[str]:
+    attachments = list(
+        ProductMediaAttachment.objects.filter(
+            product=item.product,
+            asset__status=MediaAsset.Status.READY,
+        )
+        .select_related("asset")
+        .order_by("position", "id")
+    )
+    primary_id = getattr(item.product, "primary_image_id", None)
+    if primary_id:
+        attachments.sort(
+            key=lambda attachment: (
+                0 if attachment.asset_id == primary_id else 1,
+                attachment.position,
+                attachment.id,
+            )
+        )
+    return [
+        public_order_media_url(item.order, attachment.asset.public_id, variant=variant)
+        for attachment in attachments
+    ]
+
+
+def order_item_primary_picture_url(
+    item: OrderItem,
+    *,
+    variant: str = "medium",
+) -> str | None:
+    photos = order_item_photo_urls(item, variant=variant)
+    return photos[0] if photos else None
+
+
+def _preference_items_for_order(order: Order) -> tuple[PreferenceItem, ...]:
+    return tuple(
+        PreferenceItem(
+            title=item.product_name,
+            quantity=item.quantity,
+            unit_price=item.unit_sale_price,
+            picture_url=order_item_primary_picture_url(item),
+        )
+        for item in order.items.select_related("product").all()
+    )
 
 
 def _context_for_order(order: Order) -> TenantContext:
@@ -1309,7 +1364,7 @@ def initiate_mercado_pago_checkout(
                 },
             )
             if not payment.checkout_url or not payment.provider_preference_id:
-                callback = f"{_public_origin()}/p/{token}"
+                callback = f"{_public_origin()}/p/{token}/estado?retorno=mercadopago"
                 preference = get_payment_provider().create_preference(
                     PaymentPreferenceInput(
                         external_reference=external_reference,
@@ -1317,9 +1372,9 @@ def initiate_mercado_pago_checkout(
                         amount=order.total_amount,
                         currency=order.currency,
                         payer_email=buyer.email,
-                        success_url=f"{callback}?payment=return",
-                        pending_url=f"{callback}?payment=pending",
-                        failure_url=f"{callback}?payment=failure",
+                        success_url=f"{callback}&resultado=success",
+                        pending_url=f"{callback}&resultado=pending",
+                        failure_url=f"{callback}&resultado=failure",
                         notification_url=str(
                             getattr(
                                 settings,
@@ -1327,6 +1382,8 @@ def initiate_mercado_pago_checkout(
                                 f"{_public_origin()}/api/v1/webhooks/mercado-pago",
                             )
                         ),
+                        items=_preference_items_for_order(order),
+                        statement_descriptor=order.organisation.name[:22],
                     ),
                     idempotency_key=idempotency_key,
                     access_token=access_token,
@@ -2202,6 +2259,7 @@ def send_offer_link(
                     "productName": first_item.product_name if first_item else "",
                     "total": str(order.total_amount),
                     "expiresAt": order.reservation_expires_at.isoformat(),
+                    "paymentMethod": order.payment_method,
                 },
             )
             _append_event(

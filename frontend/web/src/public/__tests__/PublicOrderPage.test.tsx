@@ -199,6 +199,22 @@ describe('ficha pública de depósito', () => {
     ).toBeNull()
   })
 
+  it('ofrece continuar el pago de Mercado Pago cuando la compra está en curso', async () => {
+    mocked.fetchPublicOrder.mockResolvedValue({
+      ...order,
+      paymentMethod: 'mercado_pago',
+      availablePaymentMethods: ['mercado_pago'],
+      status: 'purchase_in_progress',
+      statusLabel: 'Compra en curso',
+    })
+    renderPage()
+
+    const cta = await screen.findByRole('link', { name: 'Continuar pago' })
+    expect(cta).toHaveAttribute('href', '/p/token-1/comprar')
+    expect(screen.queryByText('Plazo para pagar')).toBeNull()
+    expect(screen.queryByRole('link', { name: 'Comprar' })).toBeNull()
+  })
+
   it('avanza el carrusel de fotos cada 5 segundos', async () => {
     vi.useFakeTimers({ toFake: ['setInterval'] })
     renderPage()

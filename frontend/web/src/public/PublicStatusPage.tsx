@@ -16,6 +16,25 @@ function isTerminal(status: string, paymentStatus: string): boolean {
   )
 }
 
+function mercadoPagoReturnCopy(resultado: string | null): { title: string; body: string } {
+  if (resultado === 'pending') {
+    return {
+      title: 'Pago pendiente en Mercado Pago',
+      body: 'Tu pago quedó pendiente en Mercado Pago. Este estado cambiará cuando el proveedor lo confirme.',
+    }
+  }
+  if (resultado === 'failure') {
+    return {
+      title: 'El pago no se completó',
+      body: 'El pago no se completó. Puedes intentarlo de nuevo.',
+    }
+  }
+  return {
+    title: 'Volviste desde Mercado Pago',
+    body: 'Estamos verificando el pago; el estado cambiará cuando el proveedor lo confirme.',
+  }
+}
+
 export function PublicStatusPage() {
   const { token = '' } = useParams<{ token: string }>()
   const [params] = useSearchParams()
@@ -62,6 +81,10 @@ export function PublicStatusPage() {
   const terminal = isTerminal(current.status, current.paymentStatus)
   const returnedFromMercadoPago =
     params.get('retorno') === 'mercadopago' || params.has('collection_status')
+  const resultado = params.get('resultado')
+  const mercadoPagoNote = returnedFromMercadoPago
+    ? mercadoPagoReturnCopy(resultado)
+    : null
 
   return (
     <PublicPage>
@@ -74,13 +97,15 @@ export function PublicStatusPage() {
         rejectionReason={current.rejectionReason}
         heading="h1"
       >
-        {returnedFromMercadoPago ? (
+        {mercadoPagoNote ? (
           <div className="public-provider-note" role="status">
-            <strong>Volviste desde Mercado Pago</strong>
-            <span>
-              El retorno no confirma el pago. Este estado cambiará solo después de la
-              verificación del proveedor.
-            </span>
+            <strong>{mercadoPagoNote.title}</strong>
+            <span>{mercadoPagoNote.body}</span>
+            {resultado === 'failure' ? (
+              <Link className="button button--primary" to={`/p/${token}/comprar`}>
+                Intentar de nuevo
+              </Link>
+            ) : null}
           </div>
         ) : null}
 

@@ -1,13 +1,20 @@
 from __future__ import annotations
 
+import io
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+from django.conf import settings
 from django.utils import timezone
+from PIL import Image
 
+from apps.inventory.media import attach_product_media
 from apps.inventory.models import Product, StockBalance, StockMovement
 from apps.inventory.services import create_product, update_product
+from apps.media_assets.models import MediaAsset
+from apps.media_assets.services import complete_upload, prepare_upload
+from apps.media_assets.storage import fake_object_storage
 from apps.organisations.models import Membership
 from apps.organisations.selectors import TenantContext, resolve_tenant_context
 from apps.organisations.services import create_organisation_for_owner
@@ -25,10 +32,16 @@ from apps.sales.order_services import (
     confirm_manual_payment,
     create_order,
     initiate_mercado_pago_checkout,
+    public_order_media_url,
     refund_payment,
     set_buyer_details,
 )
-from apps.sales.payments import MercadoPagoProvider, PaymentSnapshot, fake_payment_provider
+from apps.sales.payments import (
+    MercadoPagoProvider,
+    PaymentPreferenceInput,
+    PaymentSnapshot,
+    fake_payment_provider,
+)
 from apps.sales.selectors import (
     BalanceFilter,
     sales_balance,
@@ -270,6 +283,79 @@ def _mp_order(
         idempotency_key=f"checkout-{name}",
     )
     return checkout.order, product, checkout.payment, connection
+
+
+def _attach_ready_image(context: TenantContext, product: Product) -> MediaAsset:
+    fake_object_storage.clear()
+    buffer = io.BytesIO()
+    Image.new("RGB", (48, 48), (20, 80, 40)).save(buffer, format="PNG")
+    content = buffer.getvalue()
+    prepared = prepare_upload(
+        context=context,
+        purpose=MediaAsset.Purpose.PRODUCT_IMAGE,
+        original_name="frente.png",
+        content_type="image/png",
+        size=len(content),
+    )
+    fake_object_storage.write_bytes(
+        key=prepared.asset.object_key,
+        content=content,
+        content_type="image/png",
+    )
+    asset = complete_upload(context=context, public_id=prepared.asset.public_id)
+    attach_product_media(
+        context=context,
+        product_id=product.public_id,
+        asset_id=asset.public_id,
+    )
+    return asset
+
+
+def test_mercado_pago_preference_includes_line_items_and_status_return_urls(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, PaymentPreferenceInput] = {}
+    original = fake_payment_provider.create_preference
+
+    def capture(value: PaymentPreferenceInput, **kwargs: object) -> object:
+        captured["input"] = value
+        return original(value, **kwargs)
+
+    monkeypatch.setattr(fake_payment_provider, "create_preference", capture)
+    _owner, context = identity("mp-pref@example.com")
+    context.organisation.name = "Velas Artesanales del Sur"
+    context.organisation.save(update_fields=("name", "updated_at"))
+    connected(context)
+    order, product = create_sale(
+        context,
+        name="Vela de soya",
+        price="4500",
+        cost="100",
+        quantity=2,
+        method=Order.PaymentMethod.MERCADO_PAGO,
+    )
+    asset = _attach_ready_image(context, product)
+    token = decrypt_credential(order.public_token_ciphertext)
+    set_buyer_details(
+        token=token,
+        details={"name": "Comprador", "email": "buyer@example.com"},
+    )
+    initiate_mercado_pago_checkout(token=token, idempotency_key="pref-items")
+
+    preference = captured["input"]
+    assert len(preference.items) == 1
+    line = preference.items[0]
+    assert line.title == "Vela de soya"
+    assert line.quantity == 2
+    assert line.unit_price == Decimal("4500")
+    assert line.picture_url == public_order_media_url(order, asset.public_id, variant="medium")
+    assert preference.statement_descriptor == "Velas Artesanales del Sur"[:22]
+    assert len(preference.statement_descriptor) <= 22
+    origin = str(getattr(settings, "PUBLIC_ORIGIN", settings.WEB_ORIGIN)).rstrip("/")
+    callback = f"{origin}/p/{token}/estado?retorno=mercadopago"
+    assert preference.success_url == f"{callback}&resultado=success"
+    assert preference.pending_url == f"{callback}&resultado=pending"
+    assert preference.failure_url == f"{callback}&resultado=failure"
 
 
 def _webhook(

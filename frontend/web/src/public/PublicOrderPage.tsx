@@ -151,7 +151,10 @@ export function PublicOrderPage() {
           </Link>
         ) : (
           <Link className="button button--primary" to={`/p/${token}/comprar`}>
-            Comprar
+            {detail.paymentMethod === 'mercado_pago' &&
+            detail.status === 'purchase_in_progress'
+              ? 'Continuar pago'
+              : 'Comprar'}
           </Link>
         )}
         <span>No necesitas crear una cuenta.</span>

@@ -296,6 +296,42 @@ def test_fake_email_and_payment_providers_are_deterministic() -> None:
     assert first_payment.checkout_url.startswith("https://payments.invalid/")
 
 
+def test_product_offer_email_button_follows_payment_method() -> None:
+    bank = render_email(
+        "product_offer_link",
+        {
+            "actionUrl": "https://shop.test/p/token",
+            "orderNumber": "V-10",
+            "storeName": "Taller Norte",
+            "paymentMethod": "bank_transfer",
+        },
+    )
+    mercado = render_email(
+        "product_offer_link",
+        {
+            "actionUrl": "https://shop.test/p/token",
+            "orderNumber": "V-11",
+            "storeName": "Taller Norte",
+            "paymentMethod": "mercado_pago",
+        },
+    )
+    other = render_email(
+        "product_offer_link",
+        {
+            "actionUrl": "https://shop.test/p/token",
+            "orderNumber": "V-12",
+            "storeName": "Taller Norte",
+            "paymentMethod": "cash",
+        },
+    )
+
+    assert "Abrir pedido y subir comprobante" in bank.html
+    assert "Abrir pedido y pagar" in mercado.html
+    assert "Abrir pedido y subir comprobante" not in mercado.html
+    assert "Abrir pedido y pagar" not in other.html
+    assert "Abrir pedido" in other.html
+
+
 def test_app_email_templates_render_verify_and_reset_links() -> None:
     verify = render_email(
         "verify_email",

@@ -176,12 +176,12 @@ function buildColumns(
             disabled={!sellable}
             title={
               sellable
-                ? 'Generar venta por depósito'
+                ? 'Generar una venta individual de este producto'
                 : 'Requiere producto activo, stock disponible y precio de venta'
             }
             onClick={() => onSell(row.original)}
           >
-            Generar venta
+            Venta Individual
           </button>
           <button
             className="button button--secondary button--compact"

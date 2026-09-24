@@ -14,7 +14,9 @@ import { newIdempotencyKey } from '../lib/graphql'
 import type { ProductCard } from '../lib/inventory-api'
 import {
   createOrder,
+  fetchSellerPaymentConnection,
   publishOrderLink,
+  salesKeys,
   sendOfferLink,
 } from '../lib/sales-api'
 
@@ -23,21 +25,20 @@ const METHODS = [
     id: 'deposit',
     label: 'Depósito',
     description: 'El comprador transfiere y sube el comprobante.',
-    enabled: true,
   },
   {
     id: 'online',
     label: 'Pago Online',
-    description: 'Próximamente',
-    enabled: false,
+    description: 'El comprador paga con Mercado Pago desde el enlace.',
   },
   {
     id: 'cash',
     label: 'Efectivo',
     description: 'Abres la ficha para completar datos y registrar el pago.',
-    enabled: true,
   },
 ] as const
+
+type SaleMethodId = (typeof METHODS)[number]['id']
 
 const DELIVERY_MODES = [
   {
@@ -78,6 +79,14 @@ export function GenerateSaleSheet({
   const hasBankDetails = viewer.data
     ? organisationHasBankDetails(viewer.data.organisation)
     : true
+  const paymentConnection = useQuery({
+    queryKey: salesKeys.paymentConnection(),
+    queryFn: fetchSellerPaymentConnection,
+    enabled: visible,
+    retry: false,
+  })
+  const mercadoPagoActive =
+    paymentConnection.data?.sellerPaymentConnection?.status === 'connected'
   const available = product.stock.available
   const [quantity, setQuantity] = useState(1)
   const [email, setEmail] = useState('')
@@ -92,7 +101,7 @@ export function GenerateSaleSheet({
     null,
   )
   const [confirmCash, setConfirmCash] = useState(false)
-  const [method, setMethod] = useState<'deposit' | 'cash'>('deposit')
+  const [method, setMethod] = useState<SaleMethodId>('deposit')
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('shipping')
 
   const publish = useMutation({
@@ -106,7 +115,7 @@ export function GenerateSaleSheet({
           },
         ],
         deliveryMode,
-        paymentMethod: 'bank_transfer',
+        paymentMethod: method === 'online' ? 'mercado_pago' : 'bank_transfer',
         idempotencyKey: createKey,
       })
       const published = await publishOrderLink({
@@ -219,7 +228,7 @@ export function GenerateSaleSheet({
             ? 'Comparte el enlace. El comprador abre la ficha en el navegador.'
             : confirmCash
               ? 'Se reservará el stock y abrirás la ficha para completar los datos y registrar el pago.'
-              : 'Elige entrega y tipo de venta. Depósito comparte un enlace.'
+              : 'Elige entrega y tipo de venta. Depósito y Pago Online comparten un enlace.'
         }
         onClose={closeAll}
         footer={
@@ -309,19 +318,37 @@ export function GenerateSaleSheet({
             ))}
             <Text style={styles.sectionLabel}>Pago</Text>
             {METHODS.map((item) => {
+              const enabled = item.id !== 'online' || mercadoPagoActive
               const card = (
                 <View
                   style={[
                     styles.method,
-                    item.enabled && method === item.id ? styles.methodActive : null,
+                    enabled && method === item.id ? styles.methodActive : null,
                   ]}
                 >
                   <Text style={styles.methodTitle}>{item.label}</Text>
-                  <Text style={styles.muted}>{item.description}</Text>
+                  <Text style={styles.muted}>
+                    {enabled
+                      ? item.description
+                      : 'Conecta Mercado Pago en Más › Pagos.'}
+                  </Text>
                 </View>
               )
-              if (!item.enabled) {
-                return <View key={item.id}>{card}</View>
+              if (!enabled) {
+                return (
+                  <Pressable
+                    key={item.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={item.label}
+                    accessibilityState={{ disabled: true }}
+                    onPress={() => {
+                      closeAll()
+                      router.push('/mas/pagos')
+                    }}
+                  >
+                    {card}
+                  </Pressable>
+                )
               }
               return (
                 <Pressable
@@ -332,7 +359,7 @@ export function GenerateSaleSheet({
                   onPress={() => {
                     setError('')
                     setConfirmCash(false)
-                    setMethod(item.id === 'cash' ? 'cash' : 'deposit')
+                    setMethod(item.id)
                   }}
                 >
                   {card}
@@ -364,6 +391,13 @@ export function GenerateSaleSheet({
             {method === 'deposit' && hasBankDetails ? (
               <PrimaryButton
                 label={publish.isPending ? 'Generando…' : 'Generar depósito'}
+                loading={publish.isPending}
+                onPress={() => publish.mutate()}
+              />
+            ) : null}
+            {method === 'online' && mercadoPagoActive ? (
+              <PrimaryButton
+                label={publish.isPending ? 'Generando…' : 'Generar enlace de pago'}
                 loading={publish.isPending}
                 onPress={() => publish.mutate()}
               />

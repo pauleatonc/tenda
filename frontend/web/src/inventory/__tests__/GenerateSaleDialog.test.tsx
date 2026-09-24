@@ -10,11 +10,21 @@ import { GenerateSaleDialog } from '../GenerateSaleDialog'
 
 vi.mock('../../sales/api', () => ({
   createOrder: vi.fn(),
+  fetchPaymentConnection: vi.fn(),
   publishOrderLink: vi.fn(),
   sendOfferLink: vi.fn(),
+  salesKeys: {
+    paymentConnection: () => ['sales', 'payment-connection'],
+  },
 }))
 
 const mocked = vi.mocked(salesApi)
+
+function mockPaymentConnection(status: string | null) {
+  mocked.fetchPaymentConnection.mockResolvedValue({
+    sellerPaymentConnection: status ? { status } : null,
+  } as never)
+}
 
 const product: ProductRow = {
   id: 'product-1',
@@ -58,6 +68,7 @@ function renderDialog() {
 describe('GenerateSaleDialog', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockPaymentConnection(null)
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText: vi.fn().mockResolvedValue(undefined) },
@@ -80,7 +91,16 @@ describe('GenerateSaleDialog', () => {
     expect(screen.getByText('Depósito')).toBeInTheDocument()
     expect(screen.getByText('Pago Online')).toBeInTheDocument()
     expect(screen.getByText('Efectivo')).toBeInTheDocument()
-    expect(screen.getAllByText('Próximamente')).toHaveLength(1)
+    await waitFor(() =>
+      expect(screen.getByRole('radio', { name: /Pago Online/ })).toBeDisabled(),
+    )
+    expect(
+      screen.getByText('Conecta Mercado Pago en Configuración → Pagos'),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'conectar Mercado Pago' })).toHaveAttribute(
+      'href',
+      '/app/configuracion/pagos',
+    )
     expect(mocked.createOrder).not.toHaveBeenCalled()
 
     await userEvent.click(screen.getByRole('button', { name: 'Generar depósito' }))
@@ -108,6 +128,43 @@ describe('GenerateSaleDialog', () => {
       'https://shop.test/p/token',
     )
     expect(screen.getByRole('link', { name: 'Ver venta' })).toHaveAttribute('target', '_blank')
+  })
+
+  it('habilita Pago Online con Mercado Pago conectado y publica un enlace', async () => {
+    mockPaymentConnection('connected')
+    mocked.createOrder.mockResolvedValue({
+      replayed: false,
+      order: { id: 'order-mp' },
+    } as never)
+    mocked.publishOrderLink.mockResolvedValue({
+      replayed: false,
+      publicUrl: 'https://shop.test/p/token-mp',
+      order: { id: 'order-mp' },
+    } as never)
+
+    renderDialog()
+
+    const online = screen.getByRole('radio', { name: /Pago Online/ })
+    await waitFor(() => expect(online).toBeEnabled())
+    expect(screen.queryByRole('link', { name: 'conectar Mercado Pago' })).toBeNull()
+
+    await userEvent.click(online)
+    expect(screen.queryByRole('button', { name: 'Generar depósito' })).toBeNull()
+    await userEvent.click(screen.getByRole('button', { name: 'Generar enlace de pago' }))
+
+    await waitFor(() => expect(mocked.createOrder).toHaveBeenCalledTimes(1))
+    expect(mocked.createOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deliveryMode: 'shipping',
+        paymentMethod: 'mercado_pago',
+      }),
+    )
+    expect(mocked.publishOrderLink).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: 'order-mp' }),
+    )
+    expect(
+      await screen.findByDisplayValue('https://shop.test/p/token-mp'),
+    ).toBeInTheDocument()
   })
 
   it('pide completar datos bancarios antes de generar un depósito', () => {

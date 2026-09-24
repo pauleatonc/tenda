@@ -17,6 +17,17 @@ from tenda.errors import DomainError
 
 
 @dataclass(frozen=True, slots=True)
+class PreferenceItem:
+    """One order line as Mercado Pago shows it in Checkout Pro."""
+
+    title: str
+    quantity: int
+    unit_price: Decimal
+    picture_url: str | None = None
+    description: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class PaymentPreferenceInput:
     external_reference: str
     title: str
@@ -27,6 +38,28 @@ class PaymentPreferenceInput:
     pending_url: str
     failure_url: str
     notification_url: str
+    items: tuple[PreferenceItem, ...] = ()
+    statement_descriptor: str = ""
+
+    def checkout_items(self) -> list[dict[str, Any]]:
+        """Items payload for the provider; falls back to a single summary line."""
+        lines = self.items or (
+            PreferenceItem(title=self.title, quantity=1, unit_price=self.amount),
+        )
+        payload: list[dict[str, Any]] = []
+        for line in lines:
+            entry: dict[str, Any] = {
+                "title": line.title,
+                "quantity": line.quantity,
+                "currency_id": self.currency,
+                "unit_price": str(line.unit_price),
+            }
+            if line.picture_url:
+                entry["picture_url"] = line.picture_url
+            if line.description:
+                entry["description"] = line.description
+            payload.append(entry)
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -348,14 +381,7 @@ class MercadoPagoProvider:
                 },
                 json={
                     "external_reference": value.external_reference,
-                    "items": [
-                        {
-                            "title": value.title,
-                            "quantity": 1,
-                            "currency_id": value.currency,
-                            "unit_price": str(value.amount),
-                        }
-                    ],
+                    "items": value.checkout_items(),
                     "payer": {"email": value.payer_email},
                     "back_urls": {
                         "success": value.success_url,
@@ -365,6 +391,11 @@ class MercadoPagoProvider:
                     "auto_return": "approved",
                     "notification_url": value.notification_url,
                     "marketplace_fee": int(marketplace_fee),
+                    **(
+                        {"statement_descriptor": value.statement_descriptor}
+                        if value.statement_descriptor
+                        else {}
+                    ),
                 },
                 timeout=8,
             )
