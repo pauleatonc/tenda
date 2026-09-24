@@ -10,7 +10,7 @@ import {
   salesKeys,
   startMercadoPagoConnection,
 } from './api'
-import { formatClp, formatDate, statusTone } from './model'
+import { formatDate, statusTone } from './model'
 
 const connectionLabels: Record<string, string> = {
   active: 'Conectada',
@@ -236,29 +236,11 @@ export function PaymentsSettingsPage() {
 
           {configuration ? (
             <aside className="payment-commission-card">
-              <h2>Comisión visible al checkout</h2>
-              <dl>
-                <div>
-                  <dt>Modo</dt>
-                  <dd>{configuration.mode}</dd>
-                </div>
-                <div>
-                  <dt>Tasa</dt>
-                  <dd>{configuration.rate}%</dd>
-                </div>
-                <div>
-                  <dt>Mínimo operacional</dt>
-                  <dd>{formatClp(configuration.minimum)}</dd>
-                </div>
-                <div>
-                  <dt>Intento sin fee</dt>
-                  <dd>{configuration.zeroFeeEnabled ? 'Habilitado' : 'Deshabilitado'}</dd>
-                </div>
-              </dl>
               <p>
-                El comprador verá cualquier cargo no nulo antes de confirmar. El retorno
-                desde Mercado Pago no marca una venta como pagada: Tenda espera la
-                verificación del proveedor.
+                Comisión:{' '}
+                {configuration.mode === 'disabled' || Number(configuration.rate) === 0
+                  ? '0'
+                  : `${configuration.rate}%`}
               </p>
             </aside>
           ) : null}

@@ -778,9 +778,11 @@
 }
 
 .payment-commission-card > p {
-  color: var(--ink-soft);
-  font-size: 13px;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 700;
   line-height: 1.55;
+  margin: 0;
 }
 
 .reconciliation-toolbar {

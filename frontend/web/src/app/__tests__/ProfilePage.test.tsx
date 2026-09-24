@@ -6,6 +6,7 @@ import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ViewerPayload } from '../../auth/api'
+import * as salesApi from '../../sales/api'
 import { ProfilePage } from '../ProfilePage'
 
 const { graphqlRequest, uploadPrivateFile } = vi.hoisted(() => ({
@@ -20,6 +21,15 @@ vi.mock('../../lib/http', async () => {
 
 vi.mock('../../inventory/api', () => ({
   uploadPrivateFile: (...args: unknown[]) => uploadPrivateFile(...args),
+}))
+
+vi.mock('../../sales/api', () => ({
+  fetchPaymentConnection: vi.fn().mockResolvedValue({
+    sellerPaymentConnection: null,
+  }),
+  salesKeys: {
+    paymentConnection: () => ['sales', 'payment-connection'],
+  },
 }))
 
 function viewer(canManageStore: boolean): ViewerPayload {
@@ -83,9 +93,12 @@ describe('ProfilePage', () => {
   beforeEach(() => {
     graphqlRequest.mockReset()
     uploadPrivateFile.mockReset()
+    vi.mocked(salesApi.fetchPaymentConnection).mockResolvedValue({
+      sellerPaymentConnection: null,
+    } as never)
   })
 
-  it('muestra datos de la persona y de la tienda', () => {
+  it('muestra datos de la persona y de la tienda', async () => {
     renderPage(viewer(true))
     expect(screen.getByDisplayValue('Ana Pérez')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Taller Ana')).toBeInTheDocument()
@@ -93,6 +106,21 @@ describe('ProfilePage', () => {
     expect(screen.getByRole('button', { name: 'Guardar tienda' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Datos para depósitos' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Guardar datos bancarios' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Pago con Mercado Pago' }),
+    ).toBeInTheDocument()
+    expect(await screen.findByText('No habilitado')).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'Configuración de pago con Mercado Pago' }),
+    ).toHaveAttribute('href', '/app/configuracion/pagos')
+  })
+
+  it('marca Mercado Pago como habilitado cuando la cuenta está conectada', async () => {
+    vi.mocked(salesApi.fetchPaymentConnection).mockResolvedValue({
+      sellerPaymentConnection: { status: 'connected' },
+    } as never)
+    renderPage(viewer(true))
+    expect(await screen.findByText('Habilitado')).toBeInTheDocument()
   })
 
   it('oculta la edición de tienda si no hay permiso', () => {
@@ -101,6 +129,7 @@ describe('ProfilePage', () => {
     expect(
       screen.getByText('Solo quien titula la tienda puede editar estos datos.'),
     ).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Pago con Mercado Pago' })).toBeNull()
   })
 
   it('guarda el perfil', async () => {

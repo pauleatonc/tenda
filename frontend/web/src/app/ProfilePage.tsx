@@ -12,6 +12,7 @@ import { UploadField } from '../components/ui'
 import { graphqlRequest, TendaApiError } from '../lib/http'
 import { uploadPrivateFile } from '../inventory/api'
 import { BankDetailsSection } from './BankDetailsSection'
+import { MercadoPagoProfileCard } from './MercadoPagoProfileCard'
 
 export function ProfilePage() {
   const viewer = useOutletContext<ViewerPayload>()
@@ -234,6 +235,8 @@ export function ProfilePage() {
             ) : null}
           </form>
         </section>
+
+        {canManageStore ? <MercadoPagoProfileCard /> : null}
 
         <BankDetailsSection
           viewer={viewer}

@@ -78,6 +78,11 @@
   grid-column: 1 / -1;
 }
 
+.profile-card--wide > .button {
+  justify-self: start;
+  width: fit-content;
+}
+
 .profile-card--wide .profile-card__intro {
   align-items: start;
 }
