@@ -383,5 +383,14 @@ if SENTRY_DSN:
         before_send=scrub_sentry_event,
     )
 AGENT_FEATURE_STATUS = os.getenv("AGENT_FEATURE_STATUS", "coming_soon")
-if AGENT_FEATURE_STATUS not in {"disabled", "coming_soon"}:
-    raise ValueError("AGENT_FEATURE_STATUS only supports 'disabled' or 'coming_soon' in the MVP")
+if AGENT_FEATURE_STATUS not in {"disabled", "coming_soon", "enabled"}:
+    raise ValueError(
+        "AGENT_FEATURE_STATUS only supports 'disabled', 'coming_soon' or 'enabled'"
+    )
+PRODUCT_IMAGE_SEARCH_PROVIDER = os.getenv("PRODUCT_IMAGE_SEARCH_PROVIDER", "fake")
+NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "")
+NVIDIA_VISION_MODEL = os.getenv(
+    "NVIDIA_VISION_MODEL",
+    "meta/llama-3.2-11b-vision-instruct",
+)
+BRAVE_SEARCH_API_KEY = os.getenv("BRAVE_SEARCH_API_KEY", "")

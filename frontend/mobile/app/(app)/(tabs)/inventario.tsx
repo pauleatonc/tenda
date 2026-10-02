@@ -10,6 +10,8 @@ import {
   Text,
   TextInput,
   View,
+  type StyleProp,
+  type TextStyle,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
@@ -20,15 +22,68 @@ import { InventoryChip, Sheet } from '../../../components/inventory-ui'
 import { StockAdjustSheet } from '../../../components/stock-adjust-sheet'
 import { canGenerateSale } from '../../../lib/can-generate-sale'
 import { MobileApiError } from '../../../lib/auth-api'
-import { catalogStatusLabels, formatPrice, formatQuantity } from '../../../lib/format'
 import {
+  catalogStatusLabels,
+  formatAttribute,
+  formatPrice,
+  formatQuantity,
+} from '../../../lib/format'
+import {
+  fetchInventorySchema,
   fetchProductBreakdown,
   fetchProducts,
   inventoryKeys,
+  type CustomField,
   type ProductCard,
 } from '../../../lib/inventory-api'
 
 const PAGE_SIZE = 20
+const DESCRIPTION_LINE_HEIGHT = 20
+const DESCRIPTION_MAX_LINES = 2
+const FADE_STOPS = [0, 0.12, 0.3, 0.52, 0.72, 0.9]
+
+function isLongTextField(field: CustomField): boolean {
+  return field.fieldType === 'short_text'
+}
+
+function FadingClampedText({
+  children,
+  style,
+}: {
+  children: string
+  style?: StyleProp<TextStyle>
+}) {
+  const [showFade, setShowFade] = useState(false)
+
+  return (
+    <View
+      style={[
+        styles.textClamp,
+        { maxHeight: DESCRIPTION_LINE_HEIGHT * DESCRIPTION_MAX_LINES },
+      ]}
+    >
+      <Text
+        style={[style, { lineHeight: DESCRIPTION_LINE_HEIGHT }]}
+        onTextLayout={(event) => {
+          const next = event.nativeEvent.lines.length > DESCRIPTION_MAX_LINES
+          setShowFade((current) => (current === next ? current : next))
+        }}
+      >
+        {children}
+      </Text>
+      {showFade ? (
+        <View pointerEvents="none" style={styles.textClampFade}>
+          {FADE_STOPS.map((opacity, index) => (
+            <View
+              key={index}
+              style={[styles.textClampFadeStop, { opacity }]}
+            />
+          ))}
+        </View>
+      ) : null}
+    </View>
+  )
+}
 
 const STOCK_STATES = [
   { value: 'available', label: 'Disponible' },
@@ -104,18 +159,28 @@ function ProductBreakdown({ productId }: { productId: string }) {
 
 function ProductListItem({
   product,
+  textFields,
   expanded,
   onToggle,
   onAdjust,
   onSell,
 }: {
   product: ProductCard
+  textFields: CustomField[]
   expanded: boolean
   onToggle: () => void
   onAdjust: () => void
   onSell: () => void
 }) {
   const { available, reserved, activeFulfilment } = product.stock
+  const descriptions = textFields
+    .map((field) => {
+      const value = formatAttribute(product.extraAttributes[field.key])
+      if (value === '—') return null
+      return { key: field.key, label: field.label, value }
+    })
+    .filter((item): item is { key: string; label: string; value: string } => item !== null)
+
   return (
     <View style={styles.card}>
       <View style={styles.cardHead}>
@@ -138,6 +203,19 @@ function ProductListItem({
           <Text style={styles.chevronIcon}>{expanded ? '⌃' : '⌄'}</Text>
         </Pressable>
       </View>
+
+      {descriptions.length ? (
+        <View style={styles.attributeList}>
+          {descriptions.map((item) => (
+            <View key={item.key} style={styles.attributeRow}>
+              <Text style={styles.attributeLabel}>{item.label}</Text>
+              <FadingClampedText style={styles.attributeValue}>
+                {item.value}
+              </FadingClampedText>
+            </View>
+          ))}
+        </View>
+      ) : null}
 
       <View style={styles.chips}>
         {available > 0 ? (
@@ -239,6 +317,19 @@ export default function InventoryScreen() {
   const hasFilters =
     Boolean(debouncedSearch) || stockStates.length > 0 || catalogStatuses.length > 0
 
+  const schema = useQuery({
+    queryKey: inventoryKeys.schema(),
+    queryFn: () => fetchInventorySchema(false),
+  })
+
+  const textFields = useMemo(
+    () =>
+      (schema.data?.fields ?? []).filter(
+        (field) => field.isVisible && isLongTextField(field),
+      ),
+    [schema.data],
+  )
+
   const products = useInfiniteQuery({
     queryKey: inventoryKeys.products({ filter, sort }),
     initialPageParam: null as string | null,
@@ -323,6 +414,7 @@ export default function InventoryScreen() {
         renderItem={({ item }) => (
           <ProductListItem
             product={item}
+            textFields={textFields}
             expanded={expandedId === item.id}
             onToggle={() =>
               setExpandedId((current) => (current === item.id ? null : item.id))
@@ -509,8 +601,26 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   cardHead: { flexDirection: 'row', gap: 12, justifyContent: 'space-between' },
-  cardTitleArea: { flex: 1, gap: 4, minHeight: 44 },
-  cardTitle: { color: colors.ink, fontSize: 18, fontWeight: '800' },
+  cardTitleArea: { flex: 1, flexShrink: 1, gap: 4, minHeight: 44, minWidth: 0 },
+  cardTitle: { color: colors.ink, flexShrink: 1, fontSize: 18, fontWeight: '800' },
+  attributeList: { gap: 8, minWidth: 0 },
+  attributeRow: { gap: 2, minWidth: 0 },
+  attributeLabel: {
+    color: colors.inkMuted,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  attributeValue: { color: colors.inkSoft, fontSize: 14 },
+  textClamp: { overflow: 'hidden', position: 'relative', width: '100%' },
+  textClampFade: {
+    bottom: 0,
+    height: DESCRIPTION_LINE_HEIGHT,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+  },
+  textClampFadeStop: { backgroundColor: colors.surface, flex: 1 },
   chevron: { alignItems: 'center', justifyContent: 'center', minHeight: 44, width: 44 },
   chevronIcon: { color: colors.inkSoft, fontSize: 20, fontWeight: '800' },
   breakdown: {

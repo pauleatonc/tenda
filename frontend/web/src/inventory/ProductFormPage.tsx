@@ -11,9 +11,11 @@ import {
   fetchProductDetail,
   fetchProducts,
   inventoryKeys,
+  suggestProductsFromImage,
   updateProduct,
   uploadPrivateFile,
   type CustomField,
+  type ProductImageCandidate,
   type ProductRow,
 } from './api'
 import { CustomFieldDialog } from './CustomFieldDialog'
@@ -24,7 +26,7 @@ import {
   type StagedPhoto,
 } from './ProductPhotoQueue'
 import type { ProductCreateOrigin } from './create-options'
-import { catalogStatusLabels } from './format'
+import { catalogStatusLabels, formatPrice } from './format'
 import {
   productDraftEquals,
   suggestVariantName,
@@ -105,7 +107,13 @@ export function ProductFormPage({
   const [showColumnDialog, setShowColumnDialog] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [idempotencyKey, setIdempotencyKey] = useState(newIdempotencyKey)
+  const [suggestionKey, setSuggestionKey] = useState(newIdempotencyKey)
   const [photos, setPhotos] = useState<StagedPhoto[]>([])
+  const [candidates, setCandidates] = useState<ProductImageCandidate[]>([])
+  const [assistedPhase, setAssistedPhase] = useState<'photo' | 'searching' | 'pick' | 'form'>(
+    'photo',
+  )
+  const [searchError, setSearchError] = useState<string | null>(null)
   const [pickerQuery, setPickerQuery] = useState('')
   const [debouncedPicker, setDebouncedPicker] = useState('')
   const [sourceProduct, setSourceProduct] = useState<ProductRow | null>(null)
@@ -240,7 +248,8 @@ export function ProductFormPage({
       })
       try {
         for (const [index, photo] of photos.entries()) {
-          const assetId = await uploadPrivateFile(photo.file, 'product_image')
+          const assetId =
+            photo.assetId ?? (await uploadPrivateFile(photo.file, 'product_image'))
           await attachProductMedia(created.product.id, assetId, index === 0)
         }
       } catch {
@@ -323,19 +332,73 @@ export function ProductFormPage({
     navigate('/app/inventario')
   }
 
-  function addPhotos(files: File[]) {
-    setPhotos((current) => [...current, ...files.map(createStagedPhoto)])
+  function resetAssistedSearch() {
+    setCandidates([])
+    setSearchError(null)
+    setAssistedPhase('photo')
+    setSuggestionKey(newIdempotencyKey())
+  }
+
+  async function runAssistedSearch(photo: StagedPhoto) {
+    setAssistedPhase('searching')
+    setSearchError(null)
+    try {
+      const assetId =
+        photo.assetId ?? (await uploadPrivateFile(photo.file, 'product_image'))
+      setPhotos((current) =>
+        current.map((item) => (item.id === photo.id ? { ...item, assetId } : item)),
+      )
+      const result = await suggestProductsFromImage({
+        assetId,
+        idempotencyKey: suggestionKey,
+      })
+      setCandidates(result.candidates)
+      setAssistedPhase('pick')
+    } catch (error) {
+      setSearchError(
+        error instanceof TendaApiError
+          ? error.message
+          : 'No pudimos buscar productos similares. Completa la ficha a mano.',
+      )
+      setAssistedPhase('form')
+      setSuggestionKey(newIdempotencyKey())
+    }
+  }
+
+  function applyCandidate(candidate: ProductImageCandidate) {
+    setName(candidate.name)
+    setSalePrice(candidate.salePrice != null ? String(candidate.salePrice) : '')
+    setPurchasePrice(candidate.purchasePrice != null ? String(candidate.purchasePrice) : '')
+    setAttributes((current) => {
+      const next = { ...current }
+      for (const [key, value] of Object.entries(candidate.extraAttributes)) {
+        next[key] = attributeToDraft(value)
+      }
+      return next
+    })
+    setAssistedPhase('form')
     setDirty(true)
   }
 
-  function removePhoto(id: string) {
-    setPhotos((current) => {
-      const next = current.filter((photo) => photo.id !== id)
-      const removed = current.find((photo) => photo.id === id)
-      if (removed) URL.revokeObjectURL(removed.previewUrl)
-      return next
-    })
+  function addPhotos(files: File[]) {
+    const staged = files.map(createStagedPhoto)
+    const isFirstAssistedPhoto = isAssisted && photos.length === 0
+    setPhotos((current) => [...current, ...staged])
     setDirty(true)
+    if (isFirstAssistedPhoto && staged[0]) {
+      void runAssistedSearch(staged[0])
+    }
+  }
+
+  function removePhoto(id: string) {
+    const remaining = photos.filter((photo) => photo.id !== id)
+    const removed = photos.find((photo) => photo.id === id)
+    if (removed) URL.revokeObjectURL(removed.previewUrl)
+    setPhotos(remaining)
+    setDirty(true)
+    if (isAssisted && remaining.length === 0) {
+      resetAssistedSearch()
+    }
   }
 
   if (isEdit && product.isPending) {
@@ -369,11 +432,19 @@ export function ProductFormPage({
     ? 'Editar no cambia el stock: cualquier ajuste de cantidad se registra como movimiento.'
     : isVariant
       ? 'Cambia al menos un dato. El nombre tiene que ser distinto al del producto original.'
-      : isAssisted
-        ? 'La foto queda lista. Completa los datos: el agente los rellenará en una próxima versión.'
-        : 'Registra el mínimo necesario. Puedes ampliar la ficha con columnas propias.'
-  const showForm = !isVariant || Boolean(sourceProduct)
-  const showAssistedGate = isAssisted && photos.length === 0
+      : isAssisted && assistedPhase === 'photo'
+        ? 'Sube o toma una foto. Buscaremos productos similares para que elijas uno.'
+        : isAssisted && assistedPhase === 'searching'
+          ? 'Estamos buscando productos similares a tu foto.'
+          : isAssisted && assistedPhase === 'pick'
+            ? 'Elige el producto que más se parece. Puedes editarlo después.'
+            : isAssisted
+              ? 'Revisa y completa los datos. La foto original se adjunta al guardar.'
+              : 'Registra el mínimo necesario. Puedes ampliar la ficha con columnas propias.'
+  const showAssistedGate = isAssisted && photos.length === 0 && assistedPhase === 'photo'
+  const showCandidates =
+    isAssisted && (assistedPhase === 'searching' || assistedPhase === 'pick')
+  const showForm = (!isVariant || Boolean(sourceProduct)) && !showAssistedGate && !showCandidates
 
   return (
     <>
@@ -408,6 +479,11 @@ export function ProductFormPage({
           {apiError.correlationId ? (
             <small>Referencia: {apiError.correlationId}</small>
           ) : null}
+        </div>
+      ) : null}
+      {searchError && showForm ? (
+        <div className="form-message form-message--error" role="status">
+          <span>{searchError}</span>
         </div>
       ) : null}
 
@@ -454,7 +530,6 @@ export function ProductFormPage({
       {showAssistedGate ? (
         <fieldset className="product-form">
           <legend>Foto para empezar</legend>
-          {/* The agent will fill this draft from the photo in a later iteration. */}
           <ProductPhotoQueue
             photos={photos}
             required
@@ -468,6 +543,65 @@ export function ProductFormPage({
             </button>
           </div>
         </fieldset>
+      ) : null}
+
+      {showCandidates ? (
+        <section className="product-candidates" aria-label="Productos similares">
+          <ProductPhotoQueue
+            photos={photos}
+            required
+            onAdd={addPhotos}
+            onRemove={removePhoto}
+          />
+          {assistedPhase === 'searching' ? (
+            <p aria-live="polite">Buscando productos similares…</p>
+          ) : (
+            <ul className="product-candidates__list">
+              {candidates.map((candidate) => (
+                <li key={`${candidate.name}-${candidate.sourceUrl}`}>
+                  <button type="button" onClick={() => applyCandidate(candidate)}>
+                    {candidate.imageUrl ? (
+                      <img src={candidate.imageUrl} alt="" referrerPolicy="no-referrer" />
+                    ) : (
+                      <span className="product-candidates__missing">Sin foto del anuncio</span>
+                    )}
+                    <span className="product-candidates__name">{candidate.name}</span>
+                    <span className="product-candidates__price">
+                      {formatPrice(
+                        candidate.salePrice != null ? String(candidate.salePrice) : null,
+                      )}
+                    </span>
+                    {candidate.sourceUrl ? (
+                      <small className="product-candidates__source">
+                        {candidate.sourceUrl.replace(/^https?:\/\//, '')}
+                      </small>
+                    ) : null}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {assistedPhase === 'pick' ? (
+            <div className="form-row">
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={() => setAssistedPhase('form')}
+              >
+                Completar a mano
+              </button>
+              <button className="button button--secondary" type="button" onClick={leave}>
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <div className="form-row">
+              <button className="button button--secondary" type="button" onClick={leave}>
+                Cancelar
+              </button>
+            </div>
+          )}
+        </section>
       ) : null}
 
       {showForm && !showAssistedGate ? (
@@ -596,7 +730,7 @@ export function ProductFormPage({
           </fieldset>
 
           <fieldset>
-            <legend>Datos adicionales</legend>
+            <legend>Otros datos</legend>
             {!fields.length ? (
               <p className="fieldset-hint">
                 Todavía no defines columnas propias para este inventario.
@@ -662,7 +796,7 @@ export function ProductFormPage({
               type="button"
               onClick={() => setShowColumnDialog(true)}
             >
-              Agregar columna
+              Agregar nuevo campo
             </button>
           </fieldset>
 

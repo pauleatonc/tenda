@@ -13,6 +13,7 @@ export type PickedImage = {
   fileName: string
   contentType: string
   size: number
+  assetId?: string
 }
 
 function uploadError(code: string, message: string, retryable = false) {

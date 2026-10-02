@@ -242,6 +242,21 @@ query ProductMovements($productId: ID!, $first: Int, $after: String) {
   }
 }
 
+mutation SuggestProductsFromImage($input: SuggestProductsFromImageInput!) {
+  suggestProductsFromImage(input: $input) {
+    replayed
+    candidates {
+      name
+      salePrice
+      purchasePrice
+      extraAttributes
+      sourceUrl
+      imageUrl
+      confidence
+    }
+  }
+}
+
 mutation CreateProduct($input: CreateProductInput!) {
   createProduct(input: $input) {
     replayed

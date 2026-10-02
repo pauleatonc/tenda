@@ -7,6 +7,7 @@ import ProductFormScreen from '../inventario/producto'
 import { MobileApiError } from '../../../lib/auth-api'
 import { NETWORK_UNAVAILABLE } from '../../../lib/graphql'
 import * as api from '../../../lib/inventory-api'
+import * as upload from '../../../lib/mobile-upload'
 
 jest.mock('../../../lib/inventory-api', () => ({
   ...jest.requireActual('../../../lib/inventory-api'),
@@ -16,6 +17,7 @@ jest.mock('../../../lib/inventory-api', () => ({
   createProduct: jest.fn(),
   createCustomField: jest.fn(),
   attachProductMedia: jest.fn(),
+  suggestProductsFromImage: jest.fn(),
 }))
 
 jest.mock('../../../lib/mobile-upload', () => ({
@@ -27,6 +29,7 @@ jest.mock('../../../lib/mobile-upload', () => ({
 const mockedParams = useLocalSearchParams as jest.Mock
 
 const mocked = api as jest.Mocked<typeof api>
+const mockedUpload = upload as jest.Mocked<typeof upload>
 
 const emptySchema = {
   inventoryId: 'inv-1',
@@ -221,13 +224,70 @@ describe('Crear producto en mobile', () => {
 
   it('en creación asistida no muestra el formulario hasta que hay una foto', async () => {
     mockedParams.mockReturnValue({ origen: 'asistida' })
-    const fetchSpy = jest.spyOn(globalThis, 'fetch')
     await renderScreen(<ProductFormScreen />)
 
     expect(screen.getByText(/Sube o toma una foto para continuar/)).toBeOnTheScreen()
     expect(screen.queryByLabelText('Nombre')).toBeNull()
     expect(screen.getByRole('button', { name: 'Tomar foto' })).toBeOnTheScreen()
-    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(mockedUpload.uploadProductImage).not.toHaveBeenCalled()
+    expect(mocked.suggestProductsFromImage).not.toHaveBeenCalled()
+  })
+
+  it('en creación asistida sube la foto, muestra candidatos y rellena el formulario', async () => {
+    mockedParams.mockReturnValue({ origen: 'asistida' })
+    mockedUpload.pickProductImage.mockResolvedValue({
+      uri: 'file://vela.png',
+      fileName: 'vela.png',
+      contentType: 'image/png',
+      size: 12,
+    })
+    mockedUpload.uploadProductImage.mockResolvedValue('asset-1')
+    mocked.suggestProductsFromImage.mockResolvedValue({
+      replayed: false,
+      candidates: [
+        {
+          name: 'Vela de soya aroma lavanda',
+          salePrice: 12990,
+          purchasePrice: 4500,
+          extraAttributes: { aroma: 'Lavanda' },
+          sourceUrl: 'https://example.com/productos/vela-lavanda',
+          imageUrl: 'https://example.com/img/vela-lavanda.jpg',
+          confidence: 0.92,
+        },
+        {
+          name: 'Set de velas artesanales',
+          salePrice: 15990,
+          purchasePrice: 5200,
+          extraAttributes: {},
+          sourceUrl: 'https://example.com/productos/set-velas',
+          imageUrl: null,
+          confidence: 0.84,
+        },
+        {
+          name: 'Vela de cera de soya 200 g',
+          salePrice: 9990,
+          purchasePrice: 3800,
+          extraAttributes: {},
+          sourceUrl: 'https://example.com/productos/vela-200g',
+          imageUrl: null,
+          confidence: 0.77,
+        },
+      ],
+    })
+
+    await renderScreen(<ProductFormScreen />)
+    await fireEvent.press(screen.getByRole('button', { name: 'Elegir de la galería' }))
+
+    expect(await screen.findByText('Vela de soya aroma lavanda')).toBeOnTheScreen()
+    expect(mockedUpload.uploadProductImage).toHaveBeenCalled()
+    expect(mocked.suggestProductsFromImage).toHaveBeenCalledWith(
+      expect.objectContaining({ assetId: 'asset-1' }),
+    )
+    expect(screen.queryByLabelText('Nombre')).toBeNull()
+
+    await fireEvent.press(screen.getByText('Vela de soya aroma lavanda'))
+    expect(screen.getByLabelText('Nombre')).toHaveDisplayValue('Vela de soya aroma lavanda')
+    expect(screen.getByLabelText('Precio de venta')).toHaveDisplayValue('12990')
   })
 
   it('bloquea una variante idéntica y no llama al API', async () => {

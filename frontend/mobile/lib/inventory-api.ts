@@ -15,6 +15,7 @@ import {
   RemoveProductMediaDocument,
   RestoreProductDocument,
   SetPrimaryProductMediaDocument,
+  SuggestProductsFromImageDocument,
   UpdateProductDocument,
   type OperationCreateCustomFieldInput,
   type OperationCreateProductInput,
@@ -39,6 +40,16 @@ export type ProductCard = Omit<OperationProductRowFragment, 'extraAttributes'> &
   extraAttributes: Record<string, unknown>
 }
 
+export type ProductImageCandidate = {
+  name: string
+  salePrice: number | null
+  purchasePrice: number | null
+  extraAttributes: Record<string, unknown>
+  sourceUrl: string | null
+  imageUrl: string | null
+  confidence: number
+}
+
 function parseJson<T>(value: unknown, fallback: T): T {
   if (typeof value !== 'string' || !value) return fallback
   try {
@@ -50,6 +61,9 @@ function parseJson<T>(value: unknown, fallback: T): T {
 
 /** `JSONString` travels as text, so the boundary parses it exactly once. */
 function parseAttributes(value: unknown): Record<string, unknown> {
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    return value as Record<string, unknown>
+  }
   if (typeof value !== 'string' || !value) return {}
   try {
     const parsed: unknown = JSON.parse(value)
@@ -150,6 +164,20 @@ export async function fetchProductMovements(productId: string) {
     after: null,
   })
   return data.stockMovements
+}
+
+export async function suggestProductsFromImage(input: {
+  assetId: string
+  idempotencyKey: string
+}): Promise<{ candidates: ProductImageCandidate[]; replayed: boolean }> {
+  const data = await graphqlRequest(SuggestProductsFromImageDocument, { input })
+  return {
+    replayed: data.suggestProductsFromImage.replayed,
+    candidates: data.suggestProductsFromImage.candidates.map((candidate) => ({
+      ...candidate,
+      extraAttributes: parseAttributes(candidate.extraAttributes),
+    })),
+  }
 }
 
 export async function createProduct(

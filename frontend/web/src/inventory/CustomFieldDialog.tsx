@@ -128,7 +128,7 @@ export function CustomFieldDialog({ onClose, onFieldCreated }: Props) {
 
       <section aria-label="Columnas existentes" className="column-manager">
         <div className="column-manager__head">
-          <strong>Columnas actuales</strong>
+          <strong>Campos actuales</strong>
           <span>
             {activeFields.length} de {maxActive} activas
           </span>
@@ -136,7 +136,7 @@ export function CustomFieldDialog({ onClose, onFieldCreated }: Props) {
         {schema.isPending ? <p>Cargando columnas…</p> : null}
         {!schema.isPending && !fields.length ? (
           <p className="column-manager__empty">
-            Aún no defines columnas propias. Crea la primera abajo.
+            Aún no defines nuevos campos. Crea el primero abajo.
           </p>
         ) : null}
         <ul>
@@ -199,16 +199,16 @@ export function CustomFieldDialog({ onClose, onFieldCreated }: Props) {
           })
         }}
       >
-        <h3>Nueva columna</h3>
+        <h3>Nuevo campo</h3>
         {remaining <= 0 ? (
           <p className="column-form__limit" role="status">
-            Alcanzaste el máximo de {maxActive} columnas activas. Desactiva una para
+            Alcanzaste el máximo de {maxActive} campos activos. Desactiva uno para
             liberar cupo.
           </p>
         ) : null}
 
         <div className="field">
-          <label htmlFor="column-label">Nombre de la columna</label>
+          <label htmlFor="column-label">Nombre del nuevo campo</label>
           <input
             id="column-label"
             value={label}

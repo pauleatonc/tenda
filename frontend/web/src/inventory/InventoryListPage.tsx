@@ -21,6 +21,7 @@ import {
   type ProductRow,
 } from './api'
 import { canGenerateSale } from './can-generate-sale'
+import { ClampedText } from './ClampedText'
 import { CustomFieldDialog } from './CustomFieldDialog'
 import { GenerateSaleDialog } from './GenerateSaleDialog'
 import { ProductRowExpansion } from './ProductRowExpansion'
@@ -32,6 +33,20 @@ import {
   formatPrice,
   formatQuantity,
 } from './format'
+
+function isLongTextField(field: CustomField): boolean {
+  return field.fieldType === 'short_text'
+}
+
+type InventoryColumnMeta = {
+  cellClassName?: string
+}
+
+function columnClassName(meta: unknown): string | undefined {
+  if (!meta || typeof meta !== 'object' || !('cellClassName' in meta)) return undefined
+  const value = (meta as InventoryColumnMeta).cellClassName
+  return typeof value === 'string' ? value : undefined
+}
 
 const features = tableFeatures({ columnVisibilityFeature })
 const PAGE_SIZE = 25
@@ -158,7 +173,14 @@ function buildColumns(
       id: `custom:${field.key}`,
       header: field.label,
       accessorFn: (row: ProductRow) => row.extraAttributes[field.key],
-      cell: ({ row }) => formatAttribute(row.original.extraAttributes[field.key]),
+      meta: isLongTextField(field) ? { cellClassName: 'cell-text-column' } : undefined,
+      cell: ({ row }) => {
+        const value = formatAttribute(row.original.extraAttributes[field.key])
+        if (isLongTextField(field) && value !== '—') {
+          return <ClampedText>{value}</ClampedText>
+        }
+        return value
+      },
     }),
   )
 
@@ -499,7 +521,11 @@ export function InventoryListPage() {
                     <span className="sr-only">Desglose</span>
                   </th>
                   {headerGroup.headers.map((header) => (
-                    <th key={header.id} scope="col">
+                    <th
+                      key={header.id}
+                      scope="col"
+                      className={columnClassName(header.column.columnDef.meta)}
+                    >
                       <table.FlexRender header={header} />
                     </th>
                   ))}
@@ -524,7 +550,10 @@ export function InventoryListPage() {
                         </button>
                       </td>
                       {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id}>
+                        <td
+                          key={cell.id}
+                          className={columnClassName(cell.column.columnDef.meta)}
+                        >
                           <table.FlexRender cell={cell} />
                         </td>
                       ))}

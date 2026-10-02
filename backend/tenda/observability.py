@@ -76,7 +76,17 @@ class RedactingJsonFormatter(logging.Formatter):
                 current_correlation_id(),
             ),
         }
-        for key in ("event", "outbox_event_id", "event_type", "attempt"):
+        for key in (
+            "event",
+            "outbox_event_id",
+            "event_type",
+            "attempt",
+            "step",
+            "error",
+            "statusCode",
+            "hits",
+            "candidates",
+        ):
             if hasattr(record, key):
                 payload[key] = _redact_mapping(getattr(record, key))
         if record.exc_info and record.exc_info[0] is not None:

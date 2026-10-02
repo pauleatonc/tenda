@@ -14,8 +14,7 @@ export const PRODUCT_CREATE_OPTIONS = [
   {
     origin: 'assisted',
     title: 'Creación asistida',
-    description:
-      'Sube o toma una foto. Por ahora los datos quedan vacíos para que los completes.',
+    description: 'Busca productos similares y elige uno.',
     to: '/app/inventario/nuevo/asistida',
   },
 ] as const

@@ -50,7 +50,7 @@ export function GoogleSignInButton({ loading = false, onPress }: Props) {
 
 const styles = StyleSheet.create({
   button: {
-    alignSelf: 'flex-start',
+    alignSelf: 'stretch',
     backgroundColor: '#4285f4',
     borderRadius: 1,
     elevation: 3,
@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
-    width: 240,
+    width: '100%',
   },
   pressed: { backgroundColor: '#3367d6' },
   disabled: { opacity: 0.65 },

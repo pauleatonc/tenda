@@ -75,6 +75,75 @@
   border-bottom: 0;
 }
 
+.product-candidates {
+  display: grid;
+  gap: 14px;
+}
+
+.product-candidates__list {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.product-candidates__list button {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--ink);
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+  min-height: 48px;
+  overflow: hidden;
+  padding: 0 0 12px;
+  text-align: left;
+  width: 100%;
+}
+
+.product-candidates__list img,
+.product-candidates__missing {
+  aspect-ratio: 1;
+  display: grid;
+  object-fit: cover;
+  place-items: center;
+  width: 100%;
+}
+
+.product-candidates__missing {
+  background: #f3f1ea;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 12px;
+  text-align: center;
+}
+
+.product-candidates__name,
+.product-candidates__price,
+.product-candidates__source {
+  margin: 0 12px;
+}
+
+.product-candidates__name {
+  font-weight: 700;
+}
+
+.product-candidates__price {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.product-candidates__source {
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .photo-queue {
   display: grid;
   gap: 12px;
@@ -289,6 +358,44 @@
 .product-cell a {
   color: var(--ink);
   font-weight: 700;
+}
+
+/* Long short_text columns (e.g. Descripción) must not stretch the grid. */
+.cell-text-clamp {
+  --cell-text-lines: 2;
+  display: block;
+  max-width: 28ch;
+  min-width: 0;
+  position: relative;
+  white-space: normal;
+  width: 100%;
+}
+
+.cell-text-clamp__text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--cell-text-lines);
+  line-clamp: var(--cell-text-lines);
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.cell-text-clamp__fade {
+  background: linear-gradient(to bottom, transparent, var(--surface));
+  bottom: 0;
+  height: 1.15em;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+}
+
+.data-table th.cell-text-column,
+.data-table td.cell-text-column {
+  max-width: 28ch;
+  min-width: 12ch;
+  white-space: normal;
+  width: 28ch;
 }
 
 .stock-chips {

@@ -34,6 +34,29 @@ def test_structured_logs_redact_pii_credentials_and_tokens() -> None:
     assert "raw-token-value" not in json.dumps(payload)
 
 
+def test_structured_logs_keep_image_search_diagnostics() -> None:
+    record = logging.LogRecord(
+        name="apps.inventory.image_search",
+        level=logging.WARNING,
+        pathname=__file__,
+        lineno=1,
+        msg="nvidia_vision_failed step=extract error=ReadTimeout status=None",
+        args=(),
+        exc_info=None,
+    )
+    record.step = "extract"
+    record.error = "ReadTimeout: timed out"
+    record.statusCode = None
+    record.hits = 0
+    record.candidates = 1
+    payload = json.loads(RedactingJsonFormatter().format(record))
+
+    assert payload["step"] == "extract"
+    assert payload["error"] == "ReadTimeout: timed out"
+    assert payload["hits"] == 0
+    assert payload["candidates"] == 1
+
+
 def test_security_headers_and_correlation_are_present() -> None:
     response = Client().get(
         "/health/live/",

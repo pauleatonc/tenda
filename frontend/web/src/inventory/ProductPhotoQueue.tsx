@@ -6,6 +6,7 @@ export type StagedPhoto = {
   id: string
   file: File
   previewUrl: string
+  assetId?: string
 }
 
 export function createStagedPhoto(file: File): StagedPhoto {

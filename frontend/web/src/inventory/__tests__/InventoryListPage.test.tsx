@@ -245,6 +245,44 @@ describe('InventoryListPage', () => {
     expect(screen.getByRole('button', { name: 'Agregar columna' })).toBeInTheDocument()
   })
 
+  it('muestra columnas de texto corto con clamp para no romper la grilla', async () => {
+    const longDescription =
+      'Vela aromática de soya con notas de lavanda y vainilla, ideal para regalo y uso diario en espacios pequeños del hogar.'
+    mocked.fetchInventorySchema.mockResolvedValue({
+      ...emptySchema,
+      fields: [
+        {
+          id: 'field-1',
+          key: 'descripcion',
+          label: 'Descripción',
+          fieldType: 'short_text',
+          helpText: '',
+          isRequired: false,
+          isVisible: true,
+          isFilterable: false,
+          isActive: true,
+          position: 0,
+          options: [],
+        },
+      ],
+    })
+    mocked.fetchProducts.mockResolvedValue({
+      totalCount: 1,
+      hasNextPage: false,
+      endCursor: '',
+      products: [makeProduct({ extraAttributes: { descripcion: longDescription } })],
+    })
+
+    renderPage(makeViewer(true))
+    await screen.findByRole('link', { name: 'Velas de soya' })
+
+    expect(screen.getByRole('columnheader', { name: 'Descripción' })).toHaveClass(
+      'cell-text-column',
+    )
+    const description = screen.getByText(longDescription)
+    expect(description.closest('.cell-text-clamp')).not.toBeNull()
+  })
+
   it('lleva a agregar producto por el chooser y ya no muestra el asistente suelto', async () => {
     mocked.fetchProducts.mockResolvedValue({
       totalCount: 1,

@@ -24,5 +24,6 @@ describe('ProductCreateChooser', () => {
       'href',
       '/app/inventario/nuevo/asistida',
     )
+    expect(screen.getByText('Busca productos similares y elige uno.')).toBeInTheDocument()
   })
 })

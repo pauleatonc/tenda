@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -19,7 +20,7 @@ import { CustomFieldSheet } from '../../../components/custom-field-sheet'
 import { OptionRow, SectionCard, SheetField } from '../../../components/inventory-ui'
 import { MobilePendingPhotoQueue } from '../../../components/product-media'
 import { MobileApiError } from '../../../lib/auth-api'
-import { catalogStatusLabels } from '../../../lib/format'
+import { catalogStatusLabels, formatPrice } from '../../../lib/format'
 import { isOfflineError, newIdempotencyKey } from '../../../lib/graphql'
 import {
   attachProductMedia,
@@ -28,9 +29,11 @@ import {
   fetchProductDetail,
   fetchProducts,
   inventoryKeys,
+  suggestProductsFromImage,
   updateProduct,
   type CustomField,
   type ProductCard,
+  type ProductImageCandidate,
 } from '../../../lib/inventory-api'
 import {
   pickProductImage,
@@ -114,7 +117,13 @@ export default function ProductFormScreen() {
   const [columnSheetOpen, setColumnSheetOpen] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [idempotencyKey, setIdempotencyKey] = useState(newIdempotencyKey)
+  const [suggestionKey, setSuggestionKey] = useState(newIdempotencyKey)
   const [photos, setPhotos] = useState<PickedImage[]>([])
+  const [candidates, setCandidates] = useState<ProductImageCandidate[]>([])
+  const [assistedPhase, setAssistedPhase] = useState<'photo' | 'searching' | 'pick' | 'form'>(
+    'photo',
+  )
+  const [searchError, setSearchError] = useState<string | null>(null)
   const [pickerQuery, setPickerQuery] = useState('')
   const [debouncedPicker, setDebouncedPicker] = useState('')
   const [sourceProduct, setSourceProduct] = useState<ProductCard | null>(null)
@@ -241,7 +250,7 @@ export default function ProductFormScreen() {
       })
       try {
         for (const [index, photo] of photos.entries()) {
-          const assetId = await uploadProductImage(photo)
+          const assetId = photo.assetId ?? (await uploadProductImage(photo))
           await attachProductMedia(created.product.id, assetId, index === 0)
         }
       } catch {
@@ -335,17 +344,77 @@ export default function ProductFormScreen() {
     confirmLeave(() => router.replace('/inventario'))
   }
 
+  function resetAssistedSearch() {
+    setCandidates([])
+    setSearchError(null)
+    setAssistedPhase('photo')
+    setSuggestionKey(newIdempotencyKey())
+  }
+
+  async function runAssistedSearch(photo: PickedImage) {
+    setAssistedPhase('searching')
+    setSearchError(null)
+    try {
+      const assetId = photo.assetId ?? (await uploadProductImage(photo))
+      setPhotos((current) =>
+        current.map((item) => (item.uri === photo.uri ? { ...item, assetId } : item)),
+      )
+      const result = await suggestProductsFromImage({
+        assetId,
+        idempotencyKey: suggestionKey,
+      })
+      setCandidates(result.candidates)
+      setAssistedPhase('pick')
+    } catch (error) {
+      setSearchError(
+        error instanceof MobileApiError
+          ? error.message
+          : 'No pudimos buscar productos similares. Completa la ficha a mano.',
+      )
+      setAssistedPhase('form')
+      setSuggestionKey(newIdempotencyKey())
+    }
+  }
+
+  function applyCandidate(candidate: ProductImageCandidate) {
+    setName(candidate.name)
+    setSalePrice(candidate.salePrice != null ? String(candidate.salePrice) : '')
+    setPurchasePrice(candidate.purchasePrice != null ? String(candidate.purchasePrice) : '')
+    setAttributes((current) => {
+      const next = { ...current }
+      for (const [key, value] of Object.entries(candidate.extraAttributes)) {
+        next[key] = attributeToDraft(value)
+      }
+      return next
+    })
+    setAssistedPhase('form')
+    setDirty(true)
+  }
+
   async function addPhoto(from: 'library' | 'camera') {
     try {
       const image = from === 'camera' ? await takeProductImage() : await pickProductImage()
       if (!image) return
+      const isFirstAssistedPhoto = isAssisted && photos.length === 0
       setPhotos((current) => [...current, image])
       setDirty(true)
+      if (isFirstAssistedPhoto) {
+        await runAssistedSearch(image)
+      }
     } catch (error) {
       Alert.alert(
         'No pudimos agregar la foto',
         error instanceof Error ? error.message : 'Inténtalo otra vez.',
       )
+    }
+  }
+
+  function removePhoto(uri: string) {
+    const remaining = photos.filter((item) => item.uri !== uri)
+    setPhotos(remaining)
+    setDirty(true)
+    if (isAssisted && remaining.length === 0) {
+      resetAssistedSearch()
     }
   }
 
@@ -379,8 +448,10 @@ export default function ProductFormScreen() {
   }
 
   const errorList = Object.values(errors).filter(Boolean) as string[]
-  const showForm = !isVariant || Boolean(sourceProduct)
-  const showAssistedGate = isAssisted && photos.length === 0
+  const showAssistedGate = isAssisted && photos.length === 0 && assistedPhase === 'photo'
+  const showCandidates =
+    isAssisted && (assistedPhase === 'searching' || assistedPhase === 'pick')
+  const showForm = (!isVariant || Boolean(sourceProduct)) && !showAssistedGate && !showCandidates
   const title = isEdit
     ? 'Editar producto'
     : isVariant
@@ -390,9 +461,15 @@ export default function ProductFormScreen() {
     ? 'Editar no cambia el stock: los cambios de cantidad se registran como movimiento.'
     : isVariant
       ? 'Cambia al menos un dato. El nombre tiene que ser distinto al del producto original.'
-      : isAssisted
-        ? 'La foto queda lista. Completa los datos: el agente los rellenará en una próxima versión.'
-        : 'Registra el mínimo necesario. Puedes ampliar la ficha con columnas propias.'
+      : isAssisted && assistedPhase === 'photo'
+        ? 'Sube o toma una foto. Buscaremos productos similares para que elijas uno.'
+        : isAssisted && assistedPhase === 'searching'
+          ? 'Estamos buscando productos similares a tu foto.'
+          : isAssisted && assistedPhase === 'pick'
+            ? 'Elige el producto que más se parece. Puedes editarlo después.'
+            : isAssisted
+              ? 'Revisa y completa los datos. La foto original se adjunta al guardar.'
+              : 'Registra el mínimo necesario. Puedes ampliar la ficha con columnas propias.'
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -430,6 +507,7 @@ export default function ProductFormScreen() {
             </View>
           ) : null}
           {apiError ? <StatusMessage message={apiError.message} /> : null}
+          {searchError && showForm ? <StatusMessage message={searchError} /> : null}
 
           {isVariant && !sourceProduct ? (
             <SectionCard title="Producto de origen">
@@ -472,14 +550,73 @@ export default function ProductFormScreen() {
 
           {showAssistedGate ? (
             <>
-              {/* The agent will fill this draft from the photo in a later iteration. */}
               <MobilePendingPhotoQueue
                 photos={photos}
                 required
                 onAddFromLibrary={() => void addPhoto('library')}
                 onAddFromCamera={() => void addPhoto('camera')}
-                onRemove={(uri) => setPhotos((current) => current.filter((item) => item.uri !== uri))}
+                onRemove={removePhoto}
               />
+              <PrimaryButton label="Cancelar" variant="secondary" onPress={leave} />
+            </>
+          ) : null}
+
+          {showCandidates ? (
+            <>
+              <MobilePendingPhotoQueue
+                photos={photos}
+                required
+                onAddFromLibrary={() => void addPhoto('library')}
+                onAddFromCamera={() => void addPhoto('camera')}
+                onRemove={removePhoto}
+              />
+              {assistedPhase === 'searching' ? (
+                <Text accessibilityLiveRegion="polite" style={styles.muted}>
+                  Buscando productos similares…
+                </Text>
+              ) : (
+                <SectionCard title="Productos similares">
+                  {candidates.map((candidate) => (
+                    <Pressable
+                      key={`${candidate.name}-${candidate.sourceUrl}`}
+                      accessibilityRole="button"
+                      onPress={() => applyCandidate(candidate)}
+                      style={styles.candidate}
+                    >
+                      {candidate.imageUrl ? (
+                        <Image
+                          source={{ uri: candidate.imageUrl }}
+                          style={styles.candidateImage}
+                        />
+                      ) : (
+                        <View style={[styles.candidateImage, styles.candidateMissing]}>
+                          <Text style={styles.muted}>Sin foto del anuncio</Text>
+                        </View>
+                      )}
+                      <View style={styles.candidateCopy}>
+                        <Text style={styles.candidateName}>{candidate.name}</Text>
+                        <Text style={styles.candidatePrice}>
+                          {formatPrice(
+                            candidate.salePrice != null ? String(candidate.salePrice) : null,
+                          )}
+                        </Text>
+                        {candidate.sourceUrl ? (
+                          <Text numberOfLines={1} style={styles.muted}>
+                            {candidate.sourceUrl.replace(/^https?:\/\//, '')}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </Pressable>
+                  ))}
+                </SectionCard>
+              )}
+              {assistedPhase === 'pick' ? (
+                <PrimaryButton
+                  label="Completar a mano"
+                  variant="secondary"
+                  onPress={() => setAssistedPhase('form')}
+                />
+              ) : null}
               <PrimaryButton label="Cancelar" variant="secondary" onPress={leave} />
             </>
           ) : null}
@@ -630,9 +767,7 @@ export default function ProductFormScreen() {
                   required={isAssisted}
                   onAddFromLibrary={() => void addPhoto('library')}
                   onAddFromCamera={() => void addPhoto('camera')}
-                  onRemove={(uri) =>
-                    setPhotos((current) => current.filter((item) => item.uri !== uri))
-                  }
+                  onRemove={removePhoto}
                 />
               ) : (
                 <SectionCard title="Fotos">
@@ -709,4 +844,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   sourceName: { color: colors.ink, fontSize: 16, fontWeight: '700' },
+  candidate: {
+    borderColor: colors.line,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    minHeight: 72,
+    overflow: 'hidden',
+    padding: 10,
+  },
+  candidateImage: { borderRadius: 8, height: 64, width: 64 },
+  candidateMissing: {
+    alignItems: 'center',
+    backgroundColor: '#f3f1ea',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  candidateCopy: { flex: 1, gap: 4, justifyContent: 'center' },
+  candidateName: { color: colors.ink, fontSize: 16, fontWeight: '700' },
+  candidatePrice: { color: colors.green, fontSize: 15, fontWeight: '700' },
 })

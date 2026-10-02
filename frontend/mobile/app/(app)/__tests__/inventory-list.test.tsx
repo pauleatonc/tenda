@@ -12,6 +12,7 @@ jest.mock('../../../lib/inventory-api', () => ({
   ...jest.requireActual('../../../lib/inventory-api'),
   fetchProducts: jest.fn(),
   fetchProductBreakdown: jest.fn(),
+  fetchInventorySchema: jest.fn(),
 }))
 
 jest.mock('../../../lib/sales-api', () => ({
@@ -59,6 +60,13 @@ describe('Inventario mobile', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockPaymentConnection(null)
+    mocked.fetchInventorySchema.mockResolvedValue({
+      inventoryId: 'inv-1',
+      name: 'Inventario principal',
+      lowStockThreshold: 5,
+      maxActiveFields: 15,
+      fields: [],
+    })
   })
 
   it('muestra tarjetas con disponibilidad en vez de una tabla ancha', async () => {
@@ -78,6 +86,51 @@ describe('Inventario mobile', () => {
     expect(screen.queryByText('Producto')).toBeNull()
   })
 
+  it('muestra descripciones de texto corto sin dejar que rompan la tarjeta', async () => {
+    mocked.fetchInventorySchema.mockResolvedValue({
+      inventoryId: 'inv-1',
+      name: 'Inventario principal',
+      lowStockThreshold: 5,
+      maxActiveFields: 15,
+      fields: [
+        {
+          id: 'field-1',
+          key: 'descripcion',
+          label: 'Descripción',
+          fieldType: 'short_text',
+          helpText: '',
+          isRequired: false,
+          isVisible: true,
+          isFilterable: false,
+          isActive: true,
+          position: 0,
+          options: [],
+        },
+      ],
+    })
+    mocked.fetchProducts.mockResolvedValue({
+      totalCount: 1,
+      hasNextPage: false,
+      endCursor: '',
+      products: [
+        makeProduct({
+          extraAttributes: {
+            descripcion:
+              'Vela aromática de soya con notas de lavanda y vainilla, ideal para regalo y uso diario en espacios pequeños.',
+          },
+        }),
+      ],
+    })
+
+    await renderScreen(<InventoryScreen />)
+
+    expect(await screen.findByText('Descripción')).toBeOnTheScreen()
+    expect(
+      screen.getByText(
+        'Vela aromática de soya con notas de lavanda y vainilla, ideal para regalo y uso diario en espacios pequeños.',
+      ),
+    ).toBeOnTheScreen()
+  })
   it('carga el desglose solo al expandir y lo anuncia', async () => {
     mocked.fetchProducts.mockResolvedValue({
       totalCount: 1,

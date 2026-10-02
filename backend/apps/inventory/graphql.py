@@ -41,6 +41,7 @@ from .bulk import (
     start_inventory_export,
     start_inventory_import,
 )
+from .image_search import suggest_products_from_image
 from .media import (
     attach_product_media,
     product_media,
@@ -723,6 +724,55 @@ class ReorderCustomFields(graphene.Mutation):  # type: ignore[misc]
         except DomainError as exc:
             raise graphql_error(info, exc) from exc
         return ReorderCustomFields(fields=ordered)
+
+
+class SuggestProductsFromImageInput(graphene.InputObjectType):  # type: ignore[misc]
+    asset_id = graphene.ID(required=True)
+    idempotency_key = graphene.String(required=True)
+
+
+class ProductImageCandidateType(graphene.ObjectType):  # type: ignore[misc]
+    name = graphene.String(required=True)
+    sale_price = graphene.Int()
+    purchase_price = graphene.Int()
+    extra_attributes = graphene.JSONString(required=True)
+    source_url = graphene.String()
+    image_url = graphene.String()
+    confidence = graphene.Float(required=True)
+
+    @staticmethod
+    def resolve_extra_attributes(root: Any, _info: GraphQLResolveInfo) -> dict[str, Any]:
+        extras = getattr(root, "extra_attributes", None)
+        if extras is None and isinstance(root, dict):
+            extras = root.get("extra_attributes")
+        return dict(extras or {})
+
+
+class SuggestProductsFromImage(graphene.Mutation):  # type: ignore[misc]
+    class Arguments:
+        input = graphene.Argument(SuggestProductsFromImageInput, required=True)
+
+    candidates = graphene.List(graphene.NonNull(ProductImageCandidateType), required=True)
+    replayed = graphene.Boolean(required=True)
+
+    @staticmethod
+    def mutate(
+        _root: object,
+        info: GraphQLResolveInfo,
+        input: dict[str, Any],
+    ) -> SuggestProductsFromImage:
+        try:
+            result = suggest_products_from_image(
+                context=context_from_info(info),
+                asset_id=input.get("asset_id"),
+                idempotency_key=str(input.get("idempotency_key", "")),
+            )
+        except DomainError as exc:
+            raise graphql_error(info, exc) from exc
+        return SuggestProductsFromImage(
+            candidates=result.candidates,
+            replayed=result.replayed,
+        )
 
 
 class CreateProductInput(graphene.InputObjectType):  # type: ignore[misc]
@@ -1610,6 +1660,7 @@ class InventoryMutation(graphene.ObjectType):  # type: ignore[misc]
     create_custom_field = CreateCustomField.Field(required=True)
     update_custom_field = UpdateCustomField.Field(required=True)
     reorder_custom_fields = ReorderCustomFields.Field(required=True)
+    suggest_products_from_image = SuggestProductsFromImage.Field(required=True)
     create_product = CreateProduct.Field(required=True)
     update_product = UpdateProduct.Field(required=True)
     record_stock_movement = RecordStockMovement.Field(required=True)

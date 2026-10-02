@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { TendaApiError } from '../../lib/http'
 import { ProductDetailPage } from '../ProductDetailPage'
 import { ProductFormPage } from '../ProductFormPage'
 import * as api from '../api'
@@ -23,6 +24,7 @@ vi.mock('../api', async () => {
     fetchProducts: vi.fn(),
     uploadPrivateFile: vi.fn(),
     attachProductMedia: vi.fn(),
+    suggestProductsFromImage: vi.fn(),
   }
 })
 
@@ -268,8 +270,7 @@ describe('ProductFormPage', () => {
     })
   })
 
-  it('en creación asistida no sigue sin foto y no llama a un agente', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+  it('en creación asistida no sigue sin foto', async () => {
     renderWithRouter(
       <ProductFormPage mode="create" origin="assisted" />,
       '/app/inventario/nuevo/asistida',
@@ -279,7 +280,100 @@ describe('ProductFormPage', () => {
     expect(screen.getByRole('heading', { name: 'Nuevo producto' })).toBeInTheDocument()
     expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     expect(screen.getByText(/Sube al menos una foto/)).toBeInTheDocument()
-    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(mocked.uploadPrivateFile).not.toHaveBeenCalled()
+    expect(mocked.suggestProductsFromImage).not.toHaveBeenCalled()
+  })
+
+  it('en creación asistida sube la foto, muestra candidatos y rellena el formulario', async () => {
+    mocked.uploadPrivateFile.mockResolvedValue('asset-1')
+    mocked.suggestProductsFromImage.mockResolvedValue({
+      replayed: false,
+      candidates: [
+        {
+          name: 'Vela de soya aroma lavanda',
+          salePrice: 12990,
+          purchasePrice: 4500,
+          extraAttributes: { aroma: 'Lavanda' },
+          sourceUrl: 'https://example.com/productos/vela-lavanda',
+          imageUrl: 'https://example.com/img/vela-lavanda.jpg',
+          confidence: 0.92,
+        },
+        {
+          name: 'Set de velas artesanales',
+          salePrice: 15990,
+          purchasePrice: 5200,
+          extraAttributes: {},
+          sourceUrl: 'https://example.com/productos/set-velas',
+          imageUrl: null,
+          confidence: 0.84,
+        },
+        {
+          name: 'Vela de cera de soya 200 g',
+          salePrice: 9990,
+          purchasePrice: 3800,
+          extraAttributes: {},
+          sourceUrl: 'https://example.com/productos/vela-200g',
+          imageUrl: null,
+          confidence: 0.77,
+        },
+      ],
+    })
+
+    renderWithRouter(
+      <ProductFormPage mode="create" origin="assisted" />,
+      '/app/inventario/nuevo/asistida',
+      '/app/inventario/nuevo/asistida',
+    )
+
+    const file = new File(['img'], 'vela.png', { type: 'image/png' })
+    await userEvent.upload(screen.getByLabelText(/Subir fotos|Agregar fotos/), file)
+
+    const firstCard = await screen.findByRole('button', {
+      name: /Vela de soya aroma lavanda/,
+    })
+    expect(
+      firstCard.querySelector('img[src="https://example.com/img/vela-lavanda.jpg"]'),
+    ).toBeInTheDocument()
+    expect(firstCard.querySelector('img[src="blob:photo"]')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Sin foto del anuncio').length).toBe(2)
+    expect(mocked.uploadPrivateFile).toHaveBeenCalled()
+    expect(mocked.suggestProductsFromImage).toHaveBeenCalledWith(
+      expect.objectContaining({ assetId: 'asset-1' }),
+    )
+    expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /Vela de soya aroma lavanda/ }))
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Vela de soya aroma lavanda')
+    expect(screen.getByLabelText('Precio de venta')).toHaveValue('12990')
+  })
+
+  it('si la búsqueda falla deja el formulario vacío y usable', async () => {
+    mocked.uploadPrivateFile.mockResolvedValue('asset-1')
+    mocked.suggestProductsFromImage.mockRejectedValue(
+      new TendaApiError(
+        {
+          code: 'PRODUCT_IMAGE_SEARCH_NOT_CONFIGURED',
+          message: 'La búsqueda por imagen no está configurada.',
+          fieldErrors: {},
+          correlationId: '',
+        },
+        503,
+      ),
+    )
+
+    renderWithRouter(
+      <ProductFormPage mode="create" origin="assisted" />,
+      '/app/inventario/nuevo/asistida',
+      '/app/inventario/nuevo/asistida',
+    )
+
+    const file = new File(['img'], 'vela.png', { type: 'image/png' })
+    await userEvent.upload(screen.getByLabelText(/Subir fotos|Agregar fotos/), file)
+
+    expect(
+      await screen.findByText('La búsqueda por imagen no está configurada.'),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Nombre')).toHaveValue('')
   })
 })
 
