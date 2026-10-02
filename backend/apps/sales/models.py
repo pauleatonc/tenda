@@ -236,6 +236,7 @@ class Order(models.Model):
         on_delete=models.PROTECT,
         related_name="created_orders",
     )
+    deposit_bank_details = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

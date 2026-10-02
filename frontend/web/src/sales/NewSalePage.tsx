@@ -1,4 +1,7 @@
-import { organisationHasBankDetails } from '@tenda/api-client'
+import {
+  bankAccountOptionLabel,
+  organisationHasBankDetails,
+} from '@tenda/api-client'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useOutletContext } from 'react-router-dom'
@@ -67,8 +70,20 @@ export function NewSalePage() {
   const hasBankDetails = viewer
     ? organisationHasBankDetails(viewer.organisation)
     : true
+  const bankAccounts = viewer?.organisation.bankAccounts ?? []
+  const selectableAccounts = bankAccounts.filter(
+    (account) =>
+      account.bankName &&
+      account.bankAccountType &&
+      account.bankAccountNumber &&
+      account.bankHolderTaxId &&
+      account.bankConfirmationEmail,
+  )
   const [entry] = useState(resolveSaleDraftOnEnter)
-  const [draft, setDraft] = useState<SaleDraft>(entry.draft)
+  const [draft, setDraft] = useState<SaleDraft>(() => ({
+    ...entry.draft,
+    bankAccountId: entry.draft.bankAccountId ?? selectableAccounts[0]?.id ?? null,
+  }))
   const [completedNotice, setCompletedNotice] = useState<CompletedSaleNotice | null>(
     entry.completed,
   )
@@ -152,6 +167,10 @@ export function NewSalePage() {
           })),
           deliveryMode: draft.deliveryMode,
           paymentMethod: selectedPaymentMethod,
+          bankAccountId:
+            selectedPaymentMethod === 'bank_transfer'
+              ? draft.bankAccountId || selectableAccounts[0]?.id || null
+              : null,
           idempotencyKey: draft.idempotencyKey,
         })
         orderId = created.order.id
@@ -584,6 +603,29 @@ export function NewSalePage() {
               )
             })}
           </fieldset>
+
+          {selectedPaymentMethod === 'bank_transfer' &&
+          hasBankDetails &&
+          selectableAccounts.length > 1 ? (
+            <label className="field">
+              Cuenta para el depósito
+              <select
+                value={draft.bankAccountId ?? selectableAccounts[0]?.id ?? ''}
+                onChange={(event) =>
+                  replaceDraft((current) => ({
+                    ...current,
+                    bankAccountId: event.target.value,
+                  }))
+                }
+              >
+                {selectableAccounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {bankAccountOptionLabel(account)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
 
           {!mercadoPagoActive ? (
             <p className="sales-notice">

@@ -1,5 +1,9 @@
+import {
+  bankAccountOptionLabel,
+  type OrganisationBankAccount,
+} from '@tenda/api-client'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { BankDetailsRequiredNotice } from '../app/BankDetailsRequiredNotice'
@@ -66,10 +70,12 @@ const DELIVERY_MODES: ReadonlyArray<{
 export function GenerateSaleDialog({
   product,
   hasBankDetails,
+  bankAccounts = [],
   onClose,
 }: {
   product: ProductRow
   hasBankDetails: boolean
+  bankAccounts?: OrganisationBankAccount[]
   onClose: () => void
 }) {
   const queryClient = useQueryClient()
@@ -82,8 +88,23 @@ export function GenerateSaleDialog({
   const mercadoPagoActive = ['active', 'connected'].includes(
     paymentConnection.data?.sellerPaymentConnection?.status ?? '',
   )
+  const selectableAccounts = useMemo(
+    () =>
+      bankAccounts.filter(
+        (account) =>
+          account.bankName &&
+          account.bankAccountType &&
+          account.bankAccountNumber &&
+          account.bankHolderTaxId &&
+          account.bankConfirmationEmail,
+      ),
+    [bankAccounts],
+  )
   const [method, setMethod] = useState<SaleMethodId>('deposit')
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('shipping')
+  const [bankAccountId, setBankAccountId] = useState(
+    selectableAccounts[0]?.id ?? '',
+  )
   const [confirmCash, setConfirmCash] = useState(false)
   const [quantity, setQuantity] = useState(1)
   const [email, setEmail] = useState('')
@@ -109,6 +130,10 @@ export function GenerateSaleDialog({
         ],
         deliveryMode,
         paymentMethod: method === 'online' ? 'mercado_pago' : 'bank_transfer',
+        bankAccountId:
+          method === 'deposit'
+            ? bankAccountId || selectableAccounts[0]?.id || null
+            : null,
         idempotencyKey: createKey,
       })
       const published = await publishOrderLink({
@@ -389,6 +414,21 @@ export function GenerateSaleDialog({
                   Pago Online se habilita al{' '}
                   <Link to="/app/configuracion/pagos">conectar Mercado Pago</Link>.
                 </p>
+              ) : null}
+              {method === 'deposit' && hasBankDetails && selectableAccounts.length > 1 ? (
+                <label className="field">
+                  Cuenta para el depósito
+                  <select
+                    value={bankAccountId}
+                    onChange={(event) => setBankAccountId(event.target.value)}
+                  >
+                    {selectableAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {bankAccountOptionLabel(account)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               ) : null}
             </>
           )}

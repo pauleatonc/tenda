@@ -13,8 +13,13 @@ from apps.media_assets.services import ready_asset
 from apps.users.models import User
 from tenda.errors import DomainError
 
-from .bank import BANK_FIELDS, cleaned_bank_details
-from .models import Membership, Organisation
+from .bank import (
+    BANK_FIELDS,
+    cleaned_bank_accounts,
+    cleaned_bank_details,
+    sync_primary_bank_fields,
+)
+from .models import Membership, Organisation, OrganisationBankAccount
 from .permissions import OrganisationPermission, require_permission
 from .selectors import TenantContext
 
@@ -112,6 +117,17 @@ def update_organisation(
         organisation.bank_account_number = bank["bank_account_number"]
         organisation.bank_holder_tax_id = bank["bank_holder_tax_id"]
         organisation.bank_confirmation_email = bank["bank_confirmation_email"]
+        _replace_accounts_for_organisation(
+            organisation,
+            [
+                {
+                    **bank,
+                    "label": "Cuenta principal",
+                }
+            ]
+            if any(bank[field] for field in BANK_FIELDS)
+            else [],
+        )
     if logo_asset_id is not None:
         ready_asset(
             context=context,
@@ -141,3 +157,43 @@ def update_organisation(
         update_fields.extend(BANK_FIELDS)
     organisation.save(update_fields=tuple(update_fields))
     return organisation
+
+
+def _replace_accounts_for_organisation(
+    organisation: Organisation,
+    accounts: list[dict[str, str]],
+) -> list[OrganisationBankAccount]:
+    organisation.bank_accounts.all().delete()
+    created: list[OrganisationBankAccount] = []
+    for position, account in enumerate(accounts):
+        created.append(
+            OrganisationBankAccount.objects.create(
+                organisation=organisation,
+                label=account.get("label") or f"Cuenta {position + 1}",
+                bank_name=account["bank_name"],
+                bank_account_type=account["bank_account_type"],
+                bank_account_number=account["bank_account_number"],
+                bank_holder_tax_id=account["bank_holder_tax_id"],
+                bank_confirmation_email=account["bank_confirmation_email"],
+                position=position,
+            )
+        )
+    sync_primary_bank_fields(organisation)
+    organisation.save(update_fields=[*BANK_FIELDS, "updated_at"])
+    return created
+
+
+@transaction.atomic
+def replace_bank_accounts(
+    *,
+    context: TenantContext,
+    accounts: list[dict[str, object]],
+) -> tuple[Organisation, list[OrganisationBankAccount]]:
+    require_permission(
+        context.membership,
+        OrganisationPermission.MANAGE_SENSITIVE_CONFIGURATION,
+    )
+    organisation = Organisation.objects.select_for_update().get(pk=context.organisation.pk)
+    cleaned = cleaned_bank_accounts(accounts)
+    created = _replace_accounts_for_organisation(organisation, cleaned)
+    return organisation, created

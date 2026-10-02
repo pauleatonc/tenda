@@ -815,6 +815,7 @@ def _create_order(
     delivery_mode: str,
     payment_method: str,
     correlation_id: str,
+    bank_account_id: str | None = None,
 ) -> Order:
     cleaned_lines, total = _normalise_lines(context=context, lines=lines)
     if delivery_mode not in {choice for choice, _label in Order.DeliveryMode.choices}:
@@ -830,9 +831,22 @@ def _create_order(
             field_errors={"paymentMethod": ["Selecciona un medio de pago válido."]},
         )
     if payment_method == Order.PaymentMethod.BANK_TRANSFER:
-        from apps.organisations.bank import require_bank_details_for_deposit
+        from apps.organisations.bank import (
+            public_bank_details,
+            resolve_deposit_account,
+            snapshot_from_account,
+        )
 
-        require_bank_details_for_deposit(context.organisation)
+        deposit_account = resolve_deposit_account(
+            context.organisation,
+            bank_account_id=bank_account_id,
+        )
+        if deposit_account is not None:
+            deposit_snapshot = snapshot_from_account(deposit_account)
+        else:
+            deposit_snapshot = public_bank_details(context.organisation)
+    else:
+        deposit_snapshot = None
     if payment_method == Order.PaymentMethod.MERCADO_PAGO:
         connected = SellerPaymentConnection.objects.filter(
             organisation=context.organisation,
@@ -864,6 +878,7 @@ def _create_order(
         public_token_ciphertext=encrypt_credential(token),
         public_token_expires_at=expires_at,
         created_by=context.user,
+        deposit_bank_details=deposit_snapshot,
     )
     items = [
         OrderItem.objects.create(
@@ -922,6 +937,7 @@ def create_order(
     payment_method: str,
     idempotency_key: str,
     correlation_id: str = "",
+    bank_account_id: str | None = None,
 ) -> OrderCommandResult:
     canonical_lines = [
         {
@@ -939,6 +955,7 @@ def create_order(
             delivery_mode=delivery_mode,
             payment_method=payment_method,
             correlation_id=correlation_id,
+            bank_account_id=bank_account_id,
         )
         return {"orderId": str(order.public_id)}, 201
 
@@ -950,6 +967,7 @@ def create_order(
             "lines": canonical_lines,
             "deliveryMode": delivery_mode,
             "paymentMethod": payment_method,
+            "bankAccountId": bank_account_id,
         },
         command=command,
     )
@@ -2375,6 +2393,9 @@ def reissue_bank_transfer_offer(
                 delivery_mode=order.delivery_mode,
                 payment_method=Order.PaymentMethod.BANK_TRANSFER,
                 correlation_id=correlation_id,
+                bank_account_id=(
+                    str((order.deposit_bank_details or {}).get("id") or "") or None
+                ),
             )
             replacement.published_at = timezone.now()
             replacement.save(update_fields=("published_at", "updated_at"))

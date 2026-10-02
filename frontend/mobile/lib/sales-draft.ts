@@ -33,6 +33,7 @@ export type SaleDraft = {
   lines: SaleDraftLine[]
   deliveryMode: SaleDeliveryMode
   paymentMethod: SalePaymentMethod
+  bankAccountId: string | null
   result: SaleDraftResult | null
   updatedAt: string
 }
@@ -107,6 +108,7 @@ export function createEmptySaleDraft(): SaleDraft {
     lines: [],
     deliveryMode: 'shipping',
     paymentMethod: 'bank_transfer',
+    bankAccountId: null,
     result: null,
     updatedAt: new Date().toISOString(),
   }

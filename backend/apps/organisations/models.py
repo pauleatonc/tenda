@@ -39,6 +39,50 @@ class Organisation(models.Model):
         return self.name
 
 
+class OrganisationBankAccount(models.Model):
+    """One deposit destination for an organisation.
+
+    Sellers may publish up to three accounts and pick which one a deposit sale
+    should show to the buyer.
+    """
+
+    MAX_PER_ORGANISATION = 3
+
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.CASCADE,
+        related_name="bank_accounts",
+    )
+    label = models.CharField(max_length=80, blank=True)
+    bank_name = models.CharField(max_length=80)
+    bank_account_type = models.CharField(max_length=32)
+    bank_account_number = models.CharField(max_length=32)
+    bank_holder_tax_id = models.CharField(max_length=16)
+    bank_confirmation_email = models.EmailField()
+    position = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("position", "created_at")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("organisation", "position"),
+                name="org_bank_account_unique_position",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=("organisation", "position"),
+                name="org_bank_account_org_pos_idx",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.organisation} · {self.bank_name} · {self.bank_account_number}"
+
+
 class Membership(models.Model):
     """A user's role and explicit sensitive grants in one organisation."""
 

@@ -760,7 +760,10 @@ class PublicOrderType(graphene.ObjectType):  # type: ignore[misc]
     ) -> dict[str, str] | None:
         from apps.organisations.bank import public_bank_details
 
-        return public_bank_details(root.organisation)
+        return public_bank_details(
+            root.organisation,
+            snapshot=root.deposit_bank_details,
+        )
 
     @staticmethod
     def resolve_bank_transfer_instructions(
@@ -770,7 +773,10 @@ class PublicOrderType(graphene.ObjectType):  # type: ignore[misc]
         from apps.configuration.services import parameter_value
         from apps.organisations.bank import format_bank_instructions
 
-        structured = format_bank_instructions(root.organisation)
+        structured = format_bank_instructions(
+            root.organisation,
+            snapshot=root.deposit_bank_details,
+        )
         if structured:
             return structured
         configured = str(
@@ -1071,6 +1077,7 @@ class CreateOrderInput(graphene.InputObjectType):  # type: ignore[misc]
     lines = graphene.List(graphene.NonNull(CreateOrderLineInput), required=True)
     delivery_mode = graphene.String(required=True)
     payment_method = graphene.String(required=True)
+    bank_account_id = graphene.ID()
 
 
 class BuyerDetailsInput(graphene.InputObjectType):  # type: ignore[misc]
@@ -1150,6 +1157,9 @@ class CreateOrder(graphene.Mutation):  # type: ignore[misc]
                 lines=input.get("lines") or [],
                 delivery_mode=str(input.get("delivery_mode", "")),
                 payment_method=str(input.get("payment_method", "")),
+                bank_account_id=(
+                    str(input.get("bank_account_id") or "") or None
+                ),
                 idempotency_key=idempotency_key,
                 correlation_id=_correlation_id(info),
             )

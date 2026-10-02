@@ -16,7 +16,10 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { organisationHasBankDetails } from '@tenda/api-client'
+import {
+  bankAccountOptionLabel,
+  organisationHasBankDetails,
+} from '@tenda/api-client'
 import { BankDetailsRequired } from '../../../components/bank-details-required'
 import { PrimaryButton, StatusMessage, colors } from '../../../components/auth-ui'
 import {
@@ -311,6 +314,14 @@ export default function NewSaleScreen() {
   const hasBankDetails = viewer.data
     ? organisationHasBankDetails(viewer.data.organisation)
     : true
+  const selectableAccounts = (viewer.data?.organisation.bankAccounts ?? []).filter(
+    (account) =>
+      account.bankName &&
+      account.bankAccountType &&
+      account.bankAccountNumber &&
+      account.bankHolderTaxId &&
+      account.bankConfirmationEmail,
+  )
   const mercadoPagoActive =
     paymentConnection.data?.sellerPaymentConnection?.status === 'connected'
   const depositBlocked =
@@ -342,6 +353,10 @@ export default function NewSaleScreen() {
         })),
         deliveryMode: draft.deliveryMode,
         paymentMethod: draft.paymentMethod,
+        bankAccountId:
+          draft.paymentMethod === 'bank_transfer'
+            ? draft.bankAccountId || selectableAccounts[0]?.id || null
+            : null,
         idempotencyKey: draft.idempotencyKey,
       })
       if (draft.paymentMethod === 'cash') {
@@ -605,6 +620,38 @@ export default function NewSaleScreen() {
                   </Text>
                 ) : null}
                 {depositBlocked ? <BankDetailsRequired /> : null}
+                {!depositBlocked &&
+                draft.paymentMethod === 'bank_transfer' &&
+                selectableAccounts.length > 1 ? (
+                  <View style={{ gap: 8 }}>
+                    <Text style={salesStyles.muted}>Cuenta para el depósito</Text>
+                    {selectableAccounts.map((account) => (
+                      <Pressable
+                        key={account.id}
+                        accessibilityRole="button"
+                        onPress={() =>
+                          setDraft((current) => ({
+                            ...current,
+                            bankAccountId: account.id,
+                          }))
+                        }
+                      >
+                        <Text
+                          style={{
+                            color:
+                              (draft.bankAccountId ?? selectableAccounts[0]?.id) ===
+                              account.id
+                                ? colors.green
+                                : colors.ink,
+                            fontWeight: '700',
+                          }}
+                        >
+                          {bankAccountOptionLabel(account)}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
               </SectionCard>
               <View accessibilityRole="summary" style={styles.reserveNotice}>
                 <Text style={styles.reserveTitle}>Reserva por 8 horas</Text>

@@ -200,6 +200,19 @@ def _context_payload(context: TenantContext) -> dict[str, object]:
             "bankAccountNumber": organisation.bank_account_number,
             "bankHolderTaxId": organisation.bank_holder_tax_id,
             "bankConfirmationEmail": organisation.bank_confirmation_email,
+            "bankAccounts": [
+                {
+                    "id": str(account.public_id),
+                    "label": account.label,
+                    "bankName": account.bank_name,
+                    "bankAccountType": account.bank_account_type,
+                    "bankAccountNumber": account.bank_account_number,
+                    "bankHolderTaxId": account.bank_holder_tax_id,
+                    "bankConfirmationEmail": account.bank_confirmation_email,
+                    "position": account.position,
+                }
+                for account in organisation.bank_accounts.all()
+            ],
             "hasBankDetails": has_complete_bank_details(organisation),
         },
         "inventory": {

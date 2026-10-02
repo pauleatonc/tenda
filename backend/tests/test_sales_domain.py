@@ -45,6 +45,8 @@ pytestmark = pytest.mark.django_db(transaction=True)
 
 
 def seed_bank_details(organisation) -> None:
+    from apps.organisations.models import OrganisationBankAccount
+
     organisation.bank_name = "BancoEstado"
     organisation.bank_account_type = "cuenta_corriente"
     organisation.bank_account_number = "12345678"
@@ -59,6 +61,17 @@ def seed_bank_details(organisation) -> None:
             "bank_confirmation_email",
             "updated_at",
         )
+    )
+    organisation.bank_accounts.all().delete()
+    OrganisationBankAccount.objects.create(
+        organisation=organisation,
+        label="Cuenta principal",
+        bank_name=organisation.bank_name,
+        bank_account_type=organisation.bank_account_type,
+        bank_account_number=organisation.bank_account_number,
+        bank_holder_tax_id=organisation.bank_holder_tax_id,
+        bank_confirmation_email=organisation.bank_confirmation_email,
+        position=0,
     )
 
 

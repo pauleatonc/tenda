@@ -37,6 +37,17 @@ export type PublicBankDetails = {
   confirmationEmail: string
 }
 
+export type OrganisationBankAccount = {
+  id: string
+  label: string
+  bankName: string
+  bankAccountType: string
+  bankAccountNumber: string
+  bankHolderTaxId: string
+  bankConfirmationEmail: string
+  position: number
+}
+
 export type OrganisationBankFields = {
   bankName?: string | null
   bankAccountType?: string | null
@@ -44,7 +55,10 @@ export type OrganisationBankFields = {
   bankHolderTaxId?: string | null
   bankConfirmationEmail?: string | null
   hasBankDetails?: boolean
+  bankAccounts?: OrganisationBankAccount[] | null
 }
+
+export const MAX_BANK_ACCOUNTS = 3
 
 export function organisationHasBankDetails(
   organisation?: OrganisationBankFields | null,
@@ -53,6 +67,16 @@ export function organisationHasBankDetails(
   if (typeof organisation.hasBankDetails === 'boolean') {
     return organisation.hasBankDetails
   }
+  if (organisation.bankAccounts?.length) {
+    return organisation.bankAccounts.some(
+      (account) =>
+        Boolean(account.bankName?.trim()) &&
+        Boolean(account.bankAccountType?.trim()) &&
+        Boolean(account.bankAccountNumber?.trim()) &&
+        Boolean(account.bankHolderTaxId?.trim()) &&
+        Boolean(account.bankConfirmationEmail?.trim()),
+    )
+  }
   return Boolean(
     organisation.bankName?.trim() &&
       organisation.bankAccountType?.trim() &&
@@ -60,6 +84,11 @@ export function organisationHasBankDetails(
       organisation.bankHolderTaxId?.trim() &&
       organisation.bankConfirmationEmail?.trim(),
   )
+}
+
+export function bankAccountOptionLabel(account: OrganisationBankAccount): string {
+  const base = account.label.trim() || account.bankName
+  return `${base} · ${account.bankAccountNumber}`
 }
 
 export function normalizeRut(value: string): string {

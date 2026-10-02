@@ -1,7 +1,10 @@
-import { organisationHasBankDetails } from '@tenda/api-client'
+import {
+  bankAccountOptionLabel,
+  organisationHasBankDetails,
+} from '@tenda/api-client'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { router } from 'expo-router'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Clipboard, Pressable, Share, StyleSheet, Text, View } from 'react-native'
 
 import { PrimaryButton, StatusMessage, colors } from './auth-ui'
@@ -79,6 +82,22 @@ export function GenerateSaleSheet({
   const hasBankDetails = viewer.data
     ? organisationHasBankDetails(viewer.data.organisation)
     : true
+  const bankAccounts = useMemo(
+    () => viewer.data?.organisation.bankAccounts ?? [],
+    [viewer.data],
+  )
+  const selectableAccounts = useMemo(
+    () =>
+      bankAccounts.filter(
+        (account) =>
+          account.bankName &&
+          account.bankAccountType &&
+          account.bankAccountNumber &&
+          account.bankHolderTaxId &&
+          account.bankConfirmationEmail,
+      ),
+    [bankAccounts],
+  )
   const paymentConnection = useQuery({
     queryKey: salesKeys.paymentConnection(),
     queryFn: fetchSellerPaymentConnection,
@@ -100,9 +119,10 @@ export function GenerateSaleSheet({
   const [result, setResult] = useState<{ orderId: string; publicUrl: string } | null>(
     null,
   )
-  const [confirmCash, setConfirmCash] = useState(false)
   const [method, setMethod] = useState<SaleMethodId>('deposit')
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('shipping')
+  const [bankAccountId, setBankAccountId] = useState(selectableAccounts[0]?.id ?? '')
+  const [confirmCash, setConfirmCash] = useState(false)
 
   const publish = useMutation({
     mutationFn: async () => {
@@ -116,6 +136,10 @@ export function GenerateSaleSheet({
         ],
         deliveryMode,
         paymentMethod: method === 'online' ? 'mercado_pago' : 'bank_transfer',
+        bankAccountId:
+          method === 'deposit'
+            ? bankAccountId || selectableAccounts[0]?.id || null
+            : null,
         idempotencyKey: createKey,
       })
       const published = await publishOrderLink({
@@ -369,6 +393,30 @@ export function GenerateSaleSheet({
             <Text style={styles.price}>
               Precio de venta: {formatPrice(product.salePrice)}
             </Text>
+            {method === 'deposit' && hasBankDetails && selectableAccounts.length > 1 ? (
+              <View style={styles.accountPicker}>
+                <Text style={styles.sectionLabel}>Cuenta para el depósito</Text>
+                {selectableAccounts.map((account) => (
+                  <Pressable
+                    key={account.id}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: bankAccountId === account.id }}
+                    onPress={() => setBankAccountId(account.id)}
+                  >
+                    <View
+                      style={[
+                        styles.method,
+                        bankAccountId === account.id ? styles.methodActive : null,
+                      ]}
+                    >
+                      <Text style={styles.methodTitle}>
+                        {bankAccountOptionLabel(account)}
+                      </Text>
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
             {available > 1 ? (
               <View style={styles.stepper}>
                 <PrimaryButton
@@ -458,6 +506,7 @@ export function GenerateSaleSheet({
 const styles = StyleSheet.create({
   muted: { color: colors.inkSoft, fontSize: 14, lineHeight: 20 },
   choose: { gap: 12 },
+  accountPicker: { gap: 8 },
   sectionLabel: {
     color: colors.inkSoft,
     fontSize: 13,

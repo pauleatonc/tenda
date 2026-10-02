@@ -1,4 +1,5 @@
 import {
+  ReplaceBankAccountsDocument,
   UpdateOrganisationDocument,
   UpdateProfileDocument,
 } from '@tenda/api-client'
@@ -30,4 +31,20 @@ export async function updateMobileOrganisation(input: {
 }) {
   const data = await graphqlRequest(UpdateOrganisationDocument, { input })
   return data.updateOrganisation.organisation
+}
+
+export async function replaceMobileBankAccounts(
+  accounts: Array<{
+    label?: string
+    bankName: string
+    bankAccountType: string
+    bankAccountNumber: string
+    bankHolderTaxId: string
+    bankConfirmationEmail: string
+  }>,
+) {
+  const data = await graphqlRequest(ReplaceBankAccountsDocument, {
+    input: { accounts },
+  })
+  return data.replaceBankAccounts
 }

@@ -53,6 +53,7 @@ def test_cleaned_bank_details_reject_partial_or_invalid() -> None:
         "bank_account_number": "",
         "bank_holder_tax_id": "",
         "bank_confirmation_email": "",
+        "label": "",
     }
 
 

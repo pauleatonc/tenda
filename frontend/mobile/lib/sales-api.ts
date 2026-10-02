@@ -73,6 +73,7 @@ export async function createOrder(input: CreateOrderRequest) {
       lines: input.lines,
       deliveryMode: input.deliveryMode,
       paymentMethod: input.paymentMethod,
+      bankAccountId: input.bankAccountId ?? null,
     },
     idempotencyKey: input.idempotencyKey,
   })

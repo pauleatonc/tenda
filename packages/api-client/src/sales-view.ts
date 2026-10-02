@@ -303,6 +303,7 @@ export type CreateOrderRequest = {
   lines: Array<{ productId: string; quantity: number; unitSalePrice: string }>
   deliveryMode: string
   paymentMethod: string
+  bankAccountId?: string | null
   idempotencyKey: string
 }
 

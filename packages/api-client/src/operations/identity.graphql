@@ -27,6 +27,45 @@ mutation UpdateOrganisation($input: UpdateOrganisationInput!) {
       bankHolderTaxId
       bankConfirmationEmail
       hasBankDetails
+      bankAccounts {
+        id
+        label
+        bankName
+        bankAccountType
+        bankAccountNumber
+        bankHolderTaxId
+        bankConfirmationEmail
+        position
+      }
+    }
+  }
+}
+
+mutation ReplaceBankAccounts($input: ReplaceBankAccountsInput!) {
+  replaceBankAccounts(input: $input) {
+    organisation {
+      id
+      hasBankDetails
+      bankAccounts {
+        id
+        label
+        bankName
+        bankAccountType
+        bankAccountNumber
+        bankHolderTaxId
+        bankConfirmationEmail
+        position
+      }
+    }
+    bankAccounts {
+      id
+      label
+      bankName
+      bankAccountType
+      bankAccountNumber
+      bankHolderTaxId
+      bankConfirmationEmail
+      position
     }
   }
 }

@@ -15,9 +15,24 @@ from apps.organisations.labels import role_label
 from tenda.errors import DomainError, ResourceNotFound
 from tenda.graphql import context_from_info, graphql_error
 
-from .bank import has_complete_bank_details
-from .models import Membership, Organisation
-from .services import update_organisation
+from .bank import has_complete_bank_details, organisation_bank_accounts
+from .models import Membership, Organisation, OrganisationBankAccount
+from .services import replace_bank_accounts, update_organisation
+
+
+class OrganisationBankAccountType(graphene.ObjectType):  # type: ignore[misc]
+    id = graphene.ID(required=True)
+    label = graphene.String(required=True)
+    bank_name = graphene.String(required=True)
+    bank_account_type = graphene.String(required=True)
+    bank_account_number = graphene.String(required=True)
+    bank_holder_tax_id = graphene.String(required=True)
+    bank_confirmation_email = graphene.String(required=True)
+    position = graphene.Int(required=True)
+
+    @staticmethod
+    def resolve_id(root: OrganisationBankAccount, _info: GraphQLResolveInfo) -> str:
+        return str(root.public_id)
 
 
 class OrganisationType(graphene.ObjectType):  # type: ignore[misc]
@@ -34,6 +49,10 @@ class OrganisationType(graphene.ObjectType):  # type: ignore[misc]
     bank_account_number = graphene.String(required=True)
     bank_holder_tax_id = graphene.String(required=True)
     bank_confirmation_email = graphene.String(required=True)
+    bank_accounts = graphene.List(
+        graphene.NonNull(OrganisationBankAccountType),
+        required=True,
+    )
     has_bank_details = graphene.Boolean(required=True)
 
     @staticmethod
@@ -50,6 +69,13 @@ class OrganisationType(graphene.ObjectType):  # type: ignore[misc]
             status=MediaAsset.Status.READY,
         ).first()
         return asset_content_url(asset, variant="thumbnail")
+
+    @staticmethod
+    def resolve_bank_accounts(
+        root: Organisation,
+        _info: GraphQLResolveInfo,
+    ) -> list[OrganisationBankAccount]:
+        return organisation_bank_accounts(root)
 
     @staticmethod
     def resolve_has_bank_details(root: Organisation, _info: GraphQLResolveInfo) -> bool:
@@ -187,6 +213,45 @@ class UpdateOrganisation(graphene.Mutation):  # type: ignore[misc]
         return UpdateOrganisation(organisation=organisation)
 
 
+class BankAccountInput(graphene.InputObjectType):  # type: ignore[misc]
+    label = graphene.String()
+    bank_name = graphene.String(required=True)
+    bank_account_type = graphene.String(required=True)
+    bank_account_number = graphene.String(required=True)
+    bank_holder_tax_id = graphene.String(required=True)
+    bank_confirmation_email = graphene.String(required=True)
+
+
+class ReplaceBankAccountsInput(graphene.InputObjectType):  # type: ignore[misc]
+    accounts = graphene.List(graphene.NonNull(BankAccountInput), required=True)
+
+
+class ReplaceBankAccounts(graphene.Mutation):  # type: ignore[misc]
+    class Arguments:
+        input = graphene.Argument(ReplaceBankAccountsInput, required=True)
+
+    organisation = graphene.Field(OrganisationType, required=True)
+    bank_accounts = graphene.List(
+        graphene.NonNull(OrganisationBankAccountType),
+        required=True,
+    )
+
+    @staticmethod
+    def mutate(
+        _root: object,
+        info: GraphQLResolveInfo,
+        input: dict[str, Any],
+    ) -> ReplaceBankAccounts:
+        try:
+            organisation, accounts = replace_bank_accounts(
+                context=context_from_info(info),
+                accounts=list(input.get("accounts") or []),
+            )
+        except DomainError as exc:
+            raise graphql_error(info, exc) from exc
+        return ReplaceBankAccounts(organisation=organisation, bank_accounts=accounts)
+
+
 def _uuid_or_not_found(value: object) -> uuid.UUID:
     try:
         return uuid.UUID(str(value))
@@ -232,3 +297,4 @@ class OrganisationsQuery(graphene.ObjectType):  # type: ignore[misc]
 
 class OrganisationsMutation(graphene.ObjectType):  # type: ignore[misc]
     update_organisation = UpdateOrganisation.Field(required=True)
+    replace_bank_accounts = ReplaceBankAccounts.Field(required=True)

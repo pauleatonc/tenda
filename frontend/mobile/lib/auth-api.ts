@@ -33,6 +33,16 @@ type MobileViewer = {
     bankHolderTaxId?: string
     bankConfirmationEmail?: string
     hasBankDetails?: boolean
+    bankAccounts?: Array<{
+      id: string
+      label: string
+      bankName: string
+      bankAccountType: string
+      bankAccountNumber: string
+      bankHolderTaxId: string
+      bankConfirmationEmail: string
+      position: number
+    }>
   }
   inventory: { id: string; name: string }
   membership: {

@@ -105,6 +105,7 @@ export type SaleDraft = {
   lines: SaleDraftLine[]
   deliveryMode: 'shipping' | 'pickup' | 'coordinated'
   paymentMethod: 'bank_transfer' | 'cash' | 'mercado_pago'
+  bankAccountId: string | null
   idempotencyKey: string
   publishIdempotencyKey: string
   createdOrderId: string | null
@@ -121,6 +122,7 @@ export function createEmptySaleDraft(): SaleDraft {
     lines: [],
     deliveryMode: 'shipping',
     paymentMethod: 'bank_transfer',
+    bankAccountId: null,
     idempotencyKey: newIdempotencyKey(),
     publishIdempotencyKey: newIdempotencyKey(),
     createdOrderId: null,
@@ -146,7 +148,11 @@ export function loadSaleDraft(storage: Storage = window.localStorage): SaleDraft
     const raw = storage.getItem(SALE_DRAFT_STORAGE_KEY)
     if (!raw) return createEmptySaleDraft()
     const parsed: unknown = JSON.parse(raw)
-    return isSaleDraft(parsed) ? parsed : createEmptySaleDraft()
+    if (!isSaleDraft(parsed)) return createEmptySaleDraft()
+    return {
+      ...parsed,
+      bankAccountId: parsed.bankAccountId ?? null,
+    }
   } catch {
     return createEmptySaleDraft()
   }

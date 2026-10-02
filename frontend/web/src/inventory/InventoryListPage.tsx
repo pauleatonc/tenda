@@ -601,6 +601,7 @@ export function InventoryListPage() {
         <GenerateSaleDialog
           product={selling}
           hasBankDetails={organisationHasBankDetails(viewer.organisation)}
+          bankAccounts={viewer.organisation.bankAccounts ?? []}
           onClose={() => setSelling(null)}
         />
       ) : null}
