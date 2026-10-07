@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
+import { useEffect, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
+import { AnalyticsEvents, getAnalytics } from '../analytics'
 import { TendaApiError } from '../lib/http'
 import { fetchPublicOrder, salesKeys } from '../sales/api'
 import { deliveryModeLabels, formatDate, translated } from '../sales/model'
@@ -16,12 +18,21 @@ import { PublicProofUpload } from './PublicProofUpload'
 
 export function PublicOrderPage() {
   const { token = '' } = useParams<{ token: string }>()
+  const trackedOffer = useRef(false)
   const order = useQuery({
     queryKey: salesKeys.publicOrder(token),
     queryFn: () => fetchPublicOrder(token),
     enabled: Boolean(token),
     retry: 1,
   })
+
+  useEffect(() => {
+    if (!order.data || trackedOffer.current) return
+    trackedOffer.current = true
+    getAnalytics().track(AnalyticsEvents.buyerOfferViewed, {
+      payment_method: order.data.paymentMethod,
+    })
+  }, [order.data])
 
   if (order.isPending) {
     return (

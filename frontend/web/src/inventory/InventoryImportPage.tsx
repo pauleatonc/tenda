@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { AnalyticsEvents, getAnalytics } from '../analytics'
+import { markActivationFlag } from '../analytics/activation'
 import { UploadField } from '../components/ui'
 import { TendaApiError, newIdempotencyKey } from '../lib/http'
 import {
@@ -144,6 +146,8 @@ export function InventoryImportPage() {
     onSuccess: (updated) => {
       queryClient.setQueryData(inventoryKeys.import(jobId), updated)
       setPollDelay(1_000)
+      getAnalytics().track(AnalyticsEvents.productCreated, { mode: 'import' })
+      markActivationFlag('product')
     },
   })
 

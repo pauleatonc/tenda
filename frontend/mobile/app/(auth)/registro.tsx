@@ -11,6 +11,7 @@ import {
   styles,
 } from '../../components/auth-ui'
 import { MobileTurnstile, mobileTurnstileEnabled } from '../../components/turnstile'
+import { AnalyticsEvents, getAnalytics } from '../../lib/analytics'
 import { MobileApiError, mobileRegister } from '../../lib/auth-api'
 
 export default function RegisterScreen() {
@@ -52,6 +53,7 @@ export default function RegisterScreen() {
         acceptedTerms,
         turnstileToken: turnstileToken || 'local-development',
       })
+      getAnalytics().track(AnalyticsEvents.signUp, { method: 'email' })
       router.replace({ pathname: '/(auth)/verificar', params: { email } })
     } catch (caught) {
       setError(caught instanceof MobileApiError ? caught : null)

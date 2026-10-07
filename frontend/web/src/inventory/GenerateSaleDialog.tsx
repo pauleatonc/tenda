@@ -6,6 +6,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
+import { AnalyticsEvents, getAnalytics } from '../analytics'
+import { markActivationFlag } from '../analytics/activation'
 import { BankDetailsRequiredNotice } from '../app/BankDetailsRequiredNotice'
 import { Modal } from '../components/ui'
 import { TendaApiError, newIdempotencyKey } from '../lib/http'
@@ -145,6 +147,17 @@ export function GenerateSaleDialog({
     onSuccess: (published) => {
       setResult(published)
       setError(null)
+      const paymentMethod = method === 'online' ? 'mercado_pago' : 'bank_transfer'
+      getAnalytics().track(AnalyticsEvents.saleCreated, {
+        payment_method: paymentMethod,
+        delivery_mode: deliveryMode,
+        item_count: 1,
+      })
+      getAnalytics().track(AnalyticsEvents.saleLinkPublished, {
+        payment_method: paymentMethod,
+        source: 'inventory',
+      })
+      markActivationFlag('salePublished')
       void queryClient.invalidateQueries({ queryKey: ['inventory'] })
       void queryClient.invalidateQueries({ queryKey: ['sales'] })
     },
@@ -169,6 +182,11 @@ export function GenerateSaleDialog({
     },
     onSuccess: (orderId) => {
       setError(null)
+      getAnalytics().track(AnalyticsEvents.saleCreated, {
+        payment_method: 'cash',
+        delivery_mode: deliveryMode,
+        item_count: 1,
+      })
       void queryClient.invalidateQueries({ queryKey: ['inventory'] })
       void queryClient.invalidateQueries({ queryKey: ['sales'] })
       onClose()
@@ -189,6 +207,9 @@ export function GenerateSaleDialog({
     onSuccess: () => {
       setEmailSent(true)
       setError(null)
+      getAnalytics().track(AnalyticsEvents.offerLinkEmailed, {
+        payment_method: method === 'online' ? 'mercado_pago' : 'bank_transfer',
+      })
     },
     onError: (mutationError: Error) => {
       setError(mutationError)
@@ -200,6 +221,9 @@ export function GenerateSaleDialog({
     if (!result) return
     await navigator.clipboard.writeText(result.publicUrl)
     setCopied(true)
+    getAnalytics().track(AnalyticsEvents.offerLinkCopied, {
+      payment_method: method === 'online' ? 'mercado_pago' : 'bank_transfer',
+    })
   }
 
   const showBankNotice = !result && !confirmCash && method === 'deposit' && !hasBankDetails

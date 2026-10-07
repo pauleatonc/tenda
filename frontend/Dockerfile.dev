@@ -12,13 +12,15 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY frontend/web/package.json frontend/web/package.json
 COPY frontend/mobile/package.json frontend/mobile/package.json
 COPY packages/api-client/package.json packages/api-client/package.json
+COPY packages/analytics/package.json packages/analytics/package.json
 COPY e2e/web/package.json e2e/web/package.json
 RUN pnpm install --frozen-lockfile --filter @tenda/web... --filter @tenda/mobile...
 
 COPY packages/api-client packages/api-client
+COPY packages/analytics packages/analytics
 COPY frontend/web frontend/web
 COPY frontend/mobile frontend/mobile
-RUN pnpm --filter @tenda/api-client build
+RUN pnpm --filter @tenda/api-client build && pnpm --filter @tenda/analytics build
 
 COPY frontend/docker-entrypoint-dev.sh /docker-entrypoint-dev.sh
 RUN chmod +x /docker-entrypoint-dev.sh

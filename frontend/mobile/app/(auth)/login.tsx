@@ -11,6 +11,7 @@ import {
 } from '../../components/auth-ui'
 import { GoogleSignInButton } from '../../components/google-sign-in-button'
 import { MobileTurnstile, mobileTurnstileEnabled } from '../../components/turnstile'
+import { AnalyticsEvents, getAnalytics } from '../../lib/analytics'
 import { MobileApiError, mobileGoogleLogin, mobileLogin } from '../../lib/auth-api'
 
 export default function LoginScreen() {
@@ -45,6 +46,7 @@ export default function LoginScreen() {
     setLoading(true)
     try {
       await mobileLogin(email, password, turnstileToken || 'local-development')
+      getAnalytics().track(AnalyticsEvents.login, { method: 'email' })
       router.replace('/(app)')
     } catch (caught) {
       setError(
@@ -74,6 +76,7 @@ export default function LoginScreen() {
           setError(null)
           setGoogleLoading(true)
           try {
+            getAnalytics().track(AnalyticsEvents.login, { method: 'google' })
             await mobileGoogleLogin()
             router.replace('/(app)')
           } catch (caught) {

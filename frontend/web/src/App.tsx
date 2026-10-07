@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { AnalyticsEvents, getAnalytics } from './analytics'
 import './App.css'
 import { LoginPage, RecoveryPage, RegisterPage, VerificationPage } from './auth/AuthPages'
 import {
@@ -99,7 +100,15 @@ function LandingPage() {
             a día de tu negocio.
           </p>
           <div className="hero__actions">
-            <Link className="button button--primary" to="/registro">
+            <Link
+              className="button button--primary"
+              to="/registro"
+              onClick={() =>
+                getAnalytics().track(AnalyticsEvents.landingCtaClick, {
+                  cta: 'comenzar_gratis',
+                })
+              }
+            >
               Comenzar gratis
             </Link>
             <a className="text-link" href="#como-funciona">

@@ -10,6 +10,7 @@ import { Clipboard, Pressable, Share, StyleSheet, Text, View } from 'react-nativ
 import { PrimaryButton, StatusMessage, colors } from './auth-ui'
 import { BankDetailsRequired } from './bank-details-required'
 import { Sheet, SheetField } from './inventory-ui'
+import { AnalyticsEvents, getAnalytics, markActivationFlag } from '../lib/analytics'
 import { getMobileViewer, MobileApiError } from '../lib/auth-api'
 import { canGenerateSale } from '../lib/can-generate-sale'
 import { formatPrice, formatQuantity } from '../lib/format'
@@ -151,6 +152,17 @@ export function GenerateSaleSheet({
     onSuccess: (published) => {
       setResult(published)
       setError('')
+      const paymentMethod = method === 'online' ? 'mercado_pago' : 'bank_transfer'
+      getAnalytics().track(AnalyticsEvents.saleCreated, {
+        payment_method: paymentMethod,
+        delivery_mode: deliveryMode,
+        item_count: 1,
+      })
+      getAnalytics().track(AnalyticsEvents.saleLinkPublished, {
+        payment_method: paymentMethod,
+        source: 'inventory',
+      })
+      void markActivationFlag('salePublished')
       void queryClient.invalidateQueries({ queryKey: ['inventory'] })
       void queryClient.invalidateQueries({ queryKey: ['sales'] })
     },
@@ -181,6 +193,11 @@ export function GenerateSaleSheet({
     },
     onSuccess: (orderId) => {
       setError('')
+      getAnalytics().track(AnalyticsEvents.saleCreated, {
+        payment_method: 'cash',
+        delivery_mode: deliveryMode,
+        item_count: 1,
+      })
       void queryClient.invalidateQueries({ queryKey: ['inventory'] })
       void queryClient.invalidateQueries({ queryKey: ['sales'] })
       onClose()
@@ -208,6 +225,9 @@ export function GenerateSaleSheet({
       setEmailSent(true)
       setEmailOpen(false)
       setError('')
+      getAnalytics().track(AnalyticsEvents.offerLinkEmailed, {
+        payment_method: method === 'online' ? 'mercado_pago' : 'bank_transfer',
+      })
     },
     onError: (mutationError: unknown) => {
       setError(

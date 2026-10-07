@@ -13,6 +13,8 @@ import {
 import { useMutation } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 
+import { AnalyticsEvents, getAnalytics } from '../analytics'
+import { markActivationFlag } from '../analytics/activation'
 import type { ViewerPayload } from '../auth/api'
 import { TendaApiError, graphqlRequest } from '../lib/http'
 import { BankTransferDetails } from '../public/BankTransferDetails'
@@ -201,6 +203,10 @@ export function BankDetailsSection({
     },
     onSuccess: () => {
       setErrors({})
+      getAnalytics().track(AnalyticsEvents.bankDetailsSaved, {
+        account_count: accounts.length,
+      })
+      markActivationFlag('payments')
       onSaved('Guardamos tus datos para depósitos.')
     },
     onError: (saveError: unknown) => {

@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
+import { AnalyticsEvents, getAnalytics } from '../analytics'
 import { UploadField } from '../components/ui'
 import { TendaApiError } from '../lib/http'
 import { salesKeys, uploadPublicPaymentProof, type PublicOrder } from '../sales/api'
@@ -46,6 +47,7 @@ export function PublicProofUpload({
       uploadPublicPaymentProof(token, selected, setProgress),
     onSuccess: () => {
       setComplete(true)
+      getAnalytics().track(AnalyticsEvents.buyerProofUploaded)
       void queryClient.invalidateQueries({ queryKey: salesKeys.publicOrder(token) })
       void queryClient.invalidateQueries({ queryKey: salesKeys.publicStatus(token) })
     },

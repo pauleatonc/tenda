@@ -8,6 +8,7 @@ import {
   StatusMessage,
   styles,
 } from '../../components/auth-ui'
+import { AnalyticsEvents, getAnalytics } from '../../lib/analytics'
 import {
   MobileApiError,
   mobileResendVerification,
@@ -30,7 +31,10 @@ export default function VerificationScreen() {
     if (!rawToken || started.current) return
     started.current = true
     mobileVerifyEmail(rawToken)
-      .then(() => setVerified(true))
+      .then(() => {
+        getAnalytics().track(AnalyticsEvents.emailVerified)
+        setVerified(true)
+      })
       .catch((caught: unknown) => {
         setError(caught instanceof MobileApiError ? caught : null)
       })

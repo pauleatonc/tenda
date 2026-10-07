@@ -6,6 +6,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useOutletContext } from 'react-router-dom'
 
+import { AnalyticsEvents, getAnalytics } from '../analytics'
+import { markActivationFlag } from '../analytics/activation'
 import { BankDetailsRequiredNotice } from '../app/BankDetailsRequiredNotice'
 import type { ViewerPayload } from '../auth/api'
 import { Modal, SearchField, StatusChip } from '../components/ui'
@@ -196,6 +198,11 @@ export function NewSalePage() {
     onSuccess: ({ orderId, publicUrl }) => {
       setSubmitError(null)
       setConfirmCash(false)
+      getAnalytics().track(AnalyticsEvents.saleCreated, {
+        payment_method: selectedPaymentMethod,
+        delivery_mode: draft.deliveryMode,
+        item_count: draft.lines.length,
+      })
       void queryClient.invalidateQueries({ queryKey: ['sales'] })
       void queryClient.invalidateQueries({ queryKey: ['inventory'] })
       if (selectedPaymentMethod === 'cash' || !publicUrl) {
@@ -203,6 +210,11 @@ export function NewSalePage() {
         navigate(`/app/ventas/${orderId}`)
         return
       }
+      getAnalytics().track(AnalyticsEvents.saleLinkPublished, {
+        payment_method: selectedPaymentMethod,
+        source: 'wizard',
+      })
+      markActivationFlag('salePublished')
       const complete: SaleDraft = {
         ...draft,
         step: 4,
@@ -231,6 +243,9 @@ export function NewSalePage() {
       setEmailSent(true)
       setEmailError(null)
       setEmailOpen(false)
+      getAnalytics().track(AnalyticsEvents.offerLinkEmailed, {
+        payment_method: selectedPaymentMethod,
+      })
     },
     onError: (error: Error) => {
       setEmailError(error)
@@ -241,6 +256,9 @@ export function NewSalePage() {
   function goToStep(step: SaleDraft['step']) {
     if (step > 1 && !validation.valid) return
     setSubmitError(null)
+    getAnalytics().track(AnalyticsEvents.saleWizardStepViewed, {
+      step: String(step),
+    })
     replaceDraft((current) => ({ ...current, step }))
   }
 
@@ -769,6 +787,9 @@ export function NewSalePage() {
               onClick={async () => {
                 await navigator.clipboard.writeText(draft.publicUrl ?? '')
                 setCopied(true)
+                getAnalytics().track(AnalyticsEvents.offerLinkCopied, {
+                  payment_method: selectedPaymentMethod,
+                })
               }}
             >
               {copied ? 'Copiado' : 'Copiar enlace'}

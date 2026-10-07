@@ -25,6 +25,7 @@ import {
   registrationLabel,
   requiresCarrier,
 } from '../../../components/shipping-ui'
+import { AnalyticsEvents, getAnalytics } from '../../../lib/analytics'
 import { MobileApiError } from '../../../lib/auth-api'
 import { formatDate } from '../../../lib/format'
 import { newIdempotencyKey } from '../../../lib/graphql'
@@ -81,6 +82,7 @@ export default function ShipmentDetailScreen() {
       setRegisterKey(newIdempotencyKey())
       setActionError('')
       setRegisterError(null)
+      getAnalytics().track(AnalyticsEvents.shipmentDispatched)
       setSuccess(
         result.shipment.buyerEmail
           ? `Registrado. Enviamos el correo a ${result.shipment.buyerEmail}.`
@@ -115,6 +117,7 @@ export default function ShipmentDetailScreen() {
       void queryClient.invalidateQueries({ queryKey: shippingKeys.root })
       setLabelKey(newIdempotencyKey())
       setActionError('')
+      getAnalytics().track(AnalyticsEvents.shipmentLabelGenerated)
       setSuccess('Etiqueta interna generada.')
       labelLock.current = false
       const url = result.shipment.latestLabel?.downloadUrl

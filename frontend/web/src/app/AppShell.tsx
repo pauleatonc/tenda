@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate, useOutletContext } from 'react-router-dom'
 
+import { getAnalytics } from '../analytics'
 import { getViewer, logout, TendaApiError, type ViewerPayload } from '../auth/api'
 import { AuthenticatedImage, PersonAvatar } from '../components/AuthenticatedImage'
 import { ConnectivityBanner, StatusChip } from '../components/ui'
@@ -66,6 +67,18 @@ export function ApplicationShell() {
   useEffect(() => {
     window.localStorage.setItem('tenda.sidebar.collapsed', String(collapsed))
   }, [collapsed])
+
+  useEffect(() => {
+    const data = viewer.data
+    if (!data) return
+    const analytics = getAnalytics()
+    analytics.setUser(data.viewer.id)
+    analytics.setUserProperties({
+      role: data.membership.role,
+      organisation_id: data.organisation.id,
+      has_bank_details: data.organisation.hasBankDetails ? 'true' : 'false',
+    })
+  }, [viewer.data])
 
   if (viewer.isPending) return <ShellLoading />
   if (viewer.isError) return <ShellError error={viewer.error} />

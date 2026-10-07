@@ -19,6 +19,7 @@ import { PrimaryButton, StatusMessage, colors } from '../../../components/auth-u
 import { CustomFieldSheet } from '../../../components/custom-field-sheet'
 import { OptionRow, SectionCard, SheetField } from '../../../components/inventory-ui'
 import { MobilePendingPhotoQueue } from '../../../components/product-media'
+import { AnalyticsEvents, getAnalytics, markActivationFlag } from '../../../lib/analytics'
 import { MobileApiError } from '../../../lib/auth-api'
 import { catalogStatusLabels, formatPrice } from '../../../lib/format'
 import { isOfflineError, newIdempotencyKey } from '../../../lib/graphql'
@@ -261,6 +262,10 @@ export default function ProductFormScreen() {
     onSuccess: (saved) => {
       void queryClient.invalidateQueries({ queryKey: ['inventory'] })
       setDirty(false)
+      if (!isEdit) {
+        getAnalytics().track(AnalyticsEvents.productCreated, { mode: 'manual' })
+        void markActivationFlag('product')
+      }
       router.replace(isEdit ? `/inventario/${saved.id}` : '/inventario')
     },
     onError: (error: unknown) => {

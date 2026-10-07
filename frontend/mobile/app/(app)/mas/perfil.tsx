@@ -15,6 +15,7 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import { AppScreen } from '../../../components/app-ui'
 import { FormField, PrimaryButton, StatusMessage, colors } from '../../../components/auth-ui'
 import { OptionRow, Sheet } from '../../../components/inventory-ui'
+import { AnalyticsEvents, getAnalytics, markActivationFlag } from '../../../lib/analytics'
 import { MobileApiError, getMobileViewer, getStoredToken } from '../../../lib/auth-api'
 import {
   replaceMobileBankAccounts,
@@ -211,6 +212,10 @@ export default function ProfileScreen() {
     onSuccess: () => {
       setMessage('Guardamos tus datos para depósitos.')
       setError('')
+      getAnalytics().track(AnalyticsEvents.bankDetailsSaved, {
+        account_count: accounts.length,
+      })
+      void markActivationFlag('payments')
       refresh()
     },
     onError: (saveError: unknown) => {

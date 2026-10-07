@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 
+import { AnalyticsEvents, getAnalytics } from '../analytics'
 import { Modal } from '../components/ui'
 import { TendaApiError, newIdempotencyKey } from '../lib/http'
 import { recordStockMovement, type ProductRow } from './api'
@@ -57,6 +58,7 @@ export function StockAdjustDialog({
     mutationFn: recordStockMovement,
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: ['inventory'] })
+      getAnalytics().track(AnalyticsEvents.stockAdjusted)
       onDone?.(result.product)
       onClose()
     },

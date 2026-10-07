@@ -1,0 +1,36 @@
+.analytics-consent {
+  align-items: flex-start;
+  background: var(--surface, #fff);
+  border: 1px solid var(--line, #d9d4c8);
+  border-radius: 16px;
+  bottom: 16px;
+  box-shadow: 0 12px 32px rgb(23 40 34 / 12%);
+  display: grid;
+  gap: 14px;
+  left: 16px;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 16px 18px;
+  position: fixed;
+  right: 16px;
+  z-index: 1200;
+}
+
+.analytics-consent p {
+  color: var(--ink-soft, #5c655f);
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.analytics-consent__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+@media (min-width: 640px) {
+  .analytics-consent {
+    left: auto;
+  }
+}

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
+import { AnalyticsEvents, getAnalytics } from '../analytics'
 import { EmptyState, Modal, StatusChip, Timeline } from '../components/ui'
 import { TendaApiError, newIdempotencyKey } from '../lib/http'
 import { generateShipmentLabel } from '../shipping/api'
@@ -106,6 +107,7 @@ export function SaleDetailPage() {
       setLabelOpen(true)
       setLabelKey(newIdempotencyKey())
       setActionError(null)
+      getAnalytics().track(AnalyticsEvents.shipmentLabelGenerated)
       if (order.data) {
         queryClient.setQueryData(salesKeys.order(id), {
           ...order.data,
@@ -176,6 +178,20 @@ export function SaleDetailPage() {
       }
       if (request.kind === 'reissue' && 'order' in result) {
         navigate(`/app/ventas/${result.order.id}`)
+      }
+      if (request.kind === 'approve' || request.kind === 'reject') {
+        getAnalytics().track(AnalyticsEvents.paymentProofReviewed, {
+          decision: request.kind,
+        })
+      }
+      if (request.kind === 'cancel') {
+        getAnalytics().track(AnalyticsEvents.saleCancelled)
+      }
+      if (request.kind === 'refund') {
+        getAnalytics().track(AnalyticsEvents.saleRefunded)
+      }
+      if (request.kind === 'resend') {
+        getAnalytics().track(AnalyticsEvents.offerLinkEmailed)
       }
       setAction(null)
       setReason('')

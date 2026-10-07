@@ -17,6 +17,7 @@ import { MobileEmptyState, MobileStatusChip } from '../../../components/app-ui'
 import { PrimaryButton, StatusMessage, colors } from '../../../components/auth-ui'
 import { SectionCard } from '../../../components/inventory-ui'
 import { DetailRow, salesStyles } from '../../../components/sales-ui'
+import { AnalyticsEvents, getAnalytics, markActivationFlag } from '../../../lib/analytics'
 import { MobileApiError, getMobileViewer } from '../../../lib/auth-api'
 import { formatDate } from '../../../lib/format'
 import {
@@ -53,12 +54,24 @@ export default function PaymentsScreen() {
     enabled: canManage,
   })
 
+  const trackedMpConnect = useRef(false)
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active' && oauthOpened.current) {
         oauthOpened.current = false
         setMessage('Comprobando el estado de la conexión…')
-        void payment.refetch()
+        void payment.refetch().then((result) => {
+          const status = result.data?.sellerPaymentConnection?.status
+          if (
+            !trackedMpConnect.current &&
+            status &&
+            ['active', 'connected'].includes(status)
+          ) {
+            trackedMpConnect.current = true
+            getAnalytics().track(AnalyticsEvents.mercadopagoConnected)
+            void markActivationFlag('payments')
+          }
+        })
       }
     })
     return () => subscription.remove()
@@ -93,6 +106,7 @@ export default function PaymentsScreen() {
     onSuccess: () => {
       setError('')
       setMessage('Mercado Pago quedó desconectado.')
+      getAnalytics().track(AnalyticsEvents.mercadopagoDisconnected)
       void queryClient.invalidateQueries({ queryKey: salesKeys.paymentConnection() })
     },
     onError: (cause: unknown) => {

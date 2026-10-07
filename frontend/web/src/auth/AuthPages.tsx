@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useForm, type UseFormRegisterReturn } from 'react-hook-form'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { z } from 'zod'
+import { AnalyticsEvents, getAnalytics } from '../analytics'
 import { GoogleSignInButton } from '../components/GoogleSignInButton'
 import { TurnstileField, turnstileSiteKey } from '../components/TurnstileField'
 import {
@@ -154,7 +155,7 @@ export function LoginPage() {
       title="Inicia sesión"
       description="Vuelve a tu negocio y continúa donde quedaste."
     >
-      <GoogleSignInButton onError={setServerError} />
+      <GoogleSignInButton intent="login" onError={setServerError} />
       <div className="auth-divider">
         <span>o usa tu correo</span>
       </div>
@@ -183,6 +184,8 @@ export function LoginPage() {
               ...values,
               turnstileToken: turnstileToken || 'local-development',
             })
+            getAnalytics().track(AnalyticsEvents.login, { method: 'email' })
+            getAnalytics().setUser(viewer.viewer.id)
             queryClient.setQueryData(['viewer'], viewer)
             navigate('/app', { replace: true })
           } catch (error) {
@@ -252,7 +255,7 @@ export function RegisterPage() {
       title="Crea tu cuenta"
       description="Solo necesitamos lo esencial. Tu Tienda e inventario se crean contigo."
     >
-      <GoogleSignInButton onError={setServerError} />
+      <GoogleSignInButton intent="sign_up" onError={setServerError} />
       <div className="auth-divider">
         <span>o regístrate con correo</span>
       </div>
@@ -281,6 +284,7 @@ export function RegisterPage() {
               ...values,
               turnstileToken: turnstileToken || 'local-development',
             })
+            getAnalytics().track(AnalyticsEvents.signUp, { method: 'email' })
             navigate('/verificar-email', {
               replace: true,
               state: { email: values.email },
@@ -373,7 +377,10 @@ export function VerificationPage() {
     if (!token || started.current) return
     started.current = true
     verifyEmail(token)
-      .then(() => setStatus('success'))
+      .then(() => {
+        getAnalytics().track(AnalyticsEvents.emailVerified)
+        setStatus('success')
+      })
       .catch((error: unknown) => {
         setServerError(error)
         setStatus('error')
@@ -528,6 +535,7 @@ export function RecoveryPage() {
             setServerError(null)
             try {
               const result = await requestPasswordReset(email)
+              getAnalytics().track(AnalyticsEvents.passwordResetRequested)
               setMessage(result.message)
             } catch (error) {
               setServerError(error)

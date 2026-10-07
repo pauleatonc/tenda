@@ -16,6 +16,7 @@
     "@hookform/resolvers": "5.9.1",
     "@tanstack/react-query": "5.102.3",
     "@tanstack/react-table": "9.1.2",
+    "@tenda/analytics": "workspace:*",
     "@tenda/api-client": "workspace:*",
     "graphql": "16.11.0",
     "react": "19.2.3",

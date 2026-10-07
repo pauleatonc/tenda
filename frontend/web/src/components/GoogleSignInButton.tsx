@@ -1,14 +1,19 @@
 import { useState } from 'react'
 
+import { AnalyticsEvents, getAnalytics } from '../analytics'
 import { startGoogleLogin } from '../auth/api'
 
 import './GoogleSignInButton.css'
 
 type GoogleSignInButtonProps = {
+  intent?: 'login' | 'sign_up'
   onError: (error: unknown) => void
 }
 
-export function GoogleSignInButton({ onError }: GoogleSignInButtonProps) {
+export function GoogleSignInButton({
+  intent = 'login',
+  onError,
+}: GoogleSignInButtonProps) {
   const [loading, setLoading] = useState(false)
   return (
     <button
@@ -18,6 +23,10 @@ export function GoogleSignInButton({ onError }: GoogleSignInButtonProps) {
       type="button"
       onClick={() => {
         setLoading(true)
+        getAnalytics().track(
+          intent === 'sign_up' ? AnalyticsEvents.signUp : AnalyticsEvents.login,
+          { method: 'google' },
+        )
         startGoogleLogin().catch((error: unknown) => {
           setLoading(false)
           onError(error)

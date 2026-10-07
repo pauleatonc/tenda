@@ -5,7 +5,11 @@ import * as WebBrowser from 'expo-web-browser'
 import { useState } from 'react'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 
+import { AnalyticsScreenTracker } from '../components/analytics-screen-tracker'
+import { getAnalytics } from '../lib/analytics'
+
 WebBrowser.maybeCompleteAuthSession()
+getAnalytics()
 
 export default function RootLayout() {
   const [queryClient] = useState(
@@ -24,6 +28,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <StatusBar style="dark" />
+        <AnalyticsScreenTracker />
         <Stack
           screenOptions={{
             headerShadowVisible: false,

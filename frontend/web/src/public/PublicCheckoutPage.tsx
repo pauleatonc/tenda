@@ -1,9 +1,10 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { formatChileAddress, formatRutInput } from '@tenda/api-client'
 
+import { AnalyticsEvents, getAnalytics } from '../analytics'
 import { ChileLocationFields } from '../components/ChileLocationFields'
 import { FormErrorSummary } from '../components/ui'
 import { TendaApiError } from '../lib/http'
@@ -55,6 +56,15 @@ export function PublicCheckoutPage() {
 
   const availableMethods: readonly string[] = order.data?.availablePaymentMethods ?? []
   const selectedPaymentMethod = draft.paymentMethod || availableMethods[0] || ''
+
+  const trackedCheckoutStart = useRef(false)
+  useEffect(() => {
+    if (!order.data || trackedCheckoutStart.current) return
+    trackedCheckoutStart.current = true
+    getAnalytics().track(AnalyticsEvents.buyerCheckoutStarted, {
+      payment_method: selectedPaymentMethod || order.data.paymentMethod,
+    })
+  }, [order.data, selectedPaymentMethod])
 
   const contactErrors = useMemo(
     () =>
@@ -108,7 +118,11 @@ export function PublicCheckoutPage() {
     },
     onSuccess: (checkout) => {
       setSubmitError(null)
+      getAnalytics().track(AnalyticsEvents.buyerCheckoutCompleted, {
+        payment_method: selectedPaymentMethod,
+      })
       if (selectedPaymentMethod === 'mercado_pago' && checkout) {
+        getAnalytics().track(AnalyticsEvents.buyerMpRedirect)
         window.location.assign(checkout.checkoutUrl)
         return
       }

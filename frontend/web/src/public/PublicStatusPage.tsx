@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
+import { useEffect, useRef } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 
+import { AnalyticsEvents, getAnalytics } from '../analytics'
 import { TendaApiError } from '../lib/http'
 import { fetchPublicOrderStatus, salesKeys } from '../sales/api'
 import {
@@ -38,6 +40,7 @@ function mercadoPagoReturnCopy(resultado: string | null): { title: string; body:
 export function PublicStatusPage() {
   const { token = '' } = useParams<{ token: string }>()
   const [params] = useSearchParams()
+  const trackedStatus = useRef(false)
   const status = useQuery({
     queryKey: salesKeys.publicStatus(token),
     queryFn: () => fetchPublicOrderStatus(token),
@@ -52,6 +55,12 @@ export function PublicStatusPage() {
     },
     refetchIntervalInBackground: false,
   })
+
+  useEffect(() => {
+    if (!status.data || trackedStatus.current) return
+    trackedStatus.current = true
+    getAnalytics().track(AnalyticsEvents.buyerStatusViewed)
+  }, [status.data])
 
   if (status.isPending) {
     return (

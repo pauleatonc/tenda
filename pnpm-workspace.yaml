@@ -2,6 +2,7 @@ packages:
   - frontend/web
   - frontend/mobile
   - packages/api-client
+  - packages/analytics
   - e2e/web
 
 onlyBuiltDependencies:

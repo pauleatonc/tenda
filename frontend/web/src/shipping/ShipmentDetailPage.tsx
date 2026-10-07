@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
+import { AnalyticsEvents, getAnalytics } from '../analytics'
 import { EmptyState, Modal, StatusChip } from '../components/ui'
 import { TendaApiError, newIdempotencyKey } from '../lib/http'
 import {
@@ -65,6 +66,7 @@ export function ShipmentDetailPage() {
       setConfirmOpen(false)
       setRegisterKey(newIdempotencyKey())
       setActionError(null)
+      getAnalytics().track(AnalyticsEvents.shipmentDispatched)
     },
     onError: (error: Error) => {
       setConfirmOpen(false)
@@ -85,6 +87,7 @@ export function ShipmentDetailPage() {
       setPreviewLabel(result.shipment.latestLabel)
       setLabelOpen(true)
       setActionError(null)
+      getAnalytics().track(AnalyticsEvents.shipmentLabelGenerated)
     },
     onError: (error: Error) => setActionError(error),
   })

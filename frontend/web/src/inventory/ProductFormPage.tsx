@@ -2,6 +2,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
+import { AnalyticsEvents, getAnalytics } from '../analytics'
+import { markActivationFlag } from '../analytics/activation'
 import { FormErrorSummary, SearchField } from '../components/ui'
 import { TendaApiError, newIdempotencyKey } from '../lib/http'
 import {
@@ -260,6 +262,10 @@ export function ProductFormPage({
     onSuccess: (saved) => {
       void queryClient.invalidateQueries({ queryKey: ['inventory'] })
       setDirty(false)
+      if (!isEdit) {
+        getAnalytics().track(AnalyticsEvents.productCreated, { mode: origin })
+        markActivationFlag('product')
+      }
       navigate(isEdit ? `/app/inventario/${saved.id}` : '/app/inventario', {
         replace: true,
       })

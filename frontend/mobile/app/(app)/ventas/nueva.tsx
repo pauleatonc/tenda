@@ -35,6 +35,7 @@ import {
   paymentMethodLabels,
   salesStyles,
 } from '../../../components/sales-ui'
+import { AnalyticsEvents, getAnalytics, markActivationFlag } from '../../../lib/analytics'
 import { MobileApiError, getMobileViewer } from '../../../lib/auth-api'
 import { formatPrice, formatQuantity } from '../../../lib/format'
 import { isOfflineError, newIdempotencyKey } from '../../../lib/graphql'
@@ -376,12 +377,22 @@ export default function NewSaleScreen() {
     onSuccess: (result) => {
       setApiError(null)
       setConfirmCash(false)
+      getAnalytics().track(AnalyticsEvents.saleCreated, {
+        payment_method: draft.paymentMethod,
+        delivery_mode: draft.deliveryMode,
+        item_count: draft.lines.length,
+      })
       void queryClient.invalidateQueries({ queryKey: salesKeys.root })
       if (result.kind === 'cash') {
         void clearSaleDraft()
         router.replace(`/ventas/${result.orderId}`)
         return
       }
+      getAnalytics().track(AnalyticsEvents.saleLinkPublished, {
+        payment_method: draft.paymentMethod,
+        source: 'wizard',
+      })
+      void markActivationFlag('salePublished')
       setDraft((current) => ({
         ...current,
         step: 'result',
@@ -413,6 +424,9 @@ export default function NewSaleScreen() {
       setEmailSent(true)
       setEmailOpen(false)
       setApiError(null)
+      getAnalytics().track(AnalyticsEvents.offerLinkEmailed, {
+        payment_method: draft.paymentMethod,
+      })
     },
     onError: (error: unknown) => {
       setApiError(error instanceof MobileApiError ? error : null)

@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useRef } from 'react'
 import { useOutletContext, useSearchParams } from 'react-router-dom'
 
+import { AnalyticsEvents, getAnalytics } from '../analytics'
+import { markActivationFlag } from '../analytics/activation'
 import type { ViewerPayload } from '../auth/api'
 import { EmptyState, StatusChip } from '../components/ui'
 import { TendaApiError } from '../lib/http'
@@ -48,9 +51,20 @@ export function PaymentsSettingsPage() {
   const disconnect = useMutation({
     mutationFn: disconnectMercadoPagoConnection,
     onSuccess: () => {
+      getAnalytics().track(AnalyticsEvents.mercadopagoDisconnected)
       void queryClient.invalidateQueries({ queryKey: salesKeys.paymentConnection() })
     },
   })
+
+  const trackedMpConnect = useRef(false)
+  useEffect(() => {
+    const connected =
+      params.get('connected') === '1' || params.get('paymentConnection') === 'connected'
+    if (!connected || trackedMpConnect.current) return
+    trackedMpConnect.current = true
+    getAnalytics().track(AnalyticsEvents.mercadopagoConnected)
+    markActivationFlag('payments')
+  }, [params])
 
   if (!canManage) {
     return (

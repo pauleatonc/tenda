@@ -29,6 +29,7 @@ import {
   paymentMethodLabels,
   salesStyles,
 } from '../../../components/sales-ui'
+import { AnalyticsEvents, getAnalytics } from '../../../lib/analytics'
 import { MobileApiError } from '../../../lib/auth-api'
 import { formatDate } from '../../../lib/format'
 import { newIdempotencyKey } from '../../../lib/graphql'
@@ -310,6 +311,14 @@ export default function SaleDetailScreen() {
         setShareUrl(String(result.publicUrl))
         setShareOrderId(result.order.id)
       }
+      if (kind === 'approve' || kind === 'reject') {
+        getAnalytics().track(AnalyticsEvents.paymentProofReviewed, {
+          decision: kind,
+        })
+      }
+      if (kind === 'cancel') getAnalytics().track(AnalyticsEvents.saleCancelled)
+      if (kind === 'refund') getAnalytics().track(AnalyticsEvents.saleRefunded)
+      if (kind === 'resend') getAnalytics().track(AnalyticsEvents.offerLinkEmailed)
       setSuccess(
         kind === 'resend'
           ? 'Enviamos el enlace al correo indicado.'
@@ -387,6 +396,7 @@ export default function SaleDetailScreen() {
       setLabelKey(newIdempotencyKey())
       setActionError('')
       labelLock.current = false
+      getAnalytics().track(AnalyticsEvents.shipmentLabelGenerated)
       void queryClient.invalidateQueries({ queryKey: salesKeys.order(orderId) })
       if (url) {
         openLabelUrl(url)

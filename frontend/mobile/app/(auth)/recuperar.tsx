@@ -8,6 +8,7 @@ import {
   StatusMessage,
   styles,
 } from '../../components/auth-ui'
+import { AnalyticsEvents, getAnalytics } from '../../lib/analytics'
 import {
   MobileApiError,
   mobileConfirmPasswordReset,
@@ -42,6 +43,9 @@ export default function RecoveryScreen() {
       const result = resetToken
         ? await mobileConfirmPasswordReset(resetToken, password)
         : await mobileRequestPasswordReset(email)
+      if (!resetToken) {
+        getAnalytics().track(AnalyticsEvents.passwordResetRequested)
+      }
       setMessage(result.message)
     } catch (caught) {
       setError(caught instanceof MobileApiError ? caught : null)
