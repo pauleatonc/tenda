@@ -1,6 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
-import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { AnalyticsEvents, getAnalytics } from './analytics'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import './App.css'
 import { LoginPage, RecoveryPage, RegisterPage, VerificationPage } from './auth/AuthPages'
 import {
@@ -10,6 +8,8 @@ import {
 } from './app/AppShell'
 import { ProfilePage } from './app/ProfilePage'
 import './app/profile.css'
+import { LandingPage } from './landing/LandingPage'
+import './landing/landing.css'
 import { ContactPage } from './public/ContactPage'
 import { InventoryListPage } from './inventory/InventoryListPage'
 import { InventoryExportsPage } from './inventory/InventoryExportsPage'
@@ -33,150 +33,6 @@ import { ShippingListPage } from './shipping/ShippingListPage'
 import './inventory/inventory.css'
 import './sales/sales.css'
 import './shipping/shipping.css'
-
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
-
-async function fetchHealth(): Promise<{ status: string }> {
-  const response = await fetch(`${API_URL}/health/live/`)
-  if (!response.ok) {
-    throw new Error('No fue posible conectar con Tenda')
-  }
-  return (await response.json()) as { status: string }
-}
-
-function HealthPill() {
-  const health = useQuery({
-    queryKey: ['health'],
-    queryFn: fetchHealth,
-    retry: 1,
-  })
-
-  const label = health.isPending
-    ? 'Comprobando servicio…'
-    : health.isError
-      ? 'Servicio no disponible'
-      : 'Servicio disponible'
-
-  return (
-    <span
-      aria-live="polite"
-      className={`health-pill ${health.isError ? 'health-pill--error' : ''}`}
-    >
-      <span className="health-pill__dot" aria-hidden="true" />
-      {label}
-    </span>
-  )
-}
-
-function LandingPage() {
-  return (
-    <main className="landing">
-      <nav className="landing__nav" aria-label="Navegación principal">
-        <Link className="wordmark" to="/" aria-label="Tenda, inicio">
-          tenda
-        </Link>
-        <div className="landing__nav-actions">
-          <Link className="button button--ghost" to="/contacto">
-            Contacto
-          </Link>
-          <Link className="button button--ghost" to="/login">
-            Iniciar sesión
-          </Link>
-          <Link className="button button--dark" to="/registro">
-            Crear cuenta
-          </Link>
-        </div>
-      </nav>
-
-      <section className="hero">
-        <div className="hero__content">
-          <p className="eyebrow">Tu negocio merece claridad</p>
-          <h1>
-            Menos planillas.
-            <br />
-            Más tiempo para vender.
-          </h1>
-          <p className="hero__lead">
-            Inventario, ventas y despachos en una herramienta simple, diseñada para el día
-            a día de tu negocio.
-          </p>
-          <div className="hero__actions">
-            <Link
-              className="button button--primary"
-              to="/registro"
-              onClick={() =>
-                getAnalytics().track(AnalyticsEvents.landingCtaClick, {
-                  cta: 'comenzar_gratis',
-                })
-              }
-            >
-              Comenzar gratis
-            </Link>
-            <a className="text-link" href="#como-funciona">
-              Ver cómo funciona
-            </a>
-          </div>
-          <HealthPill />
-        </div>
-        <div className="hero__visual" aria-label="Resumen de Tenda">
-          <div className="summary-card">
-            <div className="summary-card__header">
-              <div>
-                <span className="summary-card__label">Esta semana</span>
-                <strong>$248.000</strong>
-              </div>
-              <span className="summary-card__trend">+12%</span>
-            </div>
-            <div className="chart" aria-hidden="true">
-              <span style={{ height: '34%' }} />
-              <span style={{ height: '56%' }} />
-              <span style={{ height: '44%' }} />
-              <span style={{ height: '72%' }} />
-              <span style={{ height: '61%' }} />
-              <span style={{ height: '88%' }} />
-              <span style={{ height: '76%' }} />
-            </div>
-            <div className="summary-card__rows">
-              <div>
-                <span className="product-dot product-dot--green" />
-                <span>Velas de soya</span>
-                <strong>18</strong>
-              </div>
-              <div>
-                <span className="product-dot product-dot--clay" />
-                <span>Set de tazas</span>
-                <strong>7</strong>
-              </div>
-              <div>
-                <span className="product-dot product-dot--gold" />
-                <span>Bolsos tejidos</span>
-                <strong>12</strong>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="benefits" id="como-funciona">
-        <article>
-          <span>01</span>
-          <h2>Ordena tu inventario</h2>
-          <p>Conoce qué tienes disponible y qué necesita tu atención.</p>
-        </article>
-        <article>
-          <span>02</span>
-          <h2>Vende con confianza</h2>
-          <p>Reserva productos y comparte un enlace de compra seguro.</p>
-        </article>
-        <article>
-          <span>03</span>
-          <h2>Acompaña cada despacho</h2>
-          <p>Mantén a tu comprador informado hasta la entrega.</p>
-        </article>
-      </section>
-    </main>
-  )
-}
 
 function ConfigurationPage() {
   const location = useLocation()

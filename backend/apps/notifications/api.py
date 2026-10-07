@@ -11,7 +11,7 @@ from django.http import HttpRequest, JsonResponse
 from apps.notifications.models import ContactRequest
 from apps.users.middleware import get_correlation_id
 from apps.users.services import enforce_auth_rate_limit
-from tenda.antibot import verify_turnstile
+from tenda.antibot import require_turnstile
 from tenda.errors import DomainError
 
 
@@ -71,7 +71,7 @@ def contact(request: HttpRequest) -> JsonResponse:
             identity=email,
             ip_address=remote_ip,
         )
-        verify_turnstile(
+        require_turnstile(
             token=str(payload.get("turnstileToken", "")),
             remote_ip=remote_ip,
         )

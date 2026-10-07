@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import { z } from 'zod'
 
 import { submitContact, TendaApiError } from '../auth/api'
-import { TurnstileField } from '../components/TurnstileField'
+import { TurnstileField, turnstileSiteKey } from '../components/TurnstileField'
 import { FormErrorSummary } from '../components/ui'
 
 const schema = z.object({
@@ -54,12 +54,15 @@ export function ContactPage() {
           onSubmit={handleSubmit(async (values) => {
             setServerError('')
             setResult('')
-            if (!turnstileToken) {
-              setServerError('Completa la validación antes de enviar.')
+            if (turnstileSiteKey() && !turnstileToken) {
+              setServerError('Completa la validación anti-bot para continuar.')
               return
             }
             try {
-              const response = await submitContact({ ...values, turnstileToken })
+              const response = await submitContact({
+                ...values,
+                turnstileToken: turnstileToken || 'local-development',
+              })
               setResult(response.message)
               reset()
             } catch (error) {

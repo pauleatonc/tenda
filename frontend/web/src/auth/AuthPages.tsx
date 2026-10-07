@@ -245,8 +245,17 @@ export function LoginPage() {
 
 export function RegisterPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [serverError, setServerError] = useState<unknown>(null)
   const [turnstileToken, setTurnstileToken] = useState('')
+  const planFromQuery = searchParams.get('plan')
+  const initialPlan =
+    planFromQuery === 'free' ||
+    planFromQuery === 'starter' ||
+    planFromQuery === 'growth' ||
+    planFromQuery === 'pro'
+      ? planFromQuery
+      : 'free'
   const {
     register,
     handleSubmit,
@@ -255,7 +264,10 @@ export function RegisterPage() {
     formState: { errors, isSubmitting },
   } = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { acceptedTerms: false, planCode: 'free' },
+    defaultValues: {
+      acceptedTerms: false,
+      planCode: initialPlan,
+    },
   })
   const selectedPlan = watch('planCode')
 

@@ -21,7 +21,9 @@ test('axe WCAG en landing, login, inventario y el anuncio del agente', async ({
   page,
 }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: /Menos planillas/ })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: /Inventario, venta y despacho/ }),
+  ).toBeVisible()
   await expectNoSeriousAxeViolations(page)
 
   await page.goto('/login')
@@ -37,7 +39,7 @@ test('axe WCAG en landing, login, inventario y el anuncio del agente', async ({
   await expectNoSeriousAxeViolations(page)
 
   await page.getByRole('link', { name: 'Más', exact: true }).click()
-  await expect(page.getByText('Asistente con foto')).toBeVisible()
+  await expect(page.getByText(/Plan y facturación|Perfil y negocio/)).toBeVisible()
   await expect(page.getByText('Próximamente')).toBeVisible()
   await expectNoSeriousAxeViolations(page)
 })
