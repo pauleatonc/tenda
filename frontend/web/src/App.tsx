@@ -23,6 +23,7 @@ import { PublicProofPage } from './public/PublicProofPage'
 import { PublicStatusPage } from './public/PublicStatusPage'
 import { BalancesPage } from './sales/BalancesPage'
 import { NewSalePage } from './sales/NewSalePage'
+import { BillingPlanPage } from './billing/BillingPlanPage'
 import { PaymentsSettingsPage } from './sales/PaymentsSettingsPage'
 import { ReconciliationsPage } from './sales/ReconciliationsPage'
 import { SaleDetailPage } from './sales/SaleDetailPage'
@@ -231,6 +232,7 @@ function App() {
         <Route path="balances" element={<BalancesPage />} />
         <Route path="mas" element={<MorePage />} />
         <Route path="configuracion/pagos" element={<PaymentsSettingsPage />} />
+        <Route path="configuracion/plan" element={<BillingPlanPage />} />
         <Route path="configuracion" element={<ConfigurationPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

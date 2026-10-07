@@ -28,7 +28,46 @@ type Query {
   activeInventory: InventoryContextType
   activeMembership: MemberType
   viewer: ViewerType
+  organisationBilling: OrganisationBillingType!
   health: String!
+}
+
+type BillingPlanType {
+  code: String!
+  name: String!
+  priceClp: Int!
+  productLimit: Int
+  aiAssistedEnabled: Boolean!
+  isCurrent: Boolean!
+}
+
+type OrganisationBillingType {
+  planCode: String!
+  planName: String!
+  priceClp: Int!
+  productLimit: Int
+  productCount: Int!
+  remainingSlots: Int
+  aiAssistedEnabled: Boolean!
+  canCreateProduct: Boolean!
+  subscriptionStatus: String!
+  cancelAtPeriodEnd: Boolean!
+  currentPeriodEnd: DateTime
+  plans: [BillingPlanType!]!
+}
+
+type StartPlanCheckoutPayload {
+  initPoint: String!
+  planCode: String!
+  preapprovalId: String!
+}
+
+type CancelSubscriptionPayload {
+  organisationBilling: OrganisationBillingType!
+}
+
+type ResumeSubscriptionPayload {
+  organisationBilling: OrganisationBillingType!
 }
 
 type SellerPaymentConnectionType {
@@ -723,6 +762,9 @@ type ProfileType {
 }
 
 type Mutation {
+  startPlanCheckout(planCode: String!, payerEmail: String): StartPlanCheckoutPayload!
+  cancelSubscription: CancelSubscriptionPayload!
+  resumeSubscription: ResumeSubscriptionPayload!
   startMercadoPagoConnection: StartMercadoPagoConnection!
   disconnectMercadoPagoConnection: DisconnectMercadoPagoConnection!
   createOrder(idempotencyKey: String!, input: CreateOrderInput!): CreateOrder!

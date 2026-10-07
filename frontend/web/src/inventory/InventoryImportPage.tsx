@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 
 import { AnalyticsEvents, getAnalytics } from '../analytics'
 import { markActivationFlag } from '../analytics/activation'
+import { billingKeys, fetchOrganisationBilling } from '../billing/api'
 import { UploadField } from '../components/ui'
 import { TendaApiError, newIdempotencyKey } from '../lib/http'
 import {
@@ -49,6 +50,11 @@ export function InventoryImportPage() {
   const [pollDelay, setPollDelay] = useState(1_000)
   const [idempotencyKey, setIdempotencyKey] = useState(newIdempotencyKey)
 
+  const billing = useQuery({
+    queryKey: billingKeys.organisation(),
+    queryFn: fetchOrganisationBilling,
+    staleTime: 60_000,
+  })
   const schema = useQuery({
     queryKey: inventoryKeys.schema(false),
     queryFn: () => fetchInventorySchema(false),
@@ -191,6 +197,39 @@ export function InventoryImportPage() {
           Volver
         </Link>
       </header>
+
+      {billing.data ? (
+        <div
+          className={
+            billing.data.canCreateProduct
+              ? 'form-message'
+              : 'form-message form-message--error'
+          }
+          role="status"
+        >
+          <strong>
+            Plan {billing.data.planName}: {billing.data.productCount}
+            {billing.data.productLimit != null ? ` / ${billing.data.productLimit}` : ''}{' '}
+            productos
+          </strong>
+          <span>
+            {billing.data.canCreateProduct ? (
+              <>
+                Cupos libres:{' '}
+                {billing.data.remainingSlots == null
+                  ? 'ilimitados'
+                  : billing.data.remainingSlots}
+                . La importación no puede superar ese cupo.
+              </>
+            ) : (
+              <>
+                Sin cupo para altas.{' '}
+                <Link to="/app/configuracion/plan">Mejorar plan</Link>
+              </>
+            )}
+          </span>
+        </div>
+      ) : null}
 
       {actionError ? (
         <div className="form-message form-message--error" role="alert">

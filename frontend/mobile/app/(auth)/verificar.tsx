@@ -16,9 +16,10 @@ import {
 } from '../../lib/auth-api'
 
 export default function VerificationScreen() {
-  const params = useLocalSearchParams<{ token?: string; email?: string }>()
+  const params = useLocalSearchParams<{ token?: string; email?: string; planCode?: string }>()
   const rawToken = Array.isArray(params.token) ? params.token[0] : params.token
   const initialEmail = Array.isArray(params.email) ? params.email[0] : params.email
+  const planCode = Array.isArray(params.planCode) ? params.planCode[0] : params.planCode
   const [email, setEmail] = useState(initialEmail ?? '')
   const [loading, setLoading] = useState(Boolean(rawToken))
   const [verified, setVerified] = useState(false)
@@ -72,7 +73,19 @@ export default function VerificationScreen() {
       {verified ? (
         <>
           <StatusMessage kind="success" message="Tu cuenta está lista para usar Tenda." />
-          <PrimaryButton label="Ir a Tenda" onPress={() => router.replace('/(app)')} />
+          <PrimaryButton
+            label="Ir a Tenda"
+            onPress={() => {
+              if (planCode && planCode !== 'free') {
+                router.replace({
+                  pathname: '/mas/plan',
+                  params: { checkout: planCode },
+                })
+                return
+              }
+              router.replace('/(app)')
+            }}
+          />
         </>
       ) : (
         <>

@@ -1034,6 +1034,9 @@ def suggest_products_from_image(
     asset_id: object,
     idempotency_key: str,
 ) -> SuggestedProducts:
+    from apps.billing.entitlements import assert_ai_assisted_allowed
+
+    assert_ai_assisted_allowed(context.organisation)
     try:
         public_id = asset_id if isinstance(asset_id, uuid.UUID) else uuid.UUID(str(asset_id))
     except (TypeError, ValueError) as exc:

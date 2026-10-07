@@ -24,6 +24,10 @@ import { MobileApiError } from '../../../lib/auth-api'
 import { catalogStatusLabels, formatPrice } from '../../../lib/format'
 import { isOfflineError, newIdempotencyKey } from '../../../lib/graphql'
 import {
+  billingKeys,
+  fetchOrganisationBilling,
+} from '../../../lib/billing-api'
+import {
   attachProductMedia,
   createProduct,
   fetchInventorySchema,
@@ -138,11 +142,25 @@ export default function ProductFormScreen() {
     queryFn: () => fetchInventorySchema(false),
   })
 
+  const billing = useQuery({
+    queryKey: billingKeys.organisation(),
+    queryFn: fetchOrganisationBilling,
+    staleTime: 60_000,
+    enabled: !isEdit,
+  })
+
   const product = useQuery({
     queryKey: inventoryKeys.product(productId ?? ''),
     queryFn: () => fetchProductDetail(productId ?? ''),
     enabled: isEdit,
   })
+
+  useEffect(() => {
+    if (!isAssisted || !billing.data) return
+    if (!billing.data.aiAssistedEnabled) {
+      router.replace('/mas/plan')
+    }
+  }, [billing.data, isAssisted])
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedPicker(pickerQuery.trim()), 250)

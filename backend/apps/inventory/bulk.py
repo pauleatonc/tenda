@@ -708,6 +708,12 @@ def process_import_job(public_id: uuid.UUID) -> InventoryImport:
             headers=parsed.headers,
             mapping=job.mapping,
         )
+        from apps.billing.entitlements import assert_import_fits_quota
+
+        assert_import_fits_quota(
+            context.organisation,
+            new_row_count=len(parsed.rows),
+        )
         errors: list[dict[str, Any]] = []
         created = 0
         total = len(parsed.rows)

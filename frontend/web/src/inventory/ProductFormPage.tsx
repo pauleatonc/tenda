@@ -274,14 +274,20 @@ export function ProductFormPage({
     onError: (error: unknown) => {
       if (error instanceof TendaApiError) {
         setApiError(error)
-        setErrors(
-          Object.fromEntries(
-            Object.entries(error.fieldErrors).map(([field, messages]) => [
-              field,
-              messages[0],
-            ]),
-          ),
-        )
+        // Quota errors are shown once in the banner (with upgrade CTA), not also
+        // as a field-summary list.
+        if (error.code === 'PRODUCT_LIMIT_REACHED') {
+          setErrors({})
+        } else {
+          setErrors(
+            Object.fromEntries(
+              Object.entries(error.fieldErrors).map(([field, messages]) => [
+                field,
+                messages[0],
+              ]),
+            ),
+          )
+        }
         // A rejected submission gets a fresh key so the retry is not replayed.
         setIdempotencyKey(newIdempotencyKey())
       } else {
@@ -485,6 +491,11 @@ export function ProductFormPage({
           <span>{apiError.message}</span>
           {apiError.correlationId ? (
             <small>Referencia: {apiError.correlationId}</small>
+          ) : null}
+          {apiError.code === 'PRODUCT_LIMIT_REACHED' ? (
+            <Link className="button button--primary" to="/app/configuracion/plan">
+              Mejorar plan
+            </Link>
           ) : null}
         </div>
       ) : null}

@@ -700,6 +700,9 @@ def create_product(
 ) -> ProductResult:
     """Create a catalogue entry and its first movement atomically."""
 
+    from apps.billing.entitlements import assert_can_create_product
+
+    assert_can_create_product(context.organisation)
     clean_name_value = _clean_name(name)
     status_value = _clean_catalog_status(catalog_status)
     purchase = clean_reference_price(purchase_price, field="purchasePrice")

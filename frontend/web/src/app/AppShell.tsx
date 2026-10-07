@@ -247,10 +247,16 @@ export function MorePage() {
         </Link>
         {data.membership.role === 'owner' ||
         data.membership.permissions.manageSensitiveConfiguration ? (
-          <Link to="/app/configuracion/pagos">
-            <span>Pagos</span>
-            <small>Conexión Mercado Pago</small>
-          </Link>
+          <>
+            <Link to="/app/configuracion/plan">
+              <span>Plan y facturación</span>
+              <small>Cupo de productos y creación asistida</small>
+            </Link>
+            <Link to="/app/configuracion/pagos">
+              <span>Pagos</span>
+              <small>Conexión Mercado Pago</small>
+            </Link>
+          </>
         ) : null}
         {data.membership.permissions.viewFinancials ? (
           <Link to="/app/balances">

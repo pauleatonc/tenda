@@ -26,6 +26,24 @@ jest.mock('../../../lib/mobile-upload', () => ({
   uploadProductImage: jest.fn(),
 }))
 
+jest.mock('../../../lib/billing-api', () => ({
+  billingKeys: { organisation: () => ['billing', 'organisation'] },
+  fetchOrganisationBilling: jest.fn(async () => ({
+    planCode: 'starter',
+    planName: 'Starter',
+    priceClp: 4990,
+    productLimit: 15,
+    productCount: 0,
+    remainingSlots: 15,
+    aiAssistedEnabled: true,
+    canCreateProduct: true,
+    subscriptionStatus: 'active',
+    cancelAtPeriodEnd: false,
+    currentPeriodEnd: null,
+    plans: [],
+  })),
+}))
+
 const mockedParams = useLocalSearchParams as jest.Mock
 
 const mocked = api as jest.Mocked<typeof api>

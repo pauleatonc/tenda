@@ -1,0 +1,83 @@
+query OrganisationBilling {
+  organisationBilling {
+    planCode
+    planName
+    priceClp
+    productLimit
+    productCount
+    remainingSlots
+    aiAssistedEnabled
+    canCreateProduct
+    subscriptionStatus
+    cancelAtPeriodEnd
+    currentPeriodEnd
+    plans {
+      code
+      name
+      priceClp
+      productLimit
+      aiAssistedEnabled
+      isCurrent
+    }
+  }
+}
+
+mutation StartPlanCheckout($planCode: String!, $payerEmail: String) {
+  startPlanCheckout(planCode: $planCode, payerEmail: $payerEmail) {
+    initPoint
+    planCode
+    preapprovalId
+  }
+}
+
+mutation CancelSubscription {
+  cancelSubscription {
+    organisationBilling {
+      planCode
+      planName
+      priceClp
+      productLimit
+      productCount
+      remainingSlots
+      aiAssistedEnabled
+      canCreateProduct
+      subscriptionStatus
+      cancelAtPeriodEnd
+      currentPeriodEnd
+      plans {
+        code
+        name
+        priceClp
+        productLimit
+        aiAssistedEnabled
+        isCurrent
+      }
+    }
+  }
+}
+
+mutation ResumeSubscription {
+  resumeSubscription {
+    organisationBilling {
+      planCode
+      planName
+      priceClp
+      productLimit
+      productCount
+      remainingSlots
+      aiAssistedEnabled
+      canCreateProduct
+      subscriptionStatus
+      cancelAtPeriodEnd
+      currentPeriodEnd
+      plans {
+        code
+        name
+        priceClp
+        productLimit
+        aiAssistedEnabled
+        isCurrent
+      }
+    }
+  }
+}

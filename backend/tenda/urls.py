@@ -29,6 +29,7 @@ urlpatterns = [
     path("api/v1/public/contact", contact, name="public-contact"),
     path("api/v1/public/", include("apps.sales.public_urls")),
     path("api/v1/webhooks/", include("apps.sales.urls")),
+    path("api/v1/webhooks/", include("apps.billing.urls")),
     path("p/<str:token>", public_order_page, name="public-order"),
     path("health/live/", live, name="health-live"),
     path("health/ready/", ready, name="health-ready"),

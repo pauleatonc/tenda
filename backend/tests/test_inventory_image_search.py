@@ -26,6 +26,9 @@ from apps.inventory.services import create_custom_field
 from apps.media_assets.models import MediaAsset
 from apps.media_assets.services import complete_upload, prepare_upload
 from apps.media_assets.storage import fake_object_storage
+from datetime import timedelta
+
+from apps.billing.models import OrganisationSubscription, Plan
 from apps.organisations.selectors import TenantContext, resolve_tenant_context
 from apps.organisations.services import create_organisation_for_owner
 from apps.users.models import User
@@ -52,18 +55,36 @@ mutation Suggest($input: SuggestProductsFromImageInput!) {
 """
 
 
-def identity(email: str) -> tuple[User, TenantContext]:
+def activate_paid_plan(context: TenantContext, code: str = "starter") -> None:
+    plan = Plan.objects.get(code=code)
+    OrganisationSubscription.objects.update_or_create(
+        organisation=context.organisation,
+        defaults={
+            "plan": plan,
+            "status": OrganisationSubscription.Status.ACTIVE,
+            "mp_preapproval_id": f"test-{code}",
+            "cancel_at_period_end": False,
+            "past_due_since": None,
+            "current_period_end": timezone.now() + timedelta(days=30),
+        },
+    )
+
+
+def identity(email: str, *, paid: bool = False) -> tuple[User, TenantContext]:
     user = User.objects.create_user(
         email=email,
         password=PASSWORD,
         email_verified_at=timezone.now(),
     )
     create_organisation_for_owner(owner=user, name=f"Negocio {email}")
-    return user, resolve_tenant_context(user)
+    context = resolve_tenant_context(user)
+    if paid:
+        activate_paid_plan(context)
+    return user, context
 
 
-def signed_in(email: str) -> tuple[Client, TenantContext]:
-    user, context = identity(email)
+def signed_in(email: str, *, paid: bool = False) -> tuple[Client, TenantContext]:
+    user, context = identity(email, paid=paid)
     client = Client()
     login = client.post(
         "/api/v1/auth/login",
@@ -167,7 +188,7 @@ def test_fake_provider_is_deterministic_and_schema_aware() -> None:
 
 def test_suggest_products_from_image_reuses_idempotency() -> None:
     fake_object_storage.clear()
-    _user, context = identity("owner-idem@example.com")
+    _user, context = identity("owner-idem@example.com", paid=True)
     store_schema(context)
     asset = uploaded_product_image(context)
 
@@ -190,7 +211,7 @@ def test_suggest_products_from_image_reuses_idempotency() -> None:
 
 def test_suggest_rejects_non_product_image(monkeypatch: pytest.MonkeyPatch) -> None:
     fake_object_storage.clear()
-    _user, context = identity("owner-purpose@example.com")
+    _user, context = identity("owner-purpose@example.com", paid=True)
     payload = rgb_image_bytes()
     prepared = prepare_upload(
         context=context,
@@ -433,7 +454,7 @@ def test_nvidia_extract_timeout_falls_back_to_search_hits(
 
 def test_nvidia_without_key_is_a_configuration_error(monkeypatch: pytest.MonkeyPatch) -> None:
     fake_object_storage.clear()
-    _user, context = identity("owner-nvidia@example.com")
+    _user, context = identity("owner-nvidia@example.com", paid=True)
     asset = uploaded_product_image(context)
     monkeypatch.setattr("django.conf.settings.PRODUCT_IMAGE_SEARCH_PROVIDER", "nvidia")
     monkeypatch.setattr("django.conf.settings.NVIDIA_API_KEY", "")
@@ -448,7 +469,7 @@ def test_nvidia_without_key_is_a_configuration_error(monkeypatch: pytest.MonkeyP
 
 def test_graphql_suggests_candidates_from_a_ready_photo() -> None:
     fake_object_storage.clear()
-    client, context = signed_in("owner-gql@example.com")
+    client, context = signed_in("owner-gql@example.com", paid=True)
     store_schema(context)
     asset = uploaded_product_image(context)
     response = client.post(

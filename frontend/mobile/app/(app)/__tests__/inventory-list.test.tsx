@@ -16,13 +16,29 @@ jest.mock('../../../lib/inventory-api', () => ({
 }))
 
 jest.mock('../../../lib/sales-api', () => ({
+  ...jest.requireActual('../../../lib/sales-api'),
   createOrder: jest.fn(),
   fetchSellerPaymentConnection: jest.fn(),
   publishOrderLink: jest.fn(),
   sendOfferLink: jest.fn(),
-  salesKeys: {
-    paymentConnection: () => ['sales', 'payment-connection'],
-  },
+}))
+
+jest.mock('../../../lib/billing-api', () => ({
+  billingKeys: { organisation: () => ['billing', 'organisation'] },
+  fetchOrganisationBilling: jest.fn(async () => ({
+    planCode: 'starter',
+    planName: 'Starter',
+    priceClp: 4990,
+    productLimit: 15,
+    productCount: 1,
+    remainingSlots: 14,
+    aiAssistedEnabled: true,
+    canCreateProduct: true,
+    subscriptionStatus: 'active',
+    cancelAtPeriodEnd: false,
+    currentPeriodEnd: null,
+    plans: [],
+  })),
 }))
 
 const mocked = api as jest.Mocked<typeof api>

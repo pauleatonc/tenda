@@ -171,6 +171,7 @@ bloqueos humanos: `docs/go-live.md`.
 | Capa         | Dónde                           | Comando                                            |
 | ------------ | ------------------------------- | -------------------------------------------------- |
 | Backend      | `backend/tests`                 | `uv run --project backend pytest`                  |
+| Billing SaaS | `apps/billing` + `docs/billing.md` | Freemium planes vía MP Preapproval (no seller OAuth) |
 | Web unit     | `frontend/web/src/**/__tests__` | `pnpm --filter @tenda/web test`                    |
 | Mobile unit  | `frontend/mobile/**/__tests__`  | `pnpm --filter @tenda/mobile test`                 |
 | E2E web      | `e2e/web/tests`                 | `pnpm test:e2e`                                    |

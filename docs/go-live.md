@@ -33,6 +33,7 @@ Producción. Dev y Prod usan Turnstile real.
 | Brevo                | Outbox fake                         | Dominio autenticado, webhook bounce              | Bloqueado |
 | Google OIDC          | Adapter fake                        | Client ID/secret y callback Prod                 | Opcional  |
 | Mercado Pago Chile   | Fake; transferencia/efectivo operan | OAuth, pago, refund, webhook, fee, desconexión   | Bloqueado |
+| Facturación Tenda (MP suscripciones) | `BILLING_PROVIDER=fake` | Token plataforma, webhook `mercado-pago-billing`, planes sync | Bloqueado |
 | Parámetros           | Seeds reserva 8 h / revisión 24 h   | Valores de Producción firmados                   | Bloqueado |
 | Retención/privacidad | Sin jobs de borrado                 | Política de comprador, envíos, fotos, analítica  | Bloqueado |
 | Analítica            | No hay tracker                      | Consentimiento si se incorpora                   | Bloqueado |

@@ -3,7 +3,7 @@ import { Link, router } from 'expo-router'
 import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
-import { AppScreen, MobileStatusChip } from '../../../components/app-ui'
+import { AppScreen } from '../../../components/app-ui'
 import { colors } from '../../../components/auth-ui'
 import { getMobileViewer, mobileLogout } from '../../../lib/auth-api'
 
@@ -42,23 +42,27 @@ export default function MoreScreen() {
         ) : null}
         {data?.membership.role === 'owner' &&
         data.membership.permissions.manageSensitiveConfiguration ? (
-          <Link asChild href="/mas/pagos">
-            <Pressable accessibilityRole="button" style={styles.row}>
-              <View>
-                <Text style={styles.rowTitle}>Pagos</Text>
-                <Text style={styles.rowDetail}>Conexión Mercado Pago</Text>
-              </View>
-              <Text style={styles.chevron}>›</Text>
-            </Pressable>
-          </Link>
+          <>
+            <Link asChild href="/mas/plan">
+              <Pressable accessibilityRole="button" style={styles.row}>
+                <View>
+                  <Text style={styles.rowTitle}>Plan y facturación</Text>
+                  <Text style={styles.rowDetail}>Cupo de productos y creación asistida</Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
+            </Link>
+            <Link asChild href="/mas/pagos">
+              <Pressable accessibilityRole="button" style={styles.row}>
+                <View>
+                  <Text style={styles.rowTitle}>Pagos</Text>
+                  <Text style={styles.rowDetail}>Conexión Mercado Pago</Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </Pressable>
+            </Link>
+          </>
         ) : null}
-        <View style={styles.row}>
-          <View>
-            <Text style={styles.rowTitle}>Asistente con foto</Text>
-            <Text style={styles.rowDetail}>El inventario manual sigue disponible</Text>
-          </View>
-          <MobileStatusChip label="Próximamente" tone="warning" />
-        </View>
       </View>
 
       <Pressable

@@ -604,6 +604,74 @@
   gap: 18px;
 }
 
+.auth-plan-fieldset {
+  border: 0;
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  min-inline-size: 0;
+  padding: 0;
+}
+
+.auth-plan-fieldset legend {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  padding: 0;
+}
+
+.auth-plan-fieldset__hint {
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.auth-plan-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.auth-plan-option {
+  background: #fff;
+  border: 1px solid #cbc8be;
+  border-radius: 14px;
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+}
+
+.auth-plan-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.auth-plan-option--selected {
+  border-color: var(--green);
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+
+.auth-plan-option__name {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.auth-plan-option__price {
+  color: var(--green);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.auth-plan-option__summary {
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 .field {
   display: grid;
   gap: 7px;

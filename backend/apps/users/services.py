@@ -156,6 +156,7 @@ def register(
     password: str,
     full_name: str,
     organisation_name: str | None = None,
+    plan_code: str = "free",
 ) -> RegistrationResult:
     clean_email = canonical_email(email)
     if not clean_email:
@@ -186,6 +187,9 @@ def register(
         else (profile.full_name or clean_email.split("@", maxsplit=1)[0] or "Tienda")
     )
     provision = create_organisation_for_owner(owner=user, name=default_name)
+    from apps.billing.services import record_plan_intent
+
+    record_plan_intent(organisation=provision.organisation, plan_code=plan_code)
     issue_email_verification(user)
     context = TenantContext(
         user=user,

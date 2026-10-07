@@ -26,6 +26,7 @@ import { InventoryChip, Sheet } from '../../../components/inventory-ui'
 import { StockAdjustSheet } from '../../../components/stock-adjust-sheet'
 import { canGenerateSale } from '../../../lib/can-generate-sale'
 import { MobileApiError } from '../../../lib/auth-api'
+import { billingKeys, fetchOrganisationBilling } from '../../../lib/billing-api'
 import {
   catalogStatusLabels,
   formatAttribute,
@@ -327,6 +328,14 @@ export default function InventoryScreen() {
     queryFn: () => fetchInventorySchema(false),
   })
 
+  const billing = useQuery({
+    queryKey: billingKeys.organisation(),
+    queryFn: fetchOrganisationBilling,
+    staleTime: 60_000,
+  })
+  const aiAllowed = billing.data?.aiAssistedEnabled ?? false
+  const canCreateProduct = billing.data?.canCreateProduct ?? true
+
   const textFields = useMemo(
     () =>
       (schema.data?.fields ?? []).filter(
@@ -539,20 +548,47 @@ export default function InventoryScreen() {
       <Sheet
         visible={createOpen}
         title="Agregar producto"
-        description="Elige cómo quieres registrar el producto."
+        description={
+          canCreateProduct
+            ? 'Elige cómo quieres registrar el producto.'
+            : 'Llegaste al límite de productos de tu plan. Archiva o mejora el plan.'
+        }
         onClose={() => setCreateOpen(false)}
       >
-        <PrimaryButton label="Carga manual" onPress={() => openCreate()} />
+        <PrimaryButton
+          label="Carga manual"
+          disabled={!canCreateProduct}
+          onPress={() => openCreate()}
+        />
         <PrimaryButton
           label="Agregar variante a un producto existente"
           variant="secondary"
+          disabled={!canCreateProduct}
           onPress={() => openCreate('variante')}
         />
         <PrimaryButton
-          label="Creación asistida"
+          label={aiAllowed ? 'Creación asistida' : 'Creación asistida (plan Starter)'}
           variant="secondary"
-          onPress={() => openCreate('asistida')}
+          disabled={!canCreateProduct || !aiAllowed}
+          onPress={() => {
+            if (!aiAllowed) {
+              setCreateOpen(false)
+              router.push('/mas/plan')
+              return
+            }
+            openCreate('asistida')
+          }}
         />
+        {!aiAllowed ? (
+          <PrimaryButton
+            label="Ver planes"
+            variant="secondary"
+            onPress={() => {
+              setCreateOpen(false)
+              router.push('/mas/plan')
+            }}
+          />
+        ) : null}
       </Sheet>
 
       {adjusting ? (

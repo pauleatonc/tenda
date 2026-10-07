@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "apps.inventory.apps.InventoryConfig",
     "apps.sales.apps.SalesConfig",
     "apps.shipping.apps.ShippingConfig",
+    "apps.billing.apps.BillingConfig",
 ]
 
 MIDDLEWARE = [
@@ -202,6 +203,7 @@ CELERY_TASK_ROUTES = {
     "apps.sales.tasks.expire_orders": {"queue": "payments"},
     "apps.sales.tasks.process_payment_webhook": {"queue": "payments"},
     "apps.sales.tasks.retry_reconciliation": {"queue": "payments"},
+    "apps.billing.tasks.process_billing_webhook": {"queue": "payments"},
 }
 CELERY_BEAT_SCHEDULE = {
     "dispatch-outbox": {
@@ -333,6 +335,20 @@ MERCADO_PAGO_WEBHOOK_URL = os.getenv(
     "http://localhost:8000/api/v1/webhooks/mercado-pago",
 )
 PAYMENT_OAUTH_STATE_TTL_SECONDS = int(os.getenv("PAYMENT_OAUTH_STATE_TTL_SECONDS", "600"))
+BILLING_PROVIDER = os.getenv("BILLING_PROVIDER", PAYMENT_PROVIDER)
+MERCADO_PAGO_BILLING_ACCESS_TOKEN = os.getenv(
+    "MERCADO_PAGO_BILLING_ACCESS_TOKEN",
+    MERCADO_PAGO_ACCESS_TOKEN,
+)
+MERCADO_PAGO_BILLING_WEBHOOK_SECRET = os.getenv(
+    "MERCADO_PAGO_BILLING_WEBHOOK_SECRET",
+    MERCADO_PAGO_WEBHOOK_SECRET,
+)
+BILLING_BACK_URL = os.getenv(
+    "BILLING_BACK_URL",
+    f"{WEB_ORIGIN}/app/configuracion/plan",
+)
+BILLING_PAST_DUE_GRACE_DAYS = int(os.getenv("BILLING_PAST_DUE_GRACE_DAYS", "3"))
 MERCADO_PAGO_COMMISSION_MODE = os.getenv(
     "MERCADO_PAGO_COMMISSION_MODE",
     os.getenv("MERCADOPAGO_COMMISSION_MODE", "disabled"),

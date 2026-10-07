@@ -52,6 +52,16 @@ export type SchemaBankAccountInput = {
   label?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type SchemaBillingPlanType = {
+  __typename?: 'BillingPlanType';
+  aiAssistedEnabled: Scalars['Boolean']['output'];
+  code: Scalars['String']['output'];
+  isCurrent: Scalars['Boolean']['output'];
+  name: Scalars['String']['output'];
+  priceClp: Scalars['Int']['output'];
+  productLimit?: Maybe<Scalars['Int']['output']>;
+};
+
 export type SchemaBuyerDetailsInput = {
   addressLine?: InputMaybe<Scalars['String']['input']>;
   commune?: InputMaybe<Scalars['String']['input']>;
@@ -97,6 +107,11 @@ export type SchemaCancelOrder = {
   __typename?: 'CancelOrder';
   order: SchemaOrderType;
   replayed: Scalars['Boolean']['output'];
+};
+
+export type SchemaCancelSubscriptionPayload = {
+  __typename?: 'CancelSubscriptionPayload';
+  organisationBilling: SchemaOrganisationBillingType;
 };
 
 export type SchemaConfirmInventoryImport = {
@@ -333,6 +348,7 @@ export type SchemaMutation = {
   archiveProduct: SchemaArchiveProduct;
   attachProductMedia: SchemaAttachProductMedia;
   cancelOrder: SchemaCancelOrder;
+  cancelSubscription: SchemaCancelSubscriptionPayload;
   confirmInventoryImport: SchemaConfirmInventoryImport;
   confirmManualPayment: SchemaConfirmManualPayment;
   createCustomField: SchemaCreateCustomField;
@@ -353,6 +369,7 @@ export type SchemaMutation = {
   resendOrderLink: SchemaResendOrderLink;
   restoreOrder: SchemaRestoreOrder;
   restoreProduct: SchemaRestoreProduct;
+  resumeSubscription: SchemaResumeSubscriptionPayload;
   retryInventoryExport: SchemaRetryInventoryExport;
   retryInventoryImport: SchemaRetryInventoryImport;
   retryReconciliation: SchemaRetryReconciliation;
@@ -363,6 +380,7 @@ export type SchemaMutation = {
   startInventoryExport: SchemaStartInventoryExport;
   startInventoryImport: SchemaStartInventoryImport;
   startMercadoPagoConnection: SchemaStartMercadoPagoConnection;
+  startPlanCheckout: SchemaStartPlanCheckoutPayload;
   suggestProductsFromImage: SchemaSuggestProductsFromImage;
   updateCustomField: SchemaUpdateCustomField;
   updateInventoryLowStockThreshold: SchemaUpdateInventoryLowStockThreshold;
@@ -561,6 +579,12 @@ export type SchemaMutationStartInventoryImportArgs = {
 };
 
 
+export type SchemaMutationStartPlanCheckoutArgs = {
+  payerEmail?: InputMaybe<Scalars['String']['input']>;
+  planCode: Scalars['String']['input'];
+};
+
+
 export type SchemaMutationSuggestProductsFromImageArgs = {
   input: SchemaSuggestProductsFromImageInput;
 };
@@ -700,6 +724,22 @@ export type SchemaOrganisationBankAccountType = {
   id: Scalars['ID']['output'];
   label: Scalars['String']['output'];
   position: Scalars['Int']['output'];
+};
+
+export type SchemaOrganisationBillingType = {
+  __typename?: 'OrganisationBillingType';
+  aiAssistedEnabled: Scalars['Boolean']['output'];
+  canCreateProduct: Scalars['Boolean']['output'];
+  cancelAtPeriodEnd: Scalars['Boolean']['output'];
+  currentPeriodEnd?: Maybe<Scalars['DateTime']['output']>;
+  planCode: Scalars['String']['output'];
+  planName: Scalars['String']['output'];
+  plans: Array<SchemaBillingPlanType>;
+  priceClp: Scalars['Int']['output'];
+  productCount: Scalars['Int']['output'];
+  productLimit?: Maybe<Scalars['Int']['output']>;
+  remainingSlots?: Maybe<Scalars['Int']['output']>;
+  subscriptionStatus: Scalars['String']['output'];
 };
 
 export type SchemaOrganisationType = {
@@ -1003,6 +1043,7 @@ export type SchemaQuery = {
   order?: Maybe<SchemaOrderType>;
   orders: SchemaOrderConnectionType;
   organisation?: Maybe<SchemaOrganisationType>;
+  organisationBilling: SchemaOrganisationBillingType;
   paymentCommissionConfiguration: SchemaPaymentCommissionConfigurationType;
   product?: Maybe<SchemaProductType>;
   productOrders: SchemaProductOrderConnectionType;
@@ -1234,6 +1275,11 @@ export type SchemaRestoreProduct = {
   product: SchemaProductType;
 };
 
+export type SchemaResumeSubscriptionPayload = {
+  __typename?: 'ResumeSubscriptionPayload';
+  organisationBilling: SchemaOrganisationBillingType;
+};
+
 export type SchemaRetryInventoryExport = {
   __typename?: 'RetryInventoryExport';
   exportJob: SchemaInventoryExportType;
@@ -1422,6 +1468,13 @@ export type SchemaStartInventoryImport = {
 export type SchemaStartMercadoPagoConnection = {
   __typename?: 'StartMercadoPagoConnection';
   connection: SchemaPaymentConnectionStartType;
+};
+
+export type SchemaStartPlanCheckoutPayload = {
+  __typename?: 'StartPlanCheckoutPayload';
+  initPoint: Scalars['String']['output'];
+  planCode: Scalars['String']['output'];
+  preapprovalId: Scalars['String']['output'];
 };
 
 /** One line of the expanded row. Available units are always aggregated. */
@@ -1747,6 +1800,29 @@ export type OperationUpdateProfileInput = {
   phone: string;
   photoAssetId?: string | number | null | undefined;
 };
+
+export type OperationOrganisationBillingQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type OperationOrganisationBillingQuery = { organisationBilling: { planCode: string, planName: string, priceClp: number, productLimit: number | null, productCount: number, remainingSlots: number | null, aiAssistedEnabled: boolean, canCreateProduct: boolean, subscriptionStatus: string, cancelAtPeriodEnd: boolean, currentPeriodEnd: unknown, plans: Array<{ code: string, name: string, priceClp: number, productLimit: number | null, aiAssistedEnabled: boolean, isCurrent: boolean }> } };
+
+export type OperationStartPlanCheckoutMutationVariables = Exact<{
+  planCode: string;
+  payerEmail?: string | null | undefined;
+}>;
+
+
+export type OperationStartPlanCheckoutMutation = { startPlanCheckout: { initPoint: string, planCode: string, preapprovalId: string } };
+
+export type OperationCancelSubscriptionMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type OperationCancelSubscriptionMutation = { cancelSubscription: { organisationBilling: { planCode: string, planName: string, priceClp: number, productLimit: number | null, productCount: number, remainingSlots: number | null, aiAssistedEnabled: boolean, canCreateProduct: boolean, subscriptionStatus: string, cancelAtPeriodEnd: boolean, currentPeriodEnd: unknown, plans: Array<{ code: string, name: string, priceClp: number, productLimit: number | null, aiAssistedEnabled: boolean, isCurrent: boolean }> } } };
+
+export type OperationResumeSubscriptionMutationVariables = Exact<{ [key: string]: never; }>;
+
+
+export type OperationResumeSubscriptionMutation = { resumeSubscription: { organisationBilling: { planCode: string, planName: string, priceClp: number, productLimit: number | null, productCount: number, remainingSlots: number | null, aiAssistedEnabled: boolean, canCreateProduct: boolean, subscriptionStatus: string, cancelAtPeriodEnd: boolean, currentPeriodEnd: unknown, plans: Array<{ code: string, name: string, priceClp: number, productLimit: number | null, aiAssistedEnabled: boolean, isCurrent: boolean }> } } };
 
 export type OperationUpdateProfileMutationVariables = Exact<{
   input: OperationUpdateProfileInput;
@@ -2286,6 +2362,10 @@ export const PublicOrderLineFragmentDoc = {"kind":"Document","definitions":[{"ki
 export const PublicOrderFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PublicOrder"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"PublicOrderType"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"statusLabel"}},{"kind":"Field","name":{"kind":"Name","value":"paymentStatus"}},{"kind":"Field","name":{"kind":"Name","value":"currency"}},{"kind":"Field","name":{"kind":"Name","value":"feeAmount"}},{"kind":"Field","name":{"kind":"Name","value":"total"}},{"kind":"Field","name":{"kind":"Name","value":"deliveryMode"}},{"kind":"Field","name":{"kind":"Name","value":"paymentMethod"}},{"kind":"Field","name":{"kind":"Name","value":"availablePaymentMethods"}},{"kind":"Field","name":{"kind":"Name","value":"bankTransferInstructions"}},{"kind":"Field","name":{"kind":"Name","value":"bankDetails"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"bankName"}},{"kind":"Field","name":{"kind":"Name","value":"accountType"}},{"kind":"Field","name":{"kind":"Name","value":"accountTypeLabel"}},{"kind":"Field","name":{"kind":"Name","value":"accountNumber"}},{"kind":"Field","name":{"kind":"Name","value":"taxId"}},{"kind":"Field","name":{"kind":"Name","value":"confirmationEmail"}}]}},{"kind":"Field","name":{"kind":"Name","value":"reservationExpiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"rejectionReason"}},{"kind":"Field","name":{"kind":"Name","value":"isExpired"}},{"kind":"Field","name":{"kind":"Name","value":"allowedActions"}},{"kind":"Field","name":{"kind":"Name","value":"seller"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"PublicSeller"}}]}},{"kind":"Field","name":{"kind":"Name","value":"buyer"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"BuyerSnapshot"}}]}},{"kind":"Field","name":{"kind":"Name","value":"lines"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"PublicOrderLine"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PublicSeller"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"PublicSellerType"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"phone"}},{"kind":"Field","name":{"kind":"Name","value":"businessEmail"}},{"kind":"Field","name":{"kind":"Name","value":"logoUrl"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"BuyerSnapshot"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"BuyerSnapshotType"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"phone"}},{"kind":"Field","name":{"kind":"Name","value":"recipientName"}},{"kind":"Field","name":{"kind":"Name","value":"recipientTaxId"}},{"kind":"Field","name":{"kind":"Name","value":"addressLine"}},{"kind":"Field","name":{"kind":"Name","value":"commune"}},{"kind":"Field","name":{"kind":"Name","value":"region"}},{"kind":"Field","name":{"kind":"Name","value":"deliveryNotes"}},{"kind":"Field","name":{"kind":"Name","value":"taxId"}},{"kind":"Field","name":{"kind":"Name","value":"taxName"}},{"kind":"Field","name":{"kind":"Name","value":"taxActivity"}},{"kind":"Field","name":{"kind":"Name","value":"taxAddress"}},{"kind":"Field","name":{"kind":"Name","value":"taxCommune"}},{"kind":"Field","name":{"kind":"Name","value":"taxRegion"}},{"kind":"Field","name":{"kind":"Name","value":"taxEmail"}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"PublicOrderLine"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"PublicOrderItemType"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"productName"}},{"kind":"Field","name":{"kind":"Name","value":"quantity"}},{"kind":"Field","name":{"kind":"Name","value":"unitSalePrice"}},{"kind":"Field","name":{"kind":"Name","value":"currency"}},{"kind":"Field","name":{"kind":"Name","value":"lineTotal"}},{"kind":"Field","name":{"kind":"Name","value":"imageUrl"}},{"kind":"Field","name":{"kind":"Name","value":"photos"}},{"kind":"Field","name":{"kind":"Name","value":"attributes"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"value"}}]}}]}}]} as unknown as DocumentNode<OperationPublicOrderFragment, unknown>;
 export const ShipmentSummaryFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ShipmentSummary"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"ShipmentType"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"statusLabel"}},{"kind":"Field","name":{"kind":"Name","value":"deliveryMode"}},{"kind":"Field","name":{"kind":"Name","value":"recipientName"}},{"kind":"Field","name":{"kind":"Name","value":"commune"}},{"kind":"Field","name":{"kind":"Name","value":"region"}},{"kind":"Field","name":{"kind":"Name","value":"carrier"}},{"kind":"Field","name":{"kind":"Name","value":"trackingCode"}},{"kind":"Field","name":{"kind":"Name","value":"trackingUrl"}},{"kind":"Field","name":{"kind":"Name","value":"allowedActions"}},{"kind":"Field","name":{"kind":"Name","value":"dispatchedAt"}},{"kind":"Field","name":{"kind":"Name","value":"deliveredAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"order"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"status"}}]}}]}}]} as unknown as DocumentNode<OperationShipmentSummaryFragment, unknown>;
 export const ShipmentDetailFragmentDoc = {"kind":"Document","definitions":[{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ShipmentDetail"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"ShipmentType"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ShipmentSummary"}},{"kind":"Field","name":{"kind":"Name","value":"recipientTaxId"}},{"kind":"Field","name":{"kind":"Name","value":"addressLine"}},{"kind":"Field","name":{"kind":"Name","value":"deliveryNotes"}},{"kind":"Field","name":{"kind":"Name","value":"dispatchNote"}},{"kind":"Field","name":{"kind":"Name","value":"buyerEmail"}},{"kind":"Field","name":{"kind":"Name","value":"updatedAt"}},{"kind":"Field","name":{"kind":"Name","value":"latestLabel"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"FragmentSpread","name":{"kind":"Name","value":"ShipmentLabel"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ShipmentSummary"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"ShipmentType"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"status"}},{"kind":"Field","name":{"kind":"Name","value":"statusLabel"}},{"kind":"Field","name":{"kind":"Name","value":"deliveryMode"}},{"kind":"Field","name":{"kind":"Name","value":"recipientName"}},{"kind":"Field","name":{"kind":"Name","value":"commune"}},{"kind":"Field","name":{"kind":"Name","value":"region"}},{"kind":"Field","name":{"kind":"Name","value":"carrier"}},{"kind":"Field","name":{"kind":"Name","value":"trackingCode"}},{"kind":"Field","name":{"kind":"Name","value":"trackingUrl"}},{"kind":"Field","name":{"kind":"Name","value":"allowedActions"}},{"kind":"Field","name":{"kind":"Name","value":"dispatchedAt"}},{"kind":"Field","name":{"kind":"Name","value":"deliveredAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"order"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"number"}},{"kind":"Field","name":{"kind":"Name","value":"status"}}]}}]}},{"kind":"FragmentDefinition","name":{"kind":"Name","value":"ShipmentLabel"},"typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"LabelDocumentType"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"downloadUrl"}},{"kind":"Field","name":{"kind":"Name","value":"expiresAt"}},{"kind":"Field","name":{"kind":"Name","value":"createdAt"}},{"kind":"Field","name":{"kind":"Name","value":"fileName"}}]}}]} as unknown as DocumentNode<OperationShipmentDetailFragment, unknown>;
+export const OrganisationBillingDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"OrganisationBilling"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"organisationBilling"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"planCode"}},{"kind":"Field","name":{"kind":"Name","value":"planName"}},{"kind":"Field","name":{"kind":"Name","value":"priceClp"}},{"kind":"Field","name":{"kind":"Name","value":"productLimit"}},{"kind":"Field","name":{"kind":"Name","value":"productCount"}},{"kind":"Field","name":{"kind":"Name","value":"remainingSlots"}},{"kind":"Field","name":{"kind":"Name","value":"aiAssistedEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"canCreateProduct"}},{"kind":"Field","name":{"kind":"Name","value":"subscriptionStatus"}},{"kind":"Field","name":{"kind":"Name","value":"cancelAtPeriodEnd"}},{"kind":"Field","name":{"kind":"Name","value":"currentPeriodEnd"}},{"kind":"Field","name":{"kind":"Name","value":"plans"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"priceClp"}},{"kind":"Field","name":{"kind":"Name","value":"productLimit"}},{"kind":"Field","name":{"kind":"Name","value":"aiAssistedEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"isCurrent"}}]}}]}}]}}]} as unknown as DocumentNode<OperationOrganisationBillingQuery, OperationOrganisationBillingQueryVariables>;
+export const StartPlanCheckoutDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"StartPlanCheckout"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"planCode"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}},{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"payerEmail"}},"type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"startPlanCheckout"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"planCode"},"value":{"kind":"Variable","name":{"kind":"Name","value":"planCode"}}},{"kind":"Argument","name":{"kind":"Name","value":"payerEmail"},"value":{"kind":"Variable","name":{"kind":"Name","value":"payerEmail"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"initPoint"}},{"kind":"Field","name":{"kind":"Name","value":"planCode"}},{"kind":"Field","name":{"kind":"Name","value":"preapprovalId"}}]}}]}}]} as unknown as DocumentNode<OperationStartPlanCheckoutMutation, OperationStartPlanCheckoutMutationVariables>;
+export const CancelSubscriptionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CancelSubscription"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"cancelSubscription"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"organisationBilling"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"planCode"}},{"kind":"Field","name":{"kind":"Name","value":"planName"}},{"kind":"Field","name":{"kind":"Name","value":"priceClp"}},{"kind":"Field","name":{"kind":"Name","value":"productLimit"}},{"kind":"Field","name":{"kind":"Name","value":"productCount"}},{"kind":"Field","name":{"kind":"Name","value":"remainingSlots"}},{"kind":"Field","name":{"kind":"Name","value":"aiAssistedEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"canCreateProduct"}},{"kind":"Field","name":{"kind":"Name","value":"subscriptionStatus"}},{"kind":"Field","name":{"kind":"Name","value":"cancelAtPeriodEnd"}},{"kind":"Field","name":{"kind":"Name","value":"currentPeriodEnd"}},{"kind":"Field","name":{"kind":"Name","value":"plans"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"priceClp"}},{"kind":"Field","name":{"kind":"Name","value":"productLimit"}},{"kind":"Field","name":{"kind":"Name","value":"aiAssistedEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"isCurrent"}}]}}]}}]}}]}}]} as unknown as DocumentNode<OperationCancelSubscriptionMutation, OperationCancelSubscriptionMutationVariables>;
+export const ResumeSubscriptionDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ResumeSubscription"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"resumeSubscription"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"organisationBilling"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"planCode"}},{"kind":"Field","name":{"kind":"Name","value":"planName"}},{"kind":"Field","name":{"kind":"Name","value":"priceClp"}},{"kind":"Field","name":{"kind":"Name","value":"productLimit"}},{"kind":"Field","name":{"kind":"Name","value":"productCount"}},{"kind":"Field","name":{"kind":"Name","value":"remainingSlots"}},{"kind":"Field","name":{"kind":"Name","value":"aiAssistedEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"canCreateProduct"}},{"kind":"Field","name":{"kind":"Name","value":"subscriptionStatus"}},{"kind":"Field","name":{"kind":"Name","value":"cancelAtPeriodEnd"}},{"kind":"Field","name":{"kind":"Name","value":"currentPeriodEnd"}},{"kind":"Field","name":{"kind":"Name","value":"plans"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"code"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"priceClp"}},{"kind":"Field","name":{"kind":"Name","value":"productLimit"}},{"kind":"Field","name":{"kind":"Name","value":"aiAssistedEnabled"}},{"kind":"Field","name":{"kind":"Name","value":"isCurrent"}}]}}]}}]}}]}}]} as unknown as DocumentNode<OperationResumeSubscriptionMutation, OperationResumeSubscriptionMutationVariables>;
 export const UpdateProfileDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateProfile"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateProfileInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateProfile"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"profile"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"fullName"}},{"kind":"Field","name":{"kind":"Name","value":"phone"}},{"kind":"Field","name":{"kind":"Name","value":"locale"}},{"kind":"Field","name":{"kind":"Name","value":"photoUrl"}}]}}]}}]}}]} as unknown as DocumentNode<OperationUpdateProfileMutation, OperationUpdateProfileMutationVariables>;
 export const UpdateOrganisationDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateOrganisation"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UpdateOrganisationInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateOrganisation"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"organisation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"timezone"}},{"kind":"Field","name":{"kind":"Name","value":"phone"}},{"kind":"Field","name":{"kind":"Name","value":"businessEmail"}},{"kind":"Field","name":{"kind":"Name","value":"address"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"logoUrl"}},{"kind":"Field","name":{"kind":"Name","value":"bankName"}},{"kind":"Field","name":{"kind":"Name","value":"bankAccountType"}},{"kind":"Field","name":{"kind":"Name","value":"bankAccountNumber"}},{"kind":"Field","name":{"kind":"Name","value":"bankHolderTaxId"}},{"kind":"Field","name":{"kind":"Name","value":"bankConfirmationEmail"}},{"kind":"Field","name":{"kind":"Name","value":"hasBankDetails"}},{"kind":"Field","name":{"kind":"Name","value":"bankAccounts"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"bankName"}},{"kind":"Field","name":{"kind":"Name","value":"bankAccountType"}},{"kind":"Field","name":{"kind":"Name","value":"bankAccountNumber"}},{"kind":"Field","name":{"kind":"Name","value":"bankHolderTaxId"}},{"kind":"Field","name":{"kind":"Name","value":"bankConfirmationEmail"}},{"kind":"Field","name":{"kind":"Name","value":"position"}}]}}]}}]}}]}}]} as unknown as DocumentNode<OperationUpdateOrganisationMutation, OperationUpdateOrganisationMutationVariables>;
 export const ReplaceBankAccountsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"ReplaceBankAccounts"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"ReplaceBankAccountsInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"replaceBankAccounts"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"organisation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"hasBankDetails"}},{"kind":"Field","name":{"kind":"Name","value":"bankAccounts"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"bankName"}},{"kind":"Field","name":{"kind":"Name","value":"bankAccountType"}},{"kind":"Field","name":{"kind":"Name","value":"bankAccountNumber"}},{"kind":"Field","name":{"kind":"Name","value":"bankHolderTaxId"}},{"kind":"Field","name":{"kind":"Name","value":"bankConfirmationEmail"}},{"kind":"Field","name":{"kind":"Name","value":"position"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"bankAccounts"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"label"}},{"kind":"Field","name":{"kind":"Name","value":"bankName"}},{"kind":"Field","name":{"kind":"Name","value":"bankAccountType"}},{"kind":"Field","name":{"kind":"Name","value":"bankAccountNumber"}},{"kind":"Field","name":{"kind":"Name","value":"bankHolderTaxId"}},{"kind":"Field","name":{"kind":"Name","value":"bankConfirmationEmail"}},{"kind":"Field","name":{"kind":"Name","value":"position"}}]}}]}}]}}]} as unknown as DocumentNode<OperationReplaceBankAccountsMutation, OperationReplaceBankAccountsMutationVariables>;
