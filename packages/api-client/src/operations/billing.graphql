@@ -11,6 +11,7 @@ query OrganisationBilling {
     subscriptionStatus
     cancelAtPeriodEnd
     currentPeriodEnd
+    needsPlanSelection
     plans {
       code
       name
@@ -30,6 +31,33 @@ mutation StartPlanCheckout($planCode: String!, $payerEmail: String) {
   }
 }
 
+mutation SelectSignupPlan($planCode: String!) {
+  selectSignupPlan(planCode: $planCode) {
+    organisationBilling {
+      planCode
+      planName
+      priceClp
+      productLimit
+      productCount
+      remainingSlots
+      aiAssistedEnabled
+      canCreateProduct
+      subscriptionStatus
+      cancelAtPeriodEnd
+      currentPeriodEnd
+      needsPlanSelection
+      plans {
+        code
+        name
+        priceClp
+        productLimit
+        aiAssistedEnabled
+        isCurrent
+      }
+    }
+  }
+}
+
 mutation CancelSubscription {
   cancelSubscription {
     organisationBilling {
@@ -44,6 +72,7 @@ mutation CancelSubscription {
       subscriptionStatus
       cancelAtPeriodEnd
       currentPeriodEnd
+      needsPlanSelection
       plans {
         code
         name
@@ -70,6 +99,7 @@ mutation ResumeSubscription {
       subscriptionStatus
       cancelAtPeriodEnd
       currentPeriodEnd
+      needsPlanSelection
       plans {
         code
         name

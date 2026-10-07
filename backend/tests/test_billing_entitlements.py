@@ -23,6 +23,32 @@ from tenda.errors import DomainError
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
+_SEEDED_PLANS = (
+    ("free", "Gratis", 0, 5, False, 0, ""),
+    ("starter", "Starter", 4990, 15, True, 1, "seed-starter"),
+    ("growth", "Growth", 9990, 25, True, 2, "seed-growth"),
+    ("pro", "Pro", 14990, None, True, 3, "seed-pro"),
+)
+
+
+@pytest.fixture(autouse=True)
+def _reseed_billing_plans() -> None:
+    """Transaction tests flush tables; restore the plan catalog before each case."""
+
+    for code, name, price, limit, ai, position, mp_id in _SEEDED_PLANS:
+        Plan.objects.update_or_create(
+            code=code,
+            defaults={
+                "name": name,
+                "price_clp": price,
+                "product_limit": limit,
+                "ai_assisted_enabled": ai,
+                "position": position,
+                "mp_preapproval_plan_id": mp_id,
+                "is_active": True,
+            },
+        )
+
 
 def identity(email: str) -> tuple[User, TenantContext]:
     user = User.objects.create_user(
@@ -93,11 +119,12 @@ def test_archiving_frees_slot_on_free_plan() -> None:
     create_product(context=context, name="Extra")
 
 
-def test_register_records_paid_plan_intent() -> None:
+def test_register_defers_plan_selection() -> None:
     import json
 
     from django.test import Client
 
+    from apps.billing.services import organisation_needs_plan_selection, select_signup_plan
     from apps.organisations.models import Membership
     from apps.users.models import User
 
@@ -119,9 +146,18 @@ def test_register_records_paid_plan_intent() -> None:
     assert response.status_code == 202
     user = User.objects.get(email="plan-intent@example.com")
     membership = Membership.objects.get(user=user)
+    assert not OrganisationSubscription.objects.filter(
+        organisation=membership.organisation
+    ).exists()
+    assert organisation_needs_plan_selection(membership.organisation) is True
+
+    context = resolve_tenant_context(user)
+    overview = select_signup_plan(context=context, plan_code="free")
+    assert overview.entitlements.plan_code == "free"
+    assert organisation_needs_plan_selection(membership.organisation) is False
     subscription = OrganisationSubscription.objects.get(organisation=membership.organisation)
-    assert subscription.plan.code == "starter"
-    assert subscription.status == OrganisationSubscription.Status.PENDING
+    assert subscription.plan.code == "free"
+    assert subscription.status == OrganisationSubscription.Status.ACTIVE
 
 
 def test_checkout_and_webhook_activate_subscription() -> None:

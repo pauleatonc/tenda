@@ -24,6 +24,7 @@ import { PublicStatusPage } from './public/PublicStatusPage'
 import { BalancesPage } from './sales/BalancesPage'
 import { NewSalePage } from './sales/NewSalePage'
 import { BillingPlanPage } from './billing/BillingPlanPage'
+import { ChoosePlanPage } from './billing/ChoosePlanPage'
 import { PaymentsSettingsPage } from './sales/PaymentsSettingsPage'
 import { ReconciliationsPage } from './sales/ReconciliationsPage'
 import { SaleDetailPage } from './sales/SaleDetailPage'
@@ -51,6 +52,7 @@ function App() {
       <Route path="/registro" element={<RegisterPage />} />
       <Route path="/recuperar" element={<RecoveryPage />} />
       <Route path="/verificar-email" element={<VerificationPage />} />
+      <Route path="/elige-plan" element={<ChoosePlanPage />} />
       <Route path="/contacto" element={<ContactPage />} />
       <Route path="/p/:token" element={<PublicOrderPage />} />
       <Route path="/p/:token/comprar" element={<PublicCheckoutPage />} />

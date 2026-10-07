@@ -24,6 +24,7 @@ export type OrganisationBilling = {
   subscriptionStatus: string
   cancelAtPeriodEnd: boolean
   currentPeriodEnd: string | null
+  needsPlanSelection: boolean
   plans: BillingPlan[]
 }
 
@@ -47,6 +48,10 @@ type ResumeSubscriptionMutation = {
   resumeSubscription: { organisationBilling: OrganisationBilling }
 }
 
+type SelectSignupPlanMutation = {
+  selectSignupPlan: { organisationBilling: OrganisationBilling }
+}
+
 const BILLING_FIELDS = `
   planCode
   planName
@@ -59,6 +64,7 @@ const BILLING_FIELDS = `
   subscriptionStatus
   cancelAtPeriodEnd
   currentPeriodEnd
+  needsPlanSelection
   plans {
     code
     name
@@ -104,6 +110,14 @@ const ResumeSubscriptionDocument = parse(`
   }
 `) as TypedDocumentNode<ResumeSubscriptionMutation, Record<string, never>>
 
+const SelectSignupPlanDocument = parse(`
+  mutation SelectSignupPlan($planCode: String!) {
+    selectSignupPlan(planCode: $planCode) {
+      organisationBilling { ${BILLING_FIELDS} }
+    }
+  }
+`) as TypedDocumentNode<SelectSignupPlanMutation, { planCode: string }>
+
 export const billingKeys = {
   root: ['billing'] as const,
   organisation: () => [...billingKeys.root, 'organisation'] as const,
@@ -133,6 +147,11 @@ export async function cancelSubscription(): Promise<OrganisationBilling> {
 export async function resumeSubscription(): Promise<OrganisationBilling> {
   const data = await graphqlRequest(ResumeSubscriptionDocument)
   return data.resumeSubscription.organisationBilling
+}
+
+export async function selectSignupPlan(planCode: string): Promise<OrganisationBilling> {
+  const data = await graphqlRequest(SelectSignupPlanDocument, { planCode })
+  return data.selectSignupPlan.organisationBilling
 }
 
 export function formatPlanPrice(priceClp: number): string {

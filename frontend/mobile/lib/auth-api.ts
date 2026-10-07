@@ -164,15 +164,16 @@ export function mobileRegister(input: {
   password: string
   acceptedTerms: boolean
   turnstileToken?: string
-  planCode?: string
 }) {
   return request<{ message: string; verificationRequired: boolean }>(
     '/api/v1/auth/register',
     {
       method: 'POST',
       body: JSON.stringify({
-        ...input,
-        planCode: input.planCode || 'free',
+        fullName: input.fullName,
+        email: input.email,
+        password: input.password,
+        acceptedTerms: input.acceptedTerms,
         turnstileToken: input.turnstileToken || 'local-development',
       }),
     },

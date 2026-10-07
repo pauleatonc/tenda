@@ -42,6 +42,7 @@ describe('ProductCreateChooser', () => {
       subscriptionStatus: 'active',
       cancelAtPeriodEnd: false,
       currentPeriodEnd: null,
+      needsPlanSelection: false,
       plans: [],
     })
   })
@@ -78,6 +79,7 @@ describe('ProductCreateChooser', () => {
       subscriptionStatus: 'active',
       cancelAtPeriodEnd: false,
       currentPeriodEnd: null,
+      needsPlanSelection: false,
       plans: [],
     })
     renderChooser(<ProductCreateChooser />)

@@ -64,7 +64,6 @@ export function registerAccount(input: {
   password: string
   acceptedTerms: boolean
   turnstileToken: string
-  planCode?: string
 }) {
   return request<{ message: string; verificationRequired: boolean }>(
     '/api/v1/auth/register',

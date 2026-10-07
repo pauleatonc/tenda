@@ -13,17 +13,11 @@ import {
 import { MobileTurnstile, mobileTurnstileEnabled } from '../../components/turnstile'
 import { AnalyticsEvents, getAnalytics } from '../../lib/analytics'
 import { MobileApiError, mobileRegister } from '../../lib/auth-api'
-import {
-  SIGNUP_PLAN_OPTIONS,
-  formatSignupPlanPrice,
-  type SignupPlanOption,
-} from '../../lib/plan-catalog'
 
 export default function RegisterScreen() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [planCode, setPlanCode] = useState<SignupPlanOption['code']>('free')
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<MobileApiError | null>(null)
@@ -57,13 +51,12 @@ export default function RegisterScreen() {
         email,
         password,
         acceptedTerms,
-        planCode,
         turnstileToken: turnstileToken || 'local-development',
       })
       getAnalytics().track(AnalyticsEvents.signUp, { method: 'email' })
       router.replace({
         pathname: '/(auth)/verificar',
-        params: { email, planCode },
+        params: { email },
       })
     } catch (caught) {
       setError(caught instanceof MobileApiError ? caught : null)
@@ -76,28 +69,9 @@ export default function RegisterScreen() {
     <AuthScaffold
       eyebrow="Comienza hoy"
       title="Crea tu cuenta"
-      description="Elige tu plan; tu Tienda e inventario se crean en el mismo paso."
+      description="Crea tu Tienda e inventario. Después eliges el plan en la web o en Plan."
     >
       {error ? <StatusMessage message={error.message} /> : null}
-      <Text style={localStyles.sectionLabel}>Elige tu plan</Text>
-      <View style={localStyles.planList}>
-        {SIGNUP_PLAN_OPTIONS.map((plan) => {
-          const selected = planCode === plan.code
-          return (
-            <Pressable
-              key={plan.code}
-              accessibilityRole="radio"
-              accessibilityState={{ selected }}
-              onPress={() => setPlanCode(plan.code)}
-              style={[localStyles.planOption, selected && localStyles.planOptionSelected]}
-            >
-              <Text style={localStyles.planName}>{plan.name}</Text>
-              <Text style={localStyles.planPrice}>{formatSignupPlanPrice(plan.priceClp)}</Text>
-              <Text style={localStyles.planSummary}>{plan.summary}</Text>
-            </Pressable>
-          )
-        })}
-      </View>
       <FormField
         autoCapitalize="words"
         autoComplete="name"
@@ -155,43 +129,6 @@ export default function RegisterScreen() {
 }
 
 const localStyles = StyleSheet.create({
-  sectionLabel: {
-    color: colors.ink,
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  planList: {
-    gap: 10,
-    marginBottom: 8,
-  },
-  planOption: {
-    backgroundColor: colors.surface,
-    borderColor: colors.line,
-    borderRadius: 14,
-    borderWidth: 1,
-    gap: 4,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  planOptionSelected: {
-    borderColor: colors.green,
-  },
-  planName: {
-    color: colors.ink,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  planPrice: {
-    color: colors.green,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  planSummary: {
-    color: colors.inkSoft,
-    fontSize: 13,
-    lineHeight: 18,
-  },
   checkbox: {
     alignItems: 'flex-start',
     flexDirection: 'row',

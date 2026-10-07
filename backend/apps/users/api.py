@@ -295,7 +295,6 @@ def register_view(request: HttpRequest) -> HttpResponse:
         password=_string(payload, "password"),
         full_name=_string(payload, "fullName"),
         organisation_name=_string(payload, "organisationName") or None,
-        plan_code=_string(payload, "planCode") or "free",
     )
     if result.context is not None:
         record_audit_event(

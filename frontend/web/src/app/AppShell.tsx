@@ -1,9 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import { Link, NavLink, Outlet, useNavigate, useOutletContext } from 'react-router-dom'
+import { Link, NavLink, Navigate, Outlet, useNavigate, useOutletContext } from 'react-router-dom'
 
 import { getAnalytics } from '../analytics'
 import { getViewer, logout, TendaApiError, type ViewerPayload } from '../auth/api'
+import { billingKeys, fetchOrganisationBilling } from '../billing/api'
 import { SLOW_QUERY_STALE_MS } from '../lib/queryDefaults'
 import { AuthenticatedImage, PersonAvatar } from '../components/AuthenticatedImage'
 import { ConnectivityBanner, StatusChip } from '../components/ui'
@@ -65,6 +66,12 @@ export function ApplicationShell() {
     retry: false,
     staleTime: SLOW_QUERY_STALE_MS,
   })
+  const billing = useQuery({
+    queryKey: billingKeys.organisation(),
+    queryFn: fetchOrganisationBilling,
+    enabled: viewer.isSuccess,
+    staleTime: SLOW_QUERY_STALE_MS,
+  })
 
   useEffect(() => {
     window.localStorage.setItem('tenda.sidebar.collapsed', String(collapsed))
@@ -82,8 +89,11 @@ export function ApplicationShell() {
     })
   }, [viewer.data])
 
-  if (viewer.isPending) return <ShellLoading />
+  if (viewer.isPending || (viewer.isSuccess && billing.isPending)) return <ShellLoading />
   if (viewer.isError) return <ShellError error={viewer.error} />
+  if (billing.data?.needsPlanSelection) {
+    return <Navigate to="/elige-plan" replace />
+  }
 
   const data = viewer.data
   const visibleNavigation = navigation.filter(

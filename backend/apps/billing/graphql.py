@@ -15,7 +15,9 @@ from .services import (
     PlanCheckout,
     billing_overview,
     cancel_subscription,
+    organisation_needs_plan_selection,
     resume_subscription,
+    select_signup_plan,
     start_plan_checkout,
 )
 
@@ -41,6 +43,7 @@ class OrganisationBillingType(graphene.ObjectType):  # type: ignore[misc]
     subscription_status = graphene.String(required=True)
     cancel_at_period_end = graphene.Boolean(required=True)
     current_period_end = graphene.DateTime()
+    needs_plan_selection = graphene.Boolean(required=True)
     plans = graphene.List(graphene.NonNull(BillingPlanType), required=True)
 
 
@@ -73,8 +76,16 @@ def _plan_nodes(overview: BillingOverview) -> list[dict[str, Any]]:
     ]
 
 
-def _billing_payload(overview: BillingOverview) -> dict[str, Any]:
+def _billing_payload(overview: BillingOverview, *, organisation: Any = None) -> dict[str, Any]:
     entitlements = overview.entitlements
+    org = organisation or (
+        overview.subscription.organisation if overview.subscription is not None else None
+    )
+    needs_selection = (
+        organisation_needs_plan_selection(org)
+        if org is not None
+        else overview.subscription is None
+    )
     return {
         "plan_code": entitlements.plan_code,
         "plan_name": entitlements.plan_name,
@@ -87,8 +98,13 @@ def _billing_payload(overview: BillingOverview) -> dict[str, Any]:
         "subscription_status": entitlements.subscription_status,
         "cancel_at_period_end": entitlements.cancel_at_period_end,
         "current_period_end": entitlements.current_period_end,
+        "needs_plan_selection": needs_selection,
         "plans": _plan_nodes(overview),
     }
+
+
+class SelectSignupPlanPayload(graphene.ObjectType):  # type: ignore[misc]
+    organisation_billing = graphene.Field(OrganisationBillingType, required=True)
 
 
 class StartPlanCheckout(graphene.Mutation):  # type: ignore[misc]
@@ -115,6 +131,31 @@ class StartPlanCheckout(graphene.Mutation):  # type: ignore[misc]
             raise graphql_error(info, exc) from exc
 
 
+class SelectSignupPlan(graphene.Mutation):  # type: ignore[misc]
+    class Arguments:
+        plan_code = graphene.String(required=True)
+
+    Output = SelectSignupPlanPayload
+
+    @staticmethod
+    def mutate(
+        _root: object,
+        info: GraphQLResolveInfo,
+        plan_code: str,
+    ) -> dict[str, Any]:
+        try:
+            context = context_from_info(info)
+            overview = select_signup_plan(context=context, plan_code=plan_code)
+            return {
+                "organisation_billing": _billing_payload(
+                    overview,
+                    organisation=context.organisation,
+                )
+            }
+        except DomainError as exc:
+            raise graphql_error(info, exc) from exc
+
+
 class CancelSubscription(graphene.Mutation):  # type: ignore[misc]
     Output = CancelSubscriptionPayload
 
@@ -123,7 +164,12 @@ class CancelSubscription(graphene.Mutation):  # type: ignore[misc]
         try:
             context = context_from_info(info)
             cancel_subscription(context=context)
-            return {"organisation_billing": _billing_payload(billing_overview(context))}
+            return {
+                "organisation_billing": _billing_payload(
+                    billing_overview(context),
+                    organisation=context.organisation,
+                )
+            }
         except DomainError as exc:
             raise graphql_error(info, exc) from exc
 
@@ -136,7 +182,12 @@ class ResumeSubscription(graphene.Mutation):  # type: ignore[misc]
         try:
             context = context_from_info(info)
             resume_subscription(context=context)
-            return {"organisation_billing": _billing_payload(billing_overview(context))}
+            return {
+                "organisation_billing": _billing_payload(
+                    billing_overview(context),
+                    organisation=context.organisation,
+                )
+            }
         except DomainError as exc:
             raise graphql_error(info, exc) from exc
 
@@ -150,12 +201,17 @@ class BillingQuery(graphene.ObjectType):  # type: ignore[misc]
         info: GraphQLResolveInfo,
     ) -> dict[str, Any]:
         try:
-            return _billing_payload(billing_overview(context_from_info(info)))
+            context = context_from_info(info)
+            return _billing_payload(
+                billing_overview(context),
+                organisation=context.organisation,
+            )
         except DomainError as exc:
             raise graphql_error(info, exc) from exc
 
 
 class BillingMutation(graphene.ObjectType):  # type: ignore[misc]
     start_plan_checkout = StartPlanCheckout.Field(required=True)
+    select_signup_plan = SelectSignupPlan.Field(required=True)
     cancel_subscription = CancelSubscription.Field(required=True)
     resume_subscription = ResumeSubscription.Field(required=True)

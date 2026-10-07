@@ -8,6 +8,7 @@ from typing import Any
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
+from apps.billing.services import record_plan_intent
 from apps.organisations.models import Membership
 from apps.organisations.services import create_organisation_for_owner
 from apps.users.models import AuthRateLimitBucket, User
@@ -45,7 +46,8 @@ class Command(BaseCommand):
             )
             user.profile.full_name = "Owner E2E"
             user.profile.save(update_fields=["full_name", "updated_at"])
-            create_organisation_for_owner(owner=user, name="Negocio E2E")
+            provision = create_organisation_for_owner(owner=user, name="Negocio E2E")
+            record_plan_intent(organisation=provision.organisation, plan_code="free")
         else:
             user.set_password(password)
             if user.email_verified_at is None:
@@ -59,8 +61,12 @@ class Command(BaseCommand):
                     "updated_at",
                 ]
             )
-            if not Membership.objects.filter(user=user).exists():
-                create_organisation_for_owner(owner=user, name="Negocio E2E")
+            membership = Membership.objects.filter(user=user).select_related("organisation").first()
+            if membership is None:
+                provision = create_organisation_for_owner(owner=user, name="Negocio E2E")
+                record_plan_intent(organisation=provision.organisation, plan_code="free")
+            else:
+                record_plan_intent(organisation=membership.organisation, plan_code="free")
 
         payload = {
             "email": user.email,

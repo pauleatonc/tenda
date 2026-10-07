@@ -40,7 +40,7 @@ def list_active_plans() -> list[Plan]:
 
 
 def record_plan_intent(*, organisation: Organisation, plan_code: str) -> Plan:
-    """Remember the plan chosen at signup until Mercado Pago checkout completes."""
+    """Persist the plan chosen after signup (free active, paid pending checkout)."""
 
     code = (plan_code or Plan.Code.FREE).strip().lower() or Plan.Code.FREE
     plan = Plan.objects.filter(code=code, is_active=True).first()
@@ -52,7 +52,18 @@ def record_plan_intent(*, organisation: Organisation, plan_code: str) -> Plan:
             status=400,
         )
     if plan.code == Plan.Code.FREE:
-        OrganisationSubscription.objects.filter(organisation=organisation).delete()
+        OrganisationSubscription.objects.update_or_create(
+            organisation=organisation,
+            defaults={
+                "plan": plan,
+                "status": OrganisationSubscription.Status.ACTIVE,
+                "mp_preapproval_id": "",
+                "init_point": "",
+                "cancel_at_period_end": False,
+                "past_due_since": None,
+                "current_period_end": None,
+            },
+        )
         return plan
 
     OrganisationSubscription.objects.update_or_create(
@@ -68,6 +79,21 @@ def record_plan_intent(*, organisation: Organisation, plan_code: str) -> Plan:
         },
     )
     return plan
+
+
+def organisation_needs_plan_selection(organisation: Organisation) -> bool:
+    """True until the owner completes the post-signup plan step."""
+
+    return not OrganisationSubscription.objects.filter(organisation=organisation).exists()
+
+
+@transaction.atomic
+def select_signup_plan(*, context: TenantContext, plan_code: str) -> BillingOverview:
+    """Complete onboarding plan selection before the dashboard."""
+
+    _require_billing_manager(context)
+    record_plan_intent(organisation=context.organisation, plan_code=plan_code)
+    return billing_overview(context)
 
 
 def billing_overview(context: TenantContext) -> BillingOverview:

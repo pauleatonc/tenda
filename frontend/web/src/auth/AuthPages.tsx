@@ -7,11 +7,7 @@ import { z } from 'zod'
 import { AnalyticsEvents, getAnalytics } from '../analytics'
 import { GoogleSignInButton } from '../components/GoogleSignInButton'
 import { TurnstileField, turnstileSiteKey } from '../components/TurnstileField'
-import {
-  SIGNUP_PLAN_OPTIONS,
-  SIGNUP_PLAN_STORAGE_KEY,
-  formatSignupPlanPrice,
-} from '../billing/planCatalog'
+import { SIGNUP_PLAN_STORAGE_KEY } from '../billing/planCatalog'
 import {
   TendaApiError,
   confirmPasswordReset,
@@ -24,7 +20,6 @@ import {
 
 const emailField = z.string().trim().email('Ingresa un correo válido.')
 const passwordField = z.string().min(10, 'Usa al menos 10 caracteres.')
-const planCodeField = z.enum(['free', 'starter', 'growth', 'pro'])
 
 const loginSchema = z.object({
   email: emailField,
@@ -35,7 +30,6 @@ const registerSchema = z.object({
   fullName: z.string().trim().min(2, 'Ingresa tu nombre.'),
   email: emailField,
   password: passwordField,
-  planCode: planCodeField,
   acceptedTerms: z.boolean().refine(Boolean, 'Debes aceptar los términos.'),
 })
 
@@ -145,6 +139,17 @@ function PasswordInput({
   )
 }
 
+function rememberSuggestedPlan(plan: string | null) {
+  if (
+    plan === 'free' ||
+    plan === 'starter' ||
+    plan === 'growth' ||
+    plan === 'pro'
+  ) {
+    sessionStorage.setItem(SIGNUP_PLAN_STORAGE_KEY, plan)
+  }
+}
+
 export function LoginPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -248,34 +253,26 @@ export function RegisterPage() {
   const [searchParams] = useSearchParams()
   const [serverError, setServerError] = useState<unknown>(null)
   const [turnstileToken, setTurnstileToken] = useState('')
-  const planFromQuery = searchParams.get('plan')
-  const initialPlan =
-    planFromQuery === 'free' ||
-    planFromQuery === 'starter' ||
-    planFromQuery === 'growth' ||
-    planFromQuery === 'pro'
-      ? planFromQuery
-      : 'free'
   const {
     register,
     handleSubmit,
-    watch,
-    setValue,
     formState: { errors, isSubmitting },
   } = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
       acceptedTerms: false,
-      planCode: initialPlan,
     },
   })
-  const selectedPlan = watch('planCode')
+
+  useEffect(() => {
+    rememberSuggestedPlan(searchParams.get('plan'))
+  }, [searchParams])
 
   return (
     <AuthShell
       eyebrow="Comienza hoy"
       title="Crea tu cuenta"
-      description="Elige tu plan, crea tu Tienda e inventario en el mismo paso."
+      description="Crea tu Tienda e inventario. Después eliges el plan que te acomode."
     >
       <GoogleSignInButton intent="sign_up" onError={setServerError} />
       <div className="auth-divider">
@@ -306,53 +303,16 @@ export function RegisterPage() {
               ...values,
               turnstileToken: turnstileToken || 'local-development',
             })
-            sessionStorage.setItem(SIGNUP_PLAN_STORAGE_KEY, values.planCode)
             getAnalytics().track(AnalyticsEvents.signUp, { method: 'email' })
             navigate('/verificar-email', {
               replace: true,
-              state: { email: values.email, planCode: values.planCode },
+              state: { email: values.email },
             })
           } catch (error) {
             setServerError(error)
           }
         })}
       >
-        <fieldset className="auth-plan-fieldset">
-          <legend>Elige tu plan</legend>
-          <p className="auth-plan-fieldset__hint">
-            Puedes empezar gratis. Los planes de pago amplían el cupo e incluyen
-            creación asistida.
-          </p>
-          <div className="auth-plan-grid" role="radiogroup" aria-label="Plan">
-            {SIGNUP_PLAN_OPTIONS.map((plan) => {
-              const selected = selectedPlan === plan.code
-              return (
-                <label
-                  key={plan.code}
-                  className={
-                    selected ? 'auth-plan-option auth-plan-option--selected' : 'auth-plan-option'
-                  }
-                >
-                  <input
-                    type="radio"
-                    value={plan.code}
-                    checked={selected}
-                    onChange={() => setValue('planCode', plan.code, { shouldValidate: true })}
-                  />
-                  <span className="auth-plan-option__name">{plan.name}</span>
-                  <span className="auth-plan-option__price">
-                    {formatSignupPlanPrice(plan.priceClp)}
-                    {plan.priceClp > 0 ? ' / mes' : ''}
-                  </span>
-                  <span className="auth-plan-option__summary">{plan.summary}</span>
-                </label>
-              )
-            })}
-          </div>
-          {errors.planCode ? (
-            <span className="field__error">{errors.planCode.message}</span>
-          ) : null}
-        </fieldset>
         <div className="field">
           <label htmlFor="register-name">Nombre</label>
           <input
@@ -415,22 +375,12 @@ export function VerificationPage() {
   const [searchParams] = useSearchParams()
   const location = useLocation()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const token = searchParams.get('token')
-  const locationState = location.state as { email?: string; planCode?: string } | null
+  const locationState = location.state as { email?: string } | null
   const stateEmail = locationState?.email ?? ''
   const started = useRef(false)
 
-  function goToAppAfterVerification() {
-    const storedPlan = sessionStorage.getItem(SIGNUP_PLAN_STORAGE_KEY)
-    const planCode = locationState?.planCode || storedPlan || 'free'
-    if (planCode && planCode !== 'free') {
-      navigate(`/app/configuracion/plan?checkout=${encodeURIComponent(planCode)}`, {
-        replace: true,
-      })
-      return
-    }
-    navigate('/app', { replace: true })
-  }
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>(
     token ? 'loading' : 'idle',
   )
@@ -449,15 +399,17 @@ export function VerificationPage() {
     if (!token || started.current) return
     started.current = true
     verifyEmail(token)
-      .then(() => {
+      .then((viewer) => {
         getAnalytics().track(AnalyticsEvents.emailVerified)
+        getAnalytics().setUser(viewer.viewer.id)
+        queryClient.setQueryData(['viewer'], viewer)
         setStatus('success')
       })
       .catch((error: unknown) => {
         setServerError(error)
         setStatus('error')
       })
-  }, [token])
+  }, [queryClient, token])
 
   return (
     <AuthShell
@@ -474,12 +426,12 @@ export function VerificationPage() {
       {status === 'success' ? (
         <div className="form-message form-message--success" role="status">
           <strong>Tu cuenta está lista.</strong>
-          <span>Ya puedes entrar a tu Tienda.</span>
+          <span>Elige tu plan para entrar a Tenda.</span>
           <button
             className="button button--primary button--wide"
-            onClick={() => goToAppAfterVerification()}
+            onClick={() => navigate('/elige-plan', { replace: true })}
           >
-            Ir a Tenda
+            Elegir plan
           </button>
         </div>
       ) : null}
