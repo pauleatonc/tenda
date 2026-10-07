@@ -14,12 +14,13 @@ import { TendaApiError, newIdempotencyKey } from '../lib/http'
 import {
   createOrder,
   fetchPaymentConnection,
+  invalidateSalesLists,
   publishOrderLink,
   salesKeys,
   sendOfferLink,
 } from '../sales/api'
 import { formatClp } from '../sales/model'
-import type { ProductRow } from './api'
+import { invalidateInventoryCatalog, type ProductRow } from './api'
 import { formatPrice, formatQuantity } from './format'
 
 type SaleMethodId = 'deposit' | 'online' | 'cash'
@@ -86,6 +87,7 @@ export function GenerateSaleDialog({
   const paymentConnection = useQuery({
     queryKey: salesKeys.paymentConnection(),
     queryFn: fetchPaymentConnection,
+    staleTime: 10 * 60_000,
   })
   const mercadoPagoActive = ['active', 'connected'].includes(
     paymentConnection.data?.sellerPaymentConnection?.status ?? '',
@@ -158,8 +160,8 @@ export function GenerateSaleDialog({
         source: 'inventory',
       })
       markActivationFlag('salePublished')
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
-      void queryClient.invalidateQueries({ queryKey: ['sales'] })
+      invalidateInventoryCatalog(queryClient, product.id)
+      invalidateSalesLists(queryClient, published.orderId)
     },
     onError: (mutationError: Error) => setError(mutationError),
   })
@@ -187,8 +189,8 @@ export function GenerateSaleDialog({
         delivery_mode: deliveryMode,
         item_count: 1,
       })
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
-      void queryClient.invalidateQueries({ queryKey: ['sales'] })
+      invalidateInventoryCatalog(queryClient, product.id)
+      invalidateSalesLists(queryClient, orderId)
       onClose()
       navigate(`/app/ventas/${orderId}`)
     },

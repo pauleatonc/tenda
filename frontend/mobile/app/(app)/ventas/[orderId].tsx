@@ -31,6 +31,7 @@ import {
 } from '../../../components/sales-ui'
 import { AnalyticsEvents, getAnalytics } from '../../../lib/analytics'
 import { MobileApiError } from '../../../lib/auth-api'
+import { invalidateInventoryCatalog } from '../../../lib/inventory-api'
 import { formatDate } from '../../../lib/format'
 import { newIdempotencyKey } from '../../../lib/graphql'
 import { generateShipmentLabel } from '../../../lib/shipping-api'
@@ -38,6 +39,7 @@ import {
   cancelOrder,
   confirmManualPayment,
   fetchOrder,
+  invalidateSalesLists,
   refundPayment,
   reissueBankTransferOffer,
   restoreOrder,
@@ -329,7 +331,8 @@ export default function SaleDetailScreen() {
               : 'La venta se actualizó correctamente.',
       )
       closeAction()
-      void queryClient.invalidateQueries({ queryKey: salesKeys.root })
+      invalidateSalesLists(queryClient, orderId)
+      invalidateInventoryCatalog(queryClient)
       if (kind === 'reissue' && 'order' in result) {
         router.replace(`/ventas/${result.order.id}`)
       }
@@ -373,7 +376,7 @@ export default function SaleDetailScreen() {
       setEditingContact(false)
       setContactKey(newIdempotencyKey())
       setSuccess('Datos de comprador y entrega actualizados.')
-      void queryClient.invalidateQueries({ queryKey: salesKeys.root })
+      void queryClient.invalidateQueries({ queryKey: salesKeys.order(orderId) })
     },
     onError: (error: unknown) => {
       setActionError(

@@ -24,6 +24,7 @@ import {
   fetchInventorySchema,
   fetchProductDetail,
   fetchProductMovements,
+  invalidateInventoryCatalog,
   inventoryKeys,
   restoreProduct,
 } from '../../../lib/inventory-api'
@@ -54,7 +55,7 @@ export default function ProductDetailScreen() {
   })
 
   function refreshInventory() {
-    void queryClient.invalidateQueries({ queryKey: ['inventory'] })
+    invalidateInventoryCatalog(queryClient, productId)
   }
 
   const archive = useMutation({

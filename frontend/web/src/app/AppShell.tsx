@@ -4,6 +4,7 @@ import { Link, NavLink, Outlet, useNavigate, useOutletContext } from 'react-rout
 
 import { getAnalytics } from '../analytics'
 import { getViewer, logout, TendaApiError, type ViewerPayload } from '../auth/api'
+import { SLOW_QUERY_STALE_MS } from '../lib/queryDefaults'
 import { AuthenticatedImage, PersonAvatar } from '../components/AuthenticatedImage'
 import { ConnectivityBanner, StatusChip } from '../components/ui'
 import { InventorySummary } from '../inventory/InventorySummary'
@@ -62,6 +63,7 @@ export function ApplicationShell() {
     queryKey: ['viewer'],
     queryFn: getViewer,
     retry: false,
+    staleTime: SLOW_QUERY_STALE_MS,
   })
 
   useEffect(() => {
@@ -169,7 +171,7 @@ export function ApplicationShell() {
                 setLoggingOut(true)
                 try {
                   await logout()
-                  queryClient.removeQueries({ queryKey: ['viewer'] })
+                  queryClient.clear()
                   navigate('/login', { replace: true })
                 } finally {
                   setLoggingOut(false)

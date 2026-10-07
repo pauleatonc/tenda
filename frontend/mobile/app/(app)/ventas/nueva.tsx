@@ -41,12 +41,14 @@ import { formatPrice, formatQuantity } from '../../../lib/format'
 import { isOfflineError, newIdempotencyKey } from '../../../lib/graphql'
 import {
   fetchProducts,
+  invalidateInventoryCatalog,
   inventoryKeys,
   type ProductCard,
 } from '../../../lib/inventory-api'
 import {
   createOrder,
   fetchSellerPaymentConnection,
+  invalidateSalesLists,
   publishOrderLink,
   salesKeys,
   sendOfferLink,
@@ -382,7 +384,8 @@ export default function NewSaleScreen() {
         delivery_mode: draft.deliveryMode,
         item_count: draft.lines.length,
       })
-      void queryClient.invalidateQueries({ queryKey: salesKeys.root })
+      invalidateSalesLists(queryClient, result.orderId)
+      invalidateInventoryCatalog(queryClient)
       if (result.kind === 'cash') {
         void clearSaleDraft()
         router.replace(`/ventas/${result.orderId}`)

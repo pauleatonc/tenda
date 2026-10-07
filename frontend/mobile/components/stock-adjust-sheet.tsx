@@ -8,7 +8,11 @@ import { AnalyticsEvents, getAnalytics } from '../lib/analytics'
 import { MobileApiError } from '../lib/auth-api'
 import { formatQuantity, movementLabels } from '../lib/format'
 import { newIdempotencyKey } from '../lib/graphql'
-import { recordStockMovement, type ProductCard } from '../lib/inventory-api'
+import {
+  invalidateInventoryCatalog,
+  recordStockMovement,
+  type ProductCard,
+} from '../lib/inventory-api'
 
 const MOVEMENT_TYPES = ['entry', 'exit', 'shrinkage', 'correction'] as const
 type MovementType = (typeof MOVEMENT_TYPES)[number]
@@ -62,7 +66,7 @@ export function StockAdjustSheet({
   const submit = useMutation({
     mutationFn: recordStockMovement,
     onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
+      invalidateInventoryCatalog(queryClient, result.product.id)
       getAnalytics().track(AnalyticsEvents.stockAdjusted)
       onDone?.(result.product)
       close()

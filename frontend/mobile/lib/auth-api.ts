@@ -91,11 +91,16 @@ export class MobileApiError extends Error {
   }
 }
 
-export function getStoredToken() {
-  return SecureStore.getItemAsync(TOKEN_KEY)
+let memoryToken: string | null | undefined
+
+export async function getStoredToken(): Promise<string | null> {
+  if (memoryToken !== undefined) return memoryToken
+  memoryToken = await SecureStore.getItemAsync(TOKEN_KEY)
+  return memoryToken
 }
 
 async function saveAuth(response: AuthResponse): Promise<MobileViewer> {
+  memoryToken = response.accessToken
   await SecureStore.setItemAsync(TOKEN_KEY, response.accessToken, {
     keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   })
@@ -103,6 +108,7 @@ async function saveAuth(response: AuthResponse): Promise<MobileViewer> {
 }
 
 async function clearStoredToken() {
+  memoryToken = null
   await SecureStore.deleteItemAsync(TOKEN_KEY)
 }
 
@@ -252,7 +258,9 @@ export async function mobileGoogleLogin() {
       correlationId: '',
     })
   }
-  await SecureStore.setItemAsync(TOKEN_KEY, parseGoogleRedirect(result.url), {
+  const accessToken = parseGoogleRedirect(result.url)
+  memoryToken = accessToken
+  await SecureStore.setItemAsync(TOKEN_KEY, accessToken, {
     keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   })
   return getMobileViewer()

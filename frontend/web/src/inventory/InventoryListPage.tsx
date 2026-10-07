@@ -257,6 +257,7 @@ export function InventoryListPage() {
   const schema = useQuery({
     queryKey: inventoryKeys.schema(false),
     queryFn: () => fetchInventorySchema(false),
+    staleTime: 10 * 60_000,
   })
 
   // React Query hashes the key structurally, so rebuilding these objects on

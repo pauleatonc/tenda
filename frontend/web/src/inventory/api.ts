@@ -491,8 +491,11 @@ export async function updateProductLowStockThreshold(
 }
 
 export const inventoryKeys = {
+  root: ['inventory'] as const,
+  schemaRoot: ['inventory', 'schema'] as const,
   schema: (includeInactive: boolean) => ['inventory', 'schema', includeInactive] as const,
   dashboard: () => ['inventory', 'dashboard'] as const,
+  productsRoot: ['inventory', 'products'] as const,
   products: (variables: Record<string, unknown>) =>
     ['inventory', 'products', variables] as const,
   product: (id: string) => ['inventory', 'product', id] as const,
@@ -504,4 +507,19 @@ export const inventoryKeys = {
   importTemplate: () => ['inventory', 'import-template'] as const,
   exports: () => ['inventory', 'exports'] as const,
   export: (id: string) => ['inventory', 'export', id] as const,
+}
+
+/** Stock / catalog mutations that change quantities or product rows. */
+export function invalidateInventoryCatalog(
+  queryClient: { invalidateQueries: (opts: { queryKey: readonly unknown[] }) => unknown },
+  productId?: string,
+) {
+  if (productId) {
+    void queryClient.invalidateQueries({ queryKey: inventoryKeys.product(productId) })
+    void queryClient.invalidateQueries({ queryKey: inventoryKeys.movements(productId) })
+    void queryClient.invalidateQueries({ queryKey: inventoryKeys.breakdown(productId) })
+  }
+  void queryClient.invalidateQueries({ queryKey: inventoryKeys.productsRoot })
+  void queryClient.invalidateQueries({ queryKey: inventoryKeys.dashboard() })
+  void queryClient.invalidateQueries({ queryKey: inventoryKeys.alerts() })
 }

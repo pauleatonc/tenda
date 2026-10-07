@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native'
 import { router } from 'expo-router'
-import * as SecureStore from 'expo-secure-store'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { ReactElement } from 'react'
 
 import NewSaleScreen from '../ventas/nueva'
@@ -16,14 +16,11 @@ jest.mock('../../../lib/inventory-api', () => ({
 }))
 
 jest.mock('../../../lib/sales-api', () => ({
+  ...jest.requireActual('../../../lib/sales-api'),
   createOrder: jest.fn(),
   publishOrderLink: jest.fn(),
   sendOfferLink: jest.fn(),
   fetchSellerPaymentConnection: jest.fn(),
-  salesKeys: {
-    root: ['sales'],
-    paymentConnection: () => ['sales', 'payment-connection'],
-  },
 }))
 
 const inventory = inventoryApi as jest.Mocked<typeof inventoryApi>
@@ -74,7 +71,7 @@ async function reachReview() {
 describe('Crear venta mobile', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    ;(SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null)
+    ;(AsyncStorage.getItem as jest.Mock).mockResolvedValue(null)
     inventory.fetchProducts.mockResolvedValue(productPage())
     sales.fetchSellerPaymentConnection.mockResolvedValue({
       sellerPaymentConnection: null,
@@ -153,7 +150,7 @@ describe('Crear venta mobile', () => {
     await waitFor(() => expect(sales.createOrder).toHaveBeenCalledTimes(2))
     expect(sales.createOrder.mock.calls[1][0].idempotencyKey).toBe(firstKey)
     expect(sales.publishOrderLink).not.toHaveBeenCalled()
-    expect(SecureStore.setItemAsync).toHaveBeenCalled()
+    expect(AsyncStorage.setItem).toHaveBeenCalled()
   })
 
   it('confirma efectivo y abre la ficha sin publicar enlace', async () => {
@@ -184,7 +181,7 @@ describe('Crear venta mobile', () => {
   })
 
   it('abre una venta nueva si el resultado anterior quedó guardado', async () => {
-    ;(SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+    ;(AsyncStorage.getItem as jest.Mock).mockResolvedValue(
       JSON.stringify({
         version: 1,
         step: 'result',

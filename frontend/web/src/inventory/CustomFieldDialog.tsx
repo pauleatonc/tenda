@@ -54,7 +54,7 @@ export function CustomFieldDialog({ onClose, onFieldCreated }: Props) {
   const remaining = maxActive - activeFields.length
 
   function invalidateSchema() {
-    void queryClient.invalidateQueries({ queryKey: ['inventory'] })
+    void queryClient.invalidateQueries({ queryKey: inventoryKeys.schemaRoot })
   }
 
   const create = useMutation({

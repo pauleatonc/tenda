@@ -3,6 +3,7 @@ import { useState } from 'react'
 
 import { TendaApiError } from '../lib/http'
 import {
+  inventoryKeys,
   updateInventoryLowStockThreshold,
   updateProductLowStockThreshold,
 } from './api'
@@ -18,7 +19,11 @@ export function InventoryThresholdSetting({ current }: { current: number }) {
   const [value, setValue] = useState(String(current))
   const save = useMutation({
     mutationFn: () => updateInventoryLowStockThreshold(Number(value)),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['inventory'] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: inventoryKeys.dashboard() })
+      void queryClient.invalidateQueries({ queryKey: inventoryKeys.alerts() })
+      void queryClient.invalidateQueries({ queryKey: inventoryKeys.productsRoot })
+    },
   })
   const numeric = Number(value)
   const valid = Number.isInteger(numeric) && numeric >= 0
@@ -72,7 +77,12 @@ export function ProductThresholdSetting({
   const save = useMutation({
     mutationFn: () =>
       updateProductLowStockThreshold(productId, value === '' ? null : Number(value)),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['inventory'] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: inventoryKeys.product(productId) })
+      void queryClient.invalidateQueries({ queryKey: inventoryKeys.alerts() })
+      void queryClient.invalidateQueries({ queryKey: inventoryKeys.productsRoot })
+      void queryClient.invalidateQueries({ queryKey: inventoryKeys.dashboard() })
+    },
   })
   const numeric = value === '' ? null : Number(value)
   const valid = numeric === null || (Number.isInteger(numeric) && numeric >= 0)

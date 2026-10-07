@@ -21,6 +21,7 @@ module.exports = {
     // CommonJS test runtime cannot resolve. Pointing at the sources also means
     // the suite does not depend on `pnpm build` having run first.
     '^@tenda/api-client$': '<rootDir>/../../packages/api-client/src/index.ts',
+    '^@tenda/analytics$': '<rootDir>/../../packages/analytics/src/index.ts',
     // Those sources use ESM-style `./x.js` specifiers that resolve to `./x.ts`.
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },

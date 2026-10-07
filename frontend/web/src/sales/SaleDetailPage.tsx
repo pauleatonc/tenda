@@ -4,12 +4,14 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 
 import { AnalyticsEvents, getAnalytics } from '../analytics'
 import { EmptyState, Modal, StatusChip, Timeline } from '../components/ui'
+import { invalidateInventoryCatalog } from '../inventory/api'
 import { TendaApiError, newIdempotencyKey } from '../lib/http'
 import { generateShipmentLabel } from '../shipping/api'
 import {
   cancelOrder,
   confirmManualPayment,
   fetchOrder,
+  invalidateSalesLists,
   refundPayment,
   reissueBankTransferOffer,
   restoreOrder,
@@ -198,8 +200,8 @@ export function SaleDetailPage() {
       setNote('')
       setActionError(null)
       setIdempotencyKey(newIdempotencyKey())
-      void queryClient.invalidateQueries({ queryKey: ['sales'] })
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
+      invalidateSalesLists(queryClient, id)
+      invalidateInventoryCatalog(queryClient)
     },
     onError: (error: Error, request) => {
       setActionError(error)

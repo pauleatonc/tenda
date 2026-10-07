@@ -240,6 +240,7 @@ export type SalesBalanceBreakdownRow = SalesBalanceBreakdownPage['nodes'][number
 export const salesKeys = {
   root: ['sales'] as const,
   dashboard: () => ['sales', 'dashboard'] as const,
+  ordersRoot: ['sales', 'orders'] as const,
   orders: (variables: {
     filter?: SalesOrderFilter | null
     first?: number | null
@@ -250,4 +251,15 @@ export const salesKeys = {
   breakdown: (filter: SalesBalanceFilter) =>
     ['sales', 'balance-breakdown', filter] as const,
   paymentConnection: () => ['sales', 'payment-connection'] as const,
+}
+
+export function invalidateSalesLists(
+  queryClient: { invalidateQueries: (opts: { queryKey: readonly unknown[] }) => unknown },
+  orderId?: string,
+) {
+  if (orderId) {
+    void queryClient.invalidateQueries({ queryKey: salesKeys.order(orderId) })
+  }
+  void queryClient.invalidateQueries({ queryKey: salesKeys.ordersRoot })
+  void queryClient.invalidateQueries({ queryKey: salesKeys.dashboard() })
 }

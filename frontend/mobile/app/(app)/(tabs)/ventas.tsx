@@ -1,4 +1,8 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQuery,
+} from '@tanstack/react-query'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
 import {
@@ -114,6 +118,7 @@ export default function SalesScreen() {
       fetchOrders({ filter, first: PAGE_SIZE, after: pageParam }),
     getNextPageParam: (lastPage) =>
       lastPage.pageInfo.hasNextPage ? lastPage.pageInfo.endCursor : undefined,
+    placeholderData: keepPreviousData,
   })
 
   const rows = useMemo(

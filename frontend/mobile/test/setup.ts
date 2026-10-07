@@ -27,6 +27,31 @@ jest.mock('expo-secure-store', () => ({
   WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'whenUnlockedThisDeviceOnly',
 }))
 
+jest.mock('@react-native-async-storage/async-storage', () => ({
+  getItem: jest.fn(async () => null),
+  setItem: jest.fn(async () => undefined),
+  removeItem: jest.fn(async () => undefined),
+}))
+
+jest.mock('expo-image', () => {
+  const { View } = require('react-native') as typeof import('react-native')
+  return { Image: View }
+})
+
+jest.mock('../lib/analytics', () => ({
+  AnalyticsEvents: new Proxy(
+    {},
+    { get: (_t, prop) => (typeof prop === 'string' ? prop : undefined) },
+  ),
+  getAnalytics: () => ({
+    track: jest.fn(),
+    screen: jest.fn(),
+    identify: jest.fn(),
+    reset: jest.fn(),
+  }),
+  markActivationFlag: jest.fn(async () => undefined),
+}))
+
 jest.mock('expo-crypto', () => {
   let counter = 0
   return {

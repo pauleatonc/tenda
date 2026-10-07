@@ -69,7 +69,7 @@ export default function MoreScreen() {
           setLoggingOut(true)
           try {
             await mobileLogout()
-            queryClient.removeQueries({ queryKey: ['mobile-viewer'] })
+            queryClient.clear()
             router.replace('/(auth)/login')
           } finally {
             setLoggingOut(false)

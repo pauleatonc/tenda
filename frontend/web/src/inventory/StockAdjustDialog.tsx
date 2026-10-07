@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { AnalyticsEvents, getAnalytics } from '../analytics'
 import { Modal } from '../components/ui'
 import { TendaApiError, newIdempotencyKey } from '../lib/http'
-import { recordStockMovement, type ProductRow } from './api'
+import { invalidateInventoryCatalog, recordStockMovement, type ProductRow } from './api'
 import { formatQuantity, movementLabels } from './format'
 
 const MOVEMENT_TYPES = ['entry', 'exit', 'shrinkage', 'correction'] as const
@@ -57,7 +57,7 @@ export function StockAdjustDialog({
   const submit = useMutation({
     mutationFn: recordStockMovement,
     onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
+      invalidateInventoryCatalog(queryClient, result.product.id)
       getAnalytics().track(AnalyticsEvents.stockAdjusted)
       onDone?.(result.product)
       onClose()

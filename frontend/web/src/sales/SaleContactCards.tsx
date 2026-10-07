@@ -106,7 +106,6 @@ export function SaleContactCards({ order }: { order: SellerOrder }) {
       setEditing(null)
       setIdempotencyKey(newIdempotencyKey())
       void queryClient.invalidateQueries({ queryKey: salesKeys.order(order.id) })
-      void queryClient.invalidateQueries({ queryKey: ['sales'] })
     },
   })
 

@@ -11,11 +11,17 @@ import { markActivationFlag } from '../analytics/activation'
 import { BankDetailsRequiredNotice } from '../app/BankDetailsRequiredNotice'
 import type { ViewerPayload } from '../auth/api'
 import { Modal, SearchField, StatusChip } from '../components/ui'
-import { fetchProducts, inventoryKeys, type ProductRow } from '../inventory/api'
+import {
+  fetchProducts,
+  invalidateInventoryCatalog,
+  inventoryKeys,
+  type ProductRow,
+} from '../inventory/api'
 import { TendaApiError, newIdempotencyKey } from '../lib/http'
 import {
   createOrder,
   fetchPaymentConnection,
+  invalidateSalesLists,
   publishOrderLink,
   salesKeys,
   sendOfferLink,
@@ -122,6 +128,7 @@ export function NewSalePage() {
 
   const paymentConnection = useQuery({
     queryKey: salesKeys.paymentConnection(),
+    staleTime: 10 * 60_000,
     queryFn: fetchPaymentConnection,
   })
 
@@ -203,8 +210,8 @@ export function NewSalePage() {
         delivery_mode: draft.deliveryMode,
         item_count: draft.lines.length,
       })
-      void queryClient.invalidateQueries({ queryKey: ['sales'] })
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
+      invalidateSalesLists(queryClient, orderId)
+      invalidateInventoryCatalog(queryClient)
       if (selectedPaymentMethod === 'cash' || !publicUrl) {
         clearSaleDraft()
         navigate(`/app/ventas/${orderId}`)

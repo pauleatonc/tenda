@@ -1,4 +1,4 @@
-import * as SecureStore from 'expo-secure-store'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
 import { newIdempotencyKey } from './graphql'
 
@@ -203,7 +203,7 @@ export function validateSaleDraftLines(lines: SaleDraftLine[]): SaleDraftValidat
 }
 
 async function loadSaleDraft(): Promise<SaleDraft> {
-  const stored = await SecureStore.getItemAsync(SALE_DRAFT_STORAGE_KEY)
+  const stored = await AsyncStorage.getItem(SALE_DRAFT_STORAGE_KEY)
   if (!stored) return createEmptySaleDraft()
   try {
     const parsed: unknown = JSON.parse(stored)
@@ -214,15 +214,14 @@ async function loadSaleDraft(): Promise<SaleDraft> {
 }
 
 export async function saveSaleDraft(draft: SaleDraft): Promise<void> {
-  await SecureStore.setItemAsync(
+  await AsyncStorage.setItem(
     SALE_DRAFT_STORAGE_KEY,
     JSON.stringify({ ...draft, updatedAt: new Date().toISOString() }),
-    { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY },
   )
 }
 
 export async function clearSaleDraft(): Promise<void> {
-  await SecureStore.deleteItemAsync(SALE_DRAFT_STORAGE_KEY)
+  await AsyncStorage.removeItem(SALE_DRAFT_STORAGE_KEY)
 }
 
 function isCompletedSaleDraft(draft: SaleDraft): boolean {

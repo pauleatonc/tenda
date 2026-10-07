@@ -9,9 +9,11 @@ import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
 
 import type { ViewerPayload } from '../auth/api'
 import { EmptyState, StatusChip } from '../components/ui'
+import { invalidateInventoryCatalog } from '../inventory/api'
 import { TendaApiError, newIdempotencyKey } from '../lib/http'
 import {
   fetchReconciliationIssues,
+  invalidateSalesLists,
   retryReconciliation,
   salesKeys,
   type ReconciliationIssue,
@@ -61,8 +63,9 @@ export function ReconciliationsPage() {
     },
     onSuccess: (_result, issue) => {
       retryKeys.current.delete(issue.id)
-      void queryClient.invalidateQueries({ queryKey: ['sales'] })
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
+      invalidateSalesLists(queryClient)
+      void queryClient.invalidateQueries({ queryKey: salesKeys.reconciliationRoot })
+      invalidateInventoryCatalog(queryClient)
     },
   })
 

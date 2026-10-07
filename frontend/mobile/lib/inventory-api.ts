@@ -308,12 +308,28 @@ export async function fetchInventoryExports(): Promise<MobileExportJob[]> {
 }
 
 export const inventoryKeys = {
+  root: ['inventory'] as const,
+  schemaRoot: ['inventory', 'schema'] as const,
   schema: () => ['inventory', 'schema'] as const,
   dashboard: () => ['inventory', 'dashboard'] as const,
+  productsRoot: ['inventory', 'products'] as const,
   products: (variables: Record<string, unknown>) =>
     ['inventory', 'products', variables] as const,
   product: (id: string) => ['inventory', 'product', id] as const,
   movements: (id: string) => ['inventory', 'movements', id] as const,
   breakdown: (id: string) => ['inventory', 'breakdown', id] as const,
   jobs: () => ['inventory', 'jobs'] as const,
+}
+
+export function invalidateInventoryCatalog(
+  queryClient: { invalidateQueries: (opts: { queryKey: readonly unknown[] }) => unknown },
+  productId?: string,
+) {
+  if (productId) {
+    void queryClient.invalidateQueries({ queryKey: inventoryKeys.product(productId) })
+    void queryClient.invalidateQueries({ queryKey: inventoryKeys.movements(productId) })
+    void queryClient.invalidateQueries({ queryKey: inventoryKeys.breakdown(productId) })
+  }
+  void queryClient.invalidateQueries({ queryKey: inventoryKeys.productsRoot })
+  void queryClient.invalidateQueries({ queryKey: inventoryKeys.dashboard() })
 }

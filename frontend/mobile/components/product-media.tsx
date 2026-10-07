@@ -1,8 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native'
 
-import { getStoredToken } from '../lib/auth-api'
 import {
   attachProductMedia,
   inventoryKeys,
@@ -15,27 +14,9 @@ import {
   uploadProductImage,
   type PickedImage,
 } from '../lib/mobile-upload'
+import { AuthImage } from './auth-image'
 import { PrimaryButton, colors } from './auth-ui'
 import { SectionCard } from './inventory-ui'
-
-function AuthImage({
-  uri,
-  accessibilityLabel,
-  style,
-}: {
-  uri: string
-  accessibilityLabel: string
-  style: object
-}) {
-  const [headers, setHeaders] = useState<Record<string, string>>({})
-  useEffect(() => {
-    void getStoredToken().then((token) => {
-      if (token) setHeaders({ Authorization: `Bearer ${token}` })
-    })
-  }, [])
-  if (!headers.Authorization) return null
-  return <Image accessibilityLabel={accessibilityLabel} source={{ uri, headers }} style={style} />
-}
 
 export function MobileProductMedia({
   productId,
@@ -120,11 +101,7 @@ export function MobileProductMedia({
             .sort((left, right) => Number(right.isPrimary) - Number(left.isPrimary))
             .map((item) => (
               <View key={item.assetId} style={styles.card}>
-                <AuthImage
-                  uri={item.url}
-                  accessibilityLabel={item.originalName}
-                  style={styles.image}
-                />
+                <AuthImage uri={item.url} style={styles.image} />
                 <Text style={styles.name}>
                   {item.isPrimary ? 'Foto principal' : item.originalName}
                 </Text>

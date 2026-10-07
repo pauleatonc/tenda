@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { Tabs } from 'expo-router'
-import { useEffect, useState } from 'react'
-import { Image, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
 
+import { AuthImage } from '../../../components/auth-image'
 import { colors } from '../../../components/auth-ui'
-import { getMobileViewer, getStoredToken } from '../../../lib/auth-api'
+import { getMobileViewer } from '../../../lib/auth-api'
 
 const icons: Record<string, string> = {
   index: '⌂',
@@ -19,22 +19,21 @@ function StoreTitle() {
     queryKey: ['mobile-viewer'],
     queryFn: getMobileViewer,
     retry: false,
+    staleTime: 10 * 60_000,
   })
-  const [headers, setHeaders] = useState<Record<string, string>>({})
-  useEffect(() => {
-    void getStoredToken().then((token) => {
-      if (token) setHeaders({ Authorization: `Bearer ${token}` })
-    })
-  }, [])
   const name = viewer.data?.organisation.name ?? 'Tienda'
   const logoUrl = viewer.data?.organisation.logoUrl
-  const showLogo = Boolean(logoUrl && headers.Authorization)
   return (
     <View style={{ alignItems: 'center', flexDirection: 'row', gap: 8, maxWidth: 240 }}>
-      {showLogo ? (
-        <Image
-          source={{ uri: logoUrl as string, headers }}
+      {logoUrl ? (
+        <AuthImage
+          uri={logoUrl}
           style={{ borderRadius: 8, height: 28, width: 28 }}
+          placeholder={
+            <Text style={{ color: colors.green, fontWeight: '800' }}>
+              {name.slice(0, 1).toUpperCase()}
+            </Text>
+          }
         />
       ) : (
         <View

@@ -10,9 +10,10 @@ import {
 } from '@tenda/api-client'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 
 import { AppScreen } from '../../../components/app-ui'
+import { AuthImage } from '../../../components/auth-image'
 import { FormField, PrimaryButton, StatusMessage, colors } from '../../../components/auth-ui'
 import { OptionRow, Sheet } from '../../../components/inventory-ui'
 import { AnalyticsEvents, getAnalytics, markActivationFlag } from '../../../lib/analytics'
@@ -53,17 +54,6 @@ function toDraft(
     taxId: account?.bankHolderTaxId ?? '',
     email: account?.bankConfirmationEmail || fallbackEmail,
   }
-}
-
-function AuthImage({ uri, style }: { uri: string | null; style: object }) {
-  const [headers, setHeaders] = useState<Record<string, string>>({})
-  useEffect(() => {
-    void getStoredToken().then((token) => {
-      if (token) setHeaders({ Authorization: `Bearer ${token}` })
-    })
-  }, [])
-  if (!uri || !headers.Authorization) return null
-  return <Image source={{ uri, headers }} style={style} />
 }
 
 export default function ProfileScreen() {

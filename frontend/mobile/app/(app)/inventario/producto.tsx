@@ -29,6 +29,7 @@ import {
   fetchInventorySchema,
   fetchProductDetail,
   fetchProducts,
+  invalidateInventoryCatalog,
   inventoryKeys,
   suggestProductsFromImage,
   updateProduct,
@@ -260,7 +261,7 @@ export default function ProductFormScreen() {
       return created.product
     },
     onSuccess: (saved) => {
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
+      invalidateInventoryCatalog(queryClient, saved.id)
       setDirty(false)
       if (!isEdit) {
         getAnalytics().track(AnalyticsEvents.productCreated, { mode: 'manual' })

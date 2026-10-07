@@ -9,6 +9,7 @@ import {
   fetchInventorySchema,
   fetchProductDetail,
   fetchProductMovements,
+  invalidateInventoryCatalog,
   inventoryKeys,
   restoreProduct,
 } from './api'
@@ -50,7 +51,7 @@ export function ProductDetailPage() {
   })
 
   function refreshInventory() {
-    void queryClient.invalidateQueries({ queryKey: ['inventory'] })
+    invalidateInventoryCatalog(queryClient, productId)
   }
 
   const archive = useMutation({

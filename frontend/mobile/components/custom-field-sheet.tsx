@@ -6,7 +6,11 @@ import { PrimaryButton, StatusMessage, colors } from './auth-ui'
 import { OptionRow, Sheet, SheetField } from './inventory-ui'
 import { MobileApiError } from '../lib/auth-api'
 import { fieldTypeLabels } from '../lib/format'
-import { createCustomField, type CustomField } from '../lib/inventory-api'
+import {
+  createCustomField,
+  inventoryKeys,
+  type CustomField,
+} from '../lib/inventory-api'
 
 const FIELD_TYPES = ['short_text', 'decimal', 'date', 'boolean', 'single_select'] as const
 type FieldType = (typeof FIELD_TYPES)[number]
@@ -85,7 +89,7 @@ export function CustomFieldSheet({
   const create = useMutation({
     mutationFn: createCustomField,
     onSuccess: (field) => {
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
+      void queryClient.invalidateQueries({ queryKey: inventoryKeys.schemaRoot })
       setLabel('')
       setHelpText('')
       setOptionsText('')

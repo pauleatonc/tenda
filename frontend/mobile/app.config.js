@@ -14,6 +14,7 @@ module.exports = {
   plugins: [
     'expo-router',
     'expo-secure-store',
+    'expo-image',
     '@react-native-firebase/app',
     '@react-native-firebase/analytics',
   ],

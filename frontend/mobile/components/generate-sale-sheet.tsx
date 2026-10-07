@@ -15,10 +15,14 @@ import { getMobileViewer, MobileApiError } from '../lib/auth-api'
 import { canGenerateSale } from '../lib/can-generate-sale'
 import { formatPrice, formatQuantity } from '../lib/format'
 import { newIdempotencyKey } from '../lib/graphql'
-import type { ProductCard } from '../lib/inventory-api'
+import {
+  invalidateInventoryCatalog,
+  type ProductCard,
+} from '../lib/inventory-api'
 import {
   createOrder,
   fetchSellerPaymentConnection,
+  invalidateSalesLists,
   publishOrderLink,
   salesKeys,
   sendOfferLink,
@@ -163,8 +167,8 @@ export function GenerateSaleSheet({
         source: 'inventory',
       })
       void markActivationFlag('salePublished')
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
-      void queryClient.invalidateQueries({ queryKey: ['sales'] })
+      invalidateInventoryCatalog(queryClient, product.id)
+      invalidateSalesLists(queryClient, published.orderId)
     },
     onError: (mutationError: unknown) => {
       setError(
@@ -198,8 +202,8 @@ export function GenerateSaleSheet({
         delivery_mode: deliveryMode,
         item_count: 1,
       })
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] })
-      void queryClient.invalidateQueries({ queryKey: ['sales'] })
+      invalidateInventoryCatalog(queryClient, product.id)
+      invalidateSalesLists(queryClient, orderId)
       onClose()
       router.push(`/ventas/${orderId}`)
     },

@@ -379,15 +379,30 @@ export async function uploadPublicPaymentProof(
 }
 
 export const salesKeys = {
+  root: ['sales'] as const,
   dashboard: () => ['sales', 'dashboard'] as const,
+  ordersRoot: ['sales', 'orders'] as const,
   orders: (variables: Record<string, unknown>) => ['sales', 'orders', variables] as const,
   order: (id: string) => ['sales', 'order', id] as const,
   balance: (filter: Record<string, unknown>) => ['sales', 'balance', filter] as const,
   balanceBreakdown: (variables: Record<string, unknown>) =>
     ['sales', 'balance-breakdown', variables] as const,
+  reconciliationRoot: ['sales', 'reconciliation'] as const,
   reconciliation: (variables: Record<string, unknown>) =>
     ['sales', 'reconciliation', variables] as const,
   paymentConnection: () => ['sales', 'payment-connection'] as const,
   publicOrder: (token: string) => ['public-order', token] as const,
   publicStatus: (token: string) => ['public-order', token, 'status'] as const,
+}
+
+/** Order create / payment / cancel flows that affect lists and dashboards. */
+export function invalidateSalesLists(
+  queryClient: { invalidateQueries: (opts: { queryKey: readonly unknown[] }) => unknown },
+  orderId?: string,
+) {
+  if (orderId) {
+    void queryClient.invalidateQueries({ queryKey: salesKeys.order(orderId) })
+  }
+  void queryClient.invalidateQueries({ queryKey: salesKeys.ordersRoot })
+  void queryClient.invalidateQueries({ queryKey: salesKeys.dashboard() })
 }

@@ -41,6 +41,7 @@ export function PaymentsSettingsPage() {
     queryKey: salesKeys.paymentConnection(),
     queryFn: fetchPaymentConnection,
     enabled: canManage,
+    staleTime: 10 * 60_000,
   })
 
   const connect = useMutation({

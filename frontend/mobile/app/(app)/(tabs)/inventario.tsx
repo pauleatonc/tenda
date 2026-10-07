@@ -1,4 +1,8 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useQuery,
+} from '@tanstack/react-query'
 import { Link, router } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
 import {
@@ -319,6 +323,7 @@ export default function InventoryScreen() {
 
   const schema = useQuery({
     queryKey: inventoryKeys.schema(),
+    staleTime: 10 * 60_000,
     queryFn: () => fetchInventorySchema(false),
   })
 
@@ -337,6 +342,7 @@ export default function InventoryScreen() {
       fetchProducts({ filter, sort, first: PAGE_SIZE, after: pageParam }),
     getNextPageParam: (lastPage) =>
       lastPage.hasNextPage ? lastPage.endCursor : undefined,
+    placeholderData: keepPreviousData,
   })
 
   const rows = useMemo(
