@@ -19,7 +19,7 @@
     "typecheck": "pnpm --filter @tenda/api-client --filter @tenda/analytics build && pnpm -r --if-present typecheck && uv --directory backend run mypy .",
     "test": "pnpm run test:frontend && uv run --project backend pytest -c backend/pyproject.toml backend",
     "test:frontend": "pnpm --filter @tenda/web --filter @tenda/mobile test",
-    "test:e2e": "pnpm --filter @tenda/e2e-web test",
+    "test:e2e": "pnpm --filter @tenda/api-client --filter @tenda/analytics build && pnpm --filter @tenda/e2e-web test",
     "build": "pnpm -r --if-present build",
     "schema:export": "uv run --project backend python backend/manage.py export_graphql_schema --output packages/api-client/schema.graphql && prettier --write packages/api-client/schema.graphql",
     "codegen": "pnpm schema:export && pnpm --filter @tenda/api-client codegen",

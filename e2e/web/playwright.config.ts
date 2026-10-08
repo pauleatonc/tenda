@@ -61,10 +61,10 @@ export default defineConfig({
       }),
     },
     {
-      command: `node_modules/.bin/vite --host ${web.hostname} --port ${webPort}`,
+      command: `pnpm --dir "${root}" --filter @tenda/api-client --filter @tenda/analytics build && node_modules/.bin/vite --host ${web.hostname} --port ${webPort}`,
       url: webOrigin,
       reuseExistingServer: !ci,
-      timeout: 120_000,
+      timeout: 180_000,
       cwd: resolve(root, 'frontend/web'),
       env: webServerEnv({ VITE_API_URL: apiOrigin }),
     },
