@@ -705,12 +705,15 @@ class PublicOrderType(graphene.ObjectType):  # type: ignore[misc]
     def resolve_seller(root: Order, _info: GraphQLResolveInfo) -> dict[str, str | None]:
         logo_id = root.organisation.logo_asset_id
         logo_url = None
-        if logo_id is not None and MediaAsset.objects.filter(
-            public_id=logo_id,
-            organisation_id=root.organisation_id,
-            purpose=MediaAsset.Purpose.ORGANISATION_LOGO,
-            status=MediaAsset.Status.READY,
-        ).exists():
+        if (
+            logo_id is not None
+            and MediaAsset.objects.filter(
+                public_id=logo_id,
+                organisation_id=root.organisation_id,
+                purpose=MediaAsset.Purpose.ORGANISATION_LOGO,
+                status=MediaAsset.Status.READY,
+            ).exists()
+        ):
             logo_url = public_order_media_url(root, logo_id, variant="thumbnail")
         return {
             "name": root.organisation.name,
@@ -1171,9 +1174,7 @@ class CreateOrder(graphene.Mutation):  # type: ignore[misc]
                 lines=input.get("lines") or [],
                 delivery_mode=str(input.get("delivery_mode", "")),
                 payment_method=str(input.get("payment_method", "")),
-                bank_account_id=(
-                    str(input.get("bank_account_id") or "") or None
-                ),
+                bank_account_id=(str(input.get("bank_account_id") or "") or None),
                 idempotency_key=idempotency_key,
                 correlation_id=_correlation_id(info),
             )

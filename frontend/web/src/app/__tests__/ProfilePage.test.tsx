@@ -104,8 +104,12 @@ describe('ProfilePage', () => {
     expect(screen.getByDisplayValue('Taller Ana')).toBeInTheDocument()
     expect(screen.getByText('titular')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Guardar tienda' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Datos para depósitos' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Guardar datos bancarios' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Datos para depósitos' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Guardar datos bancarios' }),
+    ).toBeInTheDocument()
     expect(
       screen.getByRole('heading', { name: 'Pago con Mercado Pago' }),
     ).toBeInTheDocument()
@@ -125,7 +129,9 @@ describe('ProfilePage', () => {
 
   it('oculta la edición de tienda si no hay permiso', () => {
     renderPage(viewer(false))
-    expect(screen.queryByRole('button', { name: 'Guardar tienda' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Guardar tienda' }),
+    ).not.toBeInTheDocument()
     expect(
       screen.getByText('Solo quien titula la tienda puede editar estos datos.'),
     ).toBeInTheDocument()
@@ -155,7 +161,10 @@ describe('ProfilePage', () => {
     })
     renderPage(viewer(true))
     await userEvent.selectOptions(screen.getByLabelText('Banco'), 'BancoEstado')
-    await userEvent.selectOptions(screen.getByLabelText('Tipo de cuenta'), 'cuenta_corriente')
+    await userEvent.selectOptions(
+      screen.getByLabelText('Tipo de cuenta'),
+      'cuenta_corriente',
+    )
     await userEvent.type(screen.getByLabelText('Número de cuenta'), '12345678')
     await userEvent.type(screen.getByLabelText('RUT'), '111111111')
     await userEvent.clear(screen.getByLabelText('Correo electrónico de confirmación'))

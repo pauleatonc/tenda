@@ -78,11 +78,7 @@ function isSaleDraft(value: unknown): value is SaleDraft {
   if (!isRecord(value)) return false
   const steps: SaleDraftStep[] = ['products', 'terms', 'review', 'result']
   const deliveryModes: SaleDeliveryMode[] = ['shipping', 'pickup']
-  const paymentMethods: SalePaymentMethod[] = [
-    'bank_transfer',
-    'cash',
-    'mercado_pago',
-  ]
+  const paymentMethods: SalePaymentMethod[] = ['bank_transfer', 'cash', 'mercado_pago']
   return (
     value.version === 1 &&
     typeof value.step === 'string' &&

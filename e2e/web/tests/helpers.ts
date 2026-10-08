@@ -23,13 +23,7 @@ function manage(args: string[]): void {
 
 export function prepareE2eOwner(): void {
   manage(['migrate', '--noinput'])
-  manage([
-    'prepare_e2e_journey',
-    '--email',
-    E2E_EMAIL,
-    '--password',
-    E2E_PASSWORD,
-  ])
+  manage(['prepare_e2e_journey', '--email', E2E_EMAIL, '--password', E2E_PASSWORD])
 }
 
 export async function loginAsOwner(page: Page): Promise<void> {

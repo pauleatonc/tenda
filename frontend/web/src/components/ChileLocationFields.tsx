@@ -59,7 +59,9 @@ export function ChileLocationFields({
           aria-invalid={Boolean(communeError)}
           onChange={(event) => onChange({ region, commune: event.target.value })}
         >
-          <option value="">{region ? 'Selecciona una comuna' : 'Primero elige la región'}</option>
+          <option value="">
+            {region ? 'Selecciona una comuna' : 'Primero elige la región'}
+          </option>
           {communes.map((name) => (
             <option key={name} value={name}>
               {name}

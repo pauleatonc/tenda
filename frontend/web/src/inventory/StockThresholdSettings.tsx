@@ -9,9 +9,7 @@ import {
 } from './api'
 
 function errorMessage(error: unknown): string {
-  return error instanceof TendaApiError
-    ? error.message
-    : 'No pudimos guardar el umbral.'
+  return error instanceof TendaApiError ? error.message : 'No pudimos guardar el umbral.'
 }
 
 export function InventoryThresholdSetting({ current }: { current: number }) {
@@ -115,9 +113,7 @@ export function ProductThresholdSetting({
           Guardar
         </button>
       </div>
-      <small>
-        Déjalo vacío para usar el umbral general ({effective} unidades).
-      </small>
+      <small>Déjalo vacío para usar el umbral general ({effective} unidades).</small>
       {save.error ? <span role="alert">{errorMessage(save.error)}</span> : null}
     </form>
   )

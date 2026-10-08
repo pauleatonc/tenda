@@ -84,16 +84,23 @@ describe('detalle de despacho', () => {
 
   it('registra el despacho con transportista y avisa el correo que se enviará', async () => {
     mocked.fetchShipment.mockResolvedValueOnce(shipment).mockResolvedValue(dispatched)
-    mocked.registerShipmentDispatch.mockResolvedValue({ replayed: false, shipment: dispatched })
+    mocked.registerShipmentDispatch.mockResolvedValue({
+      replayed: false,
+      shipment: dispatched,
+    })
     renderPage()
 
-    expect(await screen.findByRole('heading', { name: 'Registrar despacho' })).toBeInTheDocument()
     expect(
-      screen.getByText(/Al registrar, enviaremos un correo a/),
-    ).toHaveTextContent('camila@example.cl')
+      await screen.findByRole('heading', { name: 'Registrar despacho' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Al registrar, enviaremos un correo a/)).toHaveTextContent(
+      'camila@example.cl',
+    )
     expect(screen.queryByText('Línea de tiempo')).toBeNull()
     expect(screen.queryByText('Cadencias')).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Copiar enlace de seguimiento' })).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: 'Copiar enlace de seguimiento' }),
+    ).toBeNull()
 
     const submit = screen.getByRole('button', { name: 'Registrar despacho' })
     expect(submit).toBeDisabled()
@@ -111,7 +118,9 @@ describe('detalle de despacho', () => {
     expect(submit).toBeEnabled()
     await userEvent.click(submit)
 
-    expect(await screen.findByText('Se enviará un correo a camila@example.cl.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Se enviará un correo a camila@example.cl.'),
+    ).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Confirmar y notificar' }))
 
     await waitFor(() =>
@@ -140,10 +149,15 @@ describe('detalle de despacho', () => {
       allowedActions: { registerShipmentDispatch: false, generateShipmentLabel: true },
     }
     mocked.fetchShipment.mockResolvedValueOnce(pickup).mockResolvedValue(delivered)
-    mocked.registerShipmentDispatch.mockResolvedValue({ replayed: false, shipment: delivered })
+    mocked.registerShipmentDispatch.mockResolvedValue({
+      replayed: false,
+      shipment: delivered,
+    })
     renderPage()
 
-    expect(await screen.findByRole('heading', { name: 'Registrar entrega' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: 'Registrar entrega' }),
+    ).toBeInTheDocument()
     expect(screen.queryByLabelText('Transportista')).toBeNull()
     expect(screen.getByText('El comprador no dejó correo.')).toBeInTheDocument()
 

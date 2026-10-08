@@ -156,9 +156,7 @@ export function ChoosePlanPage() {
             <div className="form-message form-message--error" role="alert">
               <strong>No pudimos guardar el plan</strong>
               <span>
-                {error instanceof TendaApiError
-                  ? error.message
-                  : 'Inténtalo nuevamente.'}
+                {error instanceof TendaApiError ? error.message : 'Inténtalo nuevamente.'}
               </span>
             </div>
           ) : null}

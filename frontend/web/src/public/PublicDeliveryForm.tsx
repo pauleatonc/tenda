@@ -16,13 +16,7 @@ import {
   type DeliveryErrors,
 } from './publicDelivery'
 
-function DeliverySummary({
-  order,
-  onEdit,
-}: {
-  order: PublicOrder
-  onEdit?: () => void
-}) {
+function DeliverySummary({ order, onEdit }: { order: PublicOrder; onEdit?: () => void }) {
   const buyer = order.buyer
   if (!buyer) return null
   return (
@@ -62,7 +56,11 @@ function DeliverySummary({
         ) : null}
       </dl>
       {onEdit ? (
-        <button className="button button--secondary button--wide" type="button" onClick={onEdit}>
+        <button
+          className="button button--secondary button--wide"
+          type="button"
+          onClick={onEdit}
+        >
           Corregir datos
         </button>
       ) : null}
@@ -82,7 +80,9 @@ export function PublicDeliveryForm({
   const queryClient = useQueryClient()
   const complete = hasRequiredDelivery(order.buyer)
   const [editing, setEditing] = useState(!complete)
-  const [draft, setDraft] = useState<DeliveryDraft>(() => deliveryDraftFromBuyer(order.buyer))
+  const [draft, setDraft] = useState<DeliveryDraft>(() =>
+    deliveryDraftFromBuyer(order.buyer),
+  )
   const [errors, setErrors] = useState<DeliveryErrors>({})
   const [idempotencyKey, setIdempotencyKey] = useState(newIdempotencyKey)
 
@@ -132,7 +132,9 @@ export function PublicDeliveryForm({
     <section className="public-delivery-panel">
       <header>
         <h2>Datos de despacho</h2>
-        <p>Obligatorios para coordinar el envío. El comprobante se habilita al guardarlos.</p>
+        <p>
+          Obligatorios para coordinar el envío. El comprobante se habilita al guardarlos.
+        </p>
       </header>
       {save.isError ? (
         <div className="form-message form-message--error" role="alert">
@@ -166,7 +168,9 @@ export function PublicDeliveryForm({
             inputMode="text"
             value={draft.recipientTaxId}
             aria-invalid={Boolean(errors.recipientTaxId)}
-            onChange={(event) => update('recipientTaxId', formatDeliveryRut(event.target.value))}
+            onChange={(event) =>
+              update('recipientTaxId', formatDeliveryRut(event.target.value))
+            }
           />
           {errors.recipientTaxId ? (
             <small className="field__error">{errors.recipientTaxId}</small>

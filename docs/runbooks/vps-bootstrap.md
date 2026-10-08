@@ -5,9 +5,9 @@ IP: los secrets viven en el Environment `production` de GitHub.
 
 ## Qué queda expuesto a Internet
 
-| Puerto | Quién | Notas |
-| ------ | ----- | ----- |
-| `22/tcp` | Operador | Idealmente restringido a tu IP (`OPERATOR_SSH_CIDR`) |
+| Puerto   | Quién              | Notas                                                           |
+| -------- | ------------------ | --------------------------------------------------------------- |
+| `22/tcp` | Operador           | Idealmente restringido a tu IP (`OPERATOR_SSH_CIDR`)            |
 | `80/tcp` | Cloudflare → nginx | TLS termina en Cloudflare (SSL Full). No abrir `443` en origen. |
 
 Postgres (`5432`), Redis (`6379`), backend (`8000`) y Celery **no** publican
@@ -41,16 +41,16 @@ Luego:
 3. Crear `data/web-dist` (el script ya lo hace) y `secrets/backup-age.key` si aplica.
 4. En GitHub → Settings → Environments → **production**:
 
-   | Tipo | Nombre | Valor |
-   | ---- | ------ | ----- |
-   | secret | `DEPLOY_SSH_PRIVATE_KEY` | clave ed25519 del deploy |
-   | secret | `DEPLOY_KNOWN_HOSTS` | salida de `ssh-keyscan` |
-   | secret | `DEPLOY_HOST` | IP o hostname del VPS |
-   | secret | `DEPLOY_USER` | `deploy` |
-   | secret | `DEPLOY_PATH` | `/opt/tenda/app` |
-   | var | `TENDA_READY_URL` | `https://tenda-app.com/health/ready/` |
-   | var (repo) | `VITE_TURNSTILE_SITE_KEY` | site key pública |
-   | var (repo) | `VITE_GA_MEASUREMENT_ID` | opcional |
+   | Tipo       | Nombre                    | Valor                                 |
+   | ---------- | ------------------------- | ------------------------------------- |
+   | secret     | `DEPLOY_SSH_PRIVATE_KEY`  | clave ed25519 del deploy              |
+   | secret     | `DEPLOY_KNOWN_HOSTS`      | salida de `ssh-keyscan`               |
+   | secret     | `DEPLOY_HOST`             | IP o hostname del VPS                 |
+   | secret     | `DEPLOY_USER`             | `deploy`                              |
+   | secret     | `DEPLOY_PATH`             | `/opt/tenda/app`                      |
+   | var        | `TENDA_READY_URL`         | `https://tenda-app.com/health/ready/` |
+   | var (repo) | `VITE_TURNSTILE_SITE_KEY` | site key pública                      |
+   | var (repo) | `VITE_GA_MEASUREMENT_ID`  | opcional                              |
 
 5. DNS: A/AAAA `tenda-app.com` (y opcional `www`) → IP del VPS; proxy Cloudflare
    ON; modo SSL **Full**. Redirect `www` → apex en Cloudflare si aplica.
@@ -75,14 +75,14 @@ Admin Django: `DJANGO_ADMIN_ALLOWED_NETWORKS` solo WireGuard/IP admin, nunca
 
 Límites en `infra/compose.prod.yaml` (~3.2G de stack + ~2–2.5G SO/cache):
 
-| Servicio | Límite |
-| -------- | ------ |
-| postgres | 1536M (`shared_buffers=256MB`) |
-| redis | 128M (`--maxmemory 128mb`) |
-| backend | 512M |
-| celery_worker | 768M |
-| celery_beat | 256M |
-| nginx | 64M |
+| Servicio      | Límite                         |
+| ------------- | ------------------------------ |
+| postgres      | 1536M (`shared_buffers=256MB`) |
+| redis         | 128M (`--maxmemory 128mb`)     |
+| backend       | 512M                           |
+| celery_worker | 768M                           |
+| celery_beat   | 256M                           |
+| nginx         | 64M                            |
 
 Al subir a 16 GB: postgres → 2G, backend → 768M, celery_worker → 1G.
 

@@ -14,9 +14,9 @@ describe('productDraftEquals', () => {
   })
 
   it('detecta un atributo distinto', () => {
-    expect(
-      productDraftEquals(base, { ...base, extraAttributes: { talla: 'L' } }),
-    ).toBe(false)
+    expect(productDraftEquals(base, { ...base, extraAttributes: { talla: 'L' } })).toBe(
+      false,
+    )
   })
 })
 

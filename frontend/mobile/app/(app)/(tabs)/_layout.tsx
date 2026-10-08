@@ -51,7 +51,10 @@ function StoreTitle() {
           </Text>
         </View>
       )}
-      <Text numberOfLines={1} style={{ color: colors.ink, fontSize: 16, fontWeight: '800' }}>
+      <Text
+        numberOfLines={1}
+        style={{ color: colors.ink, fontSize: 16, fontWeight: '800' }}
+      >
         {name}
       </Text>
     </View>

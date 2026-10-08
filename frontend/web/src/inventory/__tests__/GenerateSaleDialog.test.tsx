@@ -51,11 +51,7 @@ function renderDialog() {
           <Route
             path="/"
             element={
-              <GenerateSaleDialog
-                product={product}
-                hasBankDetails
-                onClose={vi.fn()}
-              />
+              <GenerateSaleDialog product={product} hasBankDetails onClose={vi.fn()} />
             }
           />
           <Route path="/app/ventas/:id" element={<p>Ficha de venta</p>} />
@@ -122,12 +118,17 @@ describe('GenerateSaleDialog', () => {
     expect(mocked.publishOrderLink).toHaveBeenCalledWith(
       expect.objectContaining({ orderId: 'order-1' }),
     )
-    expect(await screen.findByDisplayValue('https://shop.test/p/token')).toBeInTheDocument()
+    expect(
+      await screen.findByDisplayValue('https://shop.test/p/token'),
+    ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Ver venta' })).toHaveAttribute(
       'href',
       'https://shop.test/p/token',
     )
-    expect(screen.getByRole('link', { name: 'Ver venta' })).toHaveAttribute('target', '_blank')
+    expect(screen.getByRole('link', { name: 'Ver venta' })).toHaveAttribute(
+      'target',
+      '_blank',
+    )
   })
 
   it('habilita Pago Online con Mercado Pago conectado y publica un enlace', async () => {

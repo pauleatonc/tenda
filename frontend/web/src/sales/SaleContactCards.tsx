@@ -148,7 +148,10 @@ export function SaleContactCards({ order }: { order: SellerOrder }) {
                 id="sale-buyer-name"
                 value={buyerDraft.fullName}
                 onChange={(event) =>
-                  setBuyerDraft((current) => ({ ...current, fullName: event.target.value }))
+                  setBuyerDraft((current) => ({
+                    ...current,
+                    fullName: event.target.value,
+                  }))
                 }
               />
             </div>
@@ -268,7 +271,10 @@ export function SaleContactCards({ order }: { order: SellerOrder }) {
                 type="tel"
                 value={deliveryDraft.phone}
                 onChange={(event) =>
-                  setDeliveryDraft((current) => ({ ...current, phone: event.target.value }))
+                  setDeliveryDraft((current) => ({
+                    ...current,
+                    phone: event.target.value,
+                  }))
                 }
               />
             </div>
@@ -385,10 +391,20 @@ function ContactEditForm({
       ) : null}
       {children}
       <div className="detail-card__form-actions">
-        <button className="button button--secondary" type="button" disabled={pending} onClick={onCancel}>
+        <button
+          className="button button--secondary"
+          type="button"
+          disabled={pending}
+          onClick={onCancel}
+        >
           Cancelar
         </button>
-        <button className="button button--primary" type="button" disabled={pending} onClick={onSave}>
+        <button
+          className="button button--primary"
+          type="button"
+          disabled={pending}
+          onClick={onSave}
+        >
           {pending ? 'Guardando…' : 'Guardar'}
         </button>
       </div>

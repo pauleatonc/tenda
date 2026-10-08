@@ -63,5 +63,7 @@ export function TurnstileField({ onToken }: { onToken: (token: string) => void }
   }, [onToken, siteKey])
 
   if (!siteKey) return null
-  return <div className="turnstile-slot" ref={container} aria-label="Validación anti-bot" />
+  return (
+    <div className="turnstile-slot" ref={container} aria-label="Validación anti-bot" />
+  )
 }

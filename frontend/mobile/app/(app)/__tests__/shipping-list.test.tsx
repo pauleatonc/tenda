@@ -64,7 +64,10 @@ describe('Listado de despachos mobile', () => {
           carrier: 'Chilexpress',
           trackingCode: 'CX-99',
           trackingUrl: '',
-          allowedActions: { registerShipmentDispatch: false, generateShipmentLabel: true },
+          allowedActions: {
+            registerShipmentDispatch: false,
+            generateShipmentLabel: true,
+          },
           dispatchedAt: '2026-08-27T10:00:00Z',
           deliveredAt: null,
           createdAt: '2026-08-26T12:00:00Z',

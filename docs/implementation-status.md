@@ -796,7 +796,7 @@ público, tickets, cadencias y devoluciones) se retiró. Lo que sigue vigente:
   `dispatched` y `delivered`. Conserva el snapshot de destino y la etiqueta
   interna PDF (`LabelDocument`, `generateShipmentLabel`, «Ver etiqueta»).
 - Una sola mutation idempotente, `registerShipmentDispatch(shipmentId, input,
-  idempotencyKey)`. Con modalidad `shipping` exige transportista (tracking y
+idempotencyKey)`. Con modalidad `shipping` exige transportista (tracking y
   URL opcionales) y deja el envío en `dispatched`; con `pickup` o
   `coordinated` no pide transportista y lo deja en `delivered`. Un envío ya
   registrado responde `SHIPMENT_ALREADY_REGISTERED`; un pedido impago,

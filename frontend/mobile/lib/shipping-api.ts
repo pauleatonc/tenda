@@ -16,7 +16,11 @@ import {
 
 import { graphqlRequest } from './graphql'
 
-export type { GenerateShipmentLabelRequest, RegisterShipmentDispatchRequest, ShipmentFilter }
+export type {
+  GenerateShipmentLabelRequest,
+  RegisterShipmentDispatchRequest,
+  ShipmentFilter,
+}
 
 export async function fetchShippingDashboard() {
   const data = await graphqlRequest(ShippingDashboardDocument, {})

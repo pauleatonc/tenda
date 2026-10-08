@@ -12,7 +12,8 @@ export { AnalyticsEvents }
 export type { AnalyticsClient, AnalyticsConsent }
 
 const CONSENT_KEY = 'tenda.analytics.consent'
-const MEASUREMENT_ID = (import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined)?.trim() ?? ''
+const MEASUREMENT_ID =
+  (import.meta.env.VITE_GA_MEASUREMENT_ID as string | undefined)?.trim() ?? ''
 
 let client: AnalyticsClient | null = null
 

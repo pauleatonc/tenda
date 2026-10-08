@@ -103,7 +103,9 @@ describe('ficha pública de depósito', () => {
   it('muestra galería, atributos y carga de comprobante', async () => {
     renderPage()
 
-    expect(await screen.findByRole('heading', { name: 'Vela de soya' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: 'Vela de soya' }),
+    ).toBeInTheDocument()
     expect(screen.getByText('Taller Norte')).toBeInTheDocument()
     expect(document.querySelector('.public-store img')).toHaveAttribute(
       'src',
@@ -172,7 +174,9 @@ describe('ficha pública de depósito', () => {
       'Región Metropolitana de Santiago',
     )
     await userEvent.selectOptions(screen.getByLabelText('Comuna'), 'Ñuñoa')
-    await userEvent.click(screen.getByRole('button', { name: 'Guardar datos de despacho' }))
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Guardar datos de despacho' }),
+    )
 
     await waitFor(() => expect(mocked.setBuyerDetails).toHaveBeenCalledTimes(1))
     expect(
@@ -189,9 +193,13 @@ describe('ficha pública de depósito', () => {
     })
     renderPage()
 
-    expect(await screen.findByRole('heading', { name: 'Vela de soya' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: 'Vela de soya' }),
+    ).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Pago confirmado' })).toBeInTheDocument()
-    expect(screen.getByText('El vendedor confirmó el pago de este producto.')).toBeInTheDocument()
+    expect(
+      screen.getByText('El vendedor confirmó el pago de este producto.'),
+    ).toBeInTheDocument()
     expect(screen.queryByText('Plazo para pagar')).toBeNull()
     expect(screen.queryByRole('link', { name: 'Ver estado de la compra' })).toBeNull()
     expect(

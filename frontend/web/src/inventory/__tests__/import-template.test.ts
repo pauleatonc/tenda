@@ -9,17 +9,19 @@ import {
 describe('planilla de importación', () => {
   it('mapea los encabezados canónicos y las columnas propias', () => {
     const columns = importColumnsForFields([{ key: 'aroma', label: 'Aroma' }])
-    expect(mappingFromImportHeaders(
-      [
-        'Nombre',
-        'Cantidad inicial',
-        'Estado de catálogo',
-        'Precio de compra',
-        'Precio de venta',
-        'Aroma',
-      ],
-      columns,
-    )).toEqual({
+    expect(
+      mappingFromImportHeaders(
+        [
+          'Nombre',
+          'Cantidad inicial',
+          'Estado de catálogo',
+          'Precio de compra',
+          'Precio de venta',
+          'Aroma',
+        ],
+        columns,
+      ),
+    ).toEqual({
       name: 'Nombre',
       initialQuantity: 'Cantidad inicial',
       catalogStatus: 'Estado de catálogo',

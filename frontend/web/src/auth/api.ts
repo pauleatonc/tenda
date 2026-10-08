@@ -71,7 +71,11 @@ export function registerAccount(input: {
   )
 }
 
-export function login(input: { email: string; password: string; turnstileToken: string }) {
+export function login(input: {
+  email: string
+  password: string
+  turnstileToken: string
+}) {
   return request<ViewerPayload>('/api/v1/auth/login', {
     method: 'POST',
     body: JSON.stringify(input),

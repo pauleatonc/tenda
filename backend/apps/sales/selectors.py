@@ -398,9 +398,10 @@ def seller_allowed_actions(order: Order) -> tuple[str, ...]:
             _shipment_has_label(shipment) or _shipment_can_generate_label(shipment)
         ):
             actions.append("viewShipmentLabel")
-    if order.status == Order.Status.CANCELLED and order.timeline.filter(
-        event_type="order.cancelled"
-    ).exists():
+    if (
+        order.status == Order.Status.CANCELLED
+        and order.timeline.filter(event_type="order.cancelled").exists()
+    ):
         actions.append("restoreOrder")
     return tuple(actions)
 

@@ -1,8 +1,5 @@
 export { AnalyticsEvents, type AnalyticsEventName } from './events.js'
-export {
-  createAnalytics,
-  createNoopAnalytics,
-} from './createAnalytics.js'
+export { createAnalytics, createNoopAnalytics } from './createAnalytics.js'
 export {
   createGtagAdapter,
   initGtag,

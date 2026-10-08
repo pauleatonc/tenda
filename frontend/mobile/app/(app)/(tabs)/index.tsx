@@ -104,7 +104,8 @@ function InventorySummary() {
               <Text style={styles.movementName}>{movement.productName}</Text>
               <Text style={styles.muted}>
                 {movementLabels[movement.movementType] ?? movement.movementType} ·{' '}
-                {formatSignedQuantity(movement.quantity)} · {formatDate(movement.createdAt)}
+                {formatSignedQuantity(movement.quantity)} ·{' '}
+                {formatDate(movement.createdAt)}
               </Text>
             </Link>
           ))}

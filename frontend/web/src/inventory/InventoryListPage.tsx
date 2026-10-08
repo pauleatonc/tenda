@@ -308,199 +308,199 @@ export function InventoryListPage() {
   return (
     <div className="inventory-page">
       <div className="inventory-page__chrome">
-      <header className="page-heading page-heading--split">
-        <div>
-          <p className="eyebrow">{viewer.inventory.name}</p>
-          <h1>Inventario</h1>
-          <p>
-            {products.isPending
-              ? 'Cargando productos…'
-              : `${formatQuantity(products.data?.totalCount ?? 0)} productos en catálogo`}
-          </p>
-        </div>
-        <div className="page-heading__actions">
-          <Link className="button button--primary" to="/app/inventario/nuevo">
-            Agregar producto
-          </Link>
-          <Link className="button button--secondary" to="/app/inventario/importar">
-            Importar
-          </Link>
-          <Link
-            className="button button--secondary"
-            to={`/app/inventario/exportaciones?${params.toString()}`}
-          >
-            Exportar
-          </Link>
-        </div>
-      </header>
+        <header className="page-heading page-heading--split">
+          <div>
+            <p className="eyebrow">{viewer.inventory.name}</p>
+            <h1>Inventario</h1>
+            <p>
+              {products.isPending
+                ? 'Cargando productos…'
+                : `${formatQuantity(products.data?.totalCount ?? 0)} productos en catálogo`}
+            </p>
+          </div>
+          <div className="page-heading__actions">
+            <Link className="button button--primary" to="/app/inventario/nuevo">
+              Agregar producto
+            </Link>
+            <Link className="button button--secondary" to="/app/inventario/importar">
+              Importar
+            </Link>
+            <Link
+              className="button button--secondary"
+              to={`/app/inventario/exportaciones?${params.toString()}`}
+            >
+              Exportar
+            </Link>
+          </div>
+        </header>
 
-      <section className="inventory-toolbar" aria-label="Búsqueda y filtros">
-        <details className="inventory-settings">
-          <summary>Configuración del inventario</summary>
-          <div className="inventory-settings__panel">
-            {schema.data ? (
-              <section aria-labelledby="inventory-alerts-heading">
-                <h2 id="inventory-alerts-heading">Alertas de stock</h2>
-                <InventoryThresholdSetting current={schema.data.lowStockThreshold} />
-              </section>
-            ) : null}
-
-            <section aria-labelledby="inventory-columns-heading">
-              <h2 id="inventory-columns-heading">Columnas</h2>
-              <div className="inventory-settings__columns">
-                {table.getAllLeafColumns().map((column) => (
-                  <label key={column.id}>
-                    <input
-                      type="checkbox"
-                      checked={column.getIsVisible()}
-                      disabled={!column.getCanHide()}
-                      onChange={column.getToggleVisibilityHandler()}
-                    />
-                    {typeof column.columnDef.header === 'string'
-                      ? column.columnDef.header
-                      : column.id}
-                  </label>
-                ))}
-              </div>
-              {canManageSchema ? (
-                <button
-                  className="button button--secondary button--compact"
-                  type="button"
-                  onClick={() => setShowColumnDialog(true)}
-                >
-                  Agregar columna
-                </button>
+        <section className="inventory-toolbar" aria-label="Búsqueda y filtros">
+          <details className="inventory-settings">
+            <summary>Configuración del inventario</summary>
+            <div className="inventory-settings__panel">
+              {schema.data ? (
+                <section aria-labelledby="inventory-alerts-heading">
+                  <h2 id="inventory-alerts-heading">Alertas de stock</h2>
+                  <InventoryThresholdSetting current={schema.data.lowStockThreshold} />
+                </section>
               ) : null}
-            </section>
-          </div>
-        </details>
 
-        <SearchField
-          value={search}
-          label="Buscar productos"
-          placeholder="Buscar producto por nombre…"
-          onChange={(value) =>
-            updateParams((next) => {
-              if (value) next.set('q', value)
-              else next.delete('q')
-            })
-          }
-        />
+              <section aria-labelledby="inventory-columns-heading">
+                <h2 id="inventory-columns-heading">Columnas</h2>
+                <div className="inventory-settings__columns">
+                  {table.getAllLeafColumns().map((column) => (
+                    <label key={column.id}>
+                      <input
+                        type="checkbox"
+                        checked={column.getIsVisible()}
+                        disabled={!column.getCanHide()}
+                        onChange={column.getToggleVisibilityHandler()}
+                      />
+                      {typeof column.columnDef.header === 'string'
+                        ? column.columnDef.header
+                        : column.id}
+                    </label>
+                  ))}
+                </div>
+                {canManageSchema ? (
+                  <button
+                    className="button button--secondary button--compact"
+                    type="button"
+                    onClick={() => setShowColumnDialog(true)}
+                  >
+                    Agregar columna
+                  </button>
+                ) : null}
+              </section>
+            </div>
+          </details>
 
-        <div className="inventory-toolbar__row">
-          <label className="sr-only" htmlFor="inventory-sort">
-            Ordenar por
-          </label>
-          <select
-            id="inventory-sort"
-            value={`${sort}:${descending ? 'desc' : 'asc'}`}
-            onChange={(event) => {
-              const [nextSort, direction] = event.target.value.split(':')
+          <SearchField
+            value={search}
+            label="Buscar productos"
+            placeholder="Buscar producto por nombre…"
+            onChange={(value) =>
               updateParams((next) => {
-                next.set('orden', nextSort)
-                if (direction === 'desc') next.set('desc', '1')
-                else next.delete('desc')
+                if (value) next.set('q', value)
+                else next.delete('q')
               })
-            }}
-          >
-            <option value="name:asc">Nombre (A-Z)</option>
-            <option value="name:desc">Nombre (Z-A)</option>
-            <option value="available:desc">Más disponibles</option>
-            <option value="available:asc">Menos disponibles</option>
-            <option value="salePrice:desc">Precio de venta mayor</option>
-            <option value="createdAt:desc">Más recientes</option>
-          </select>
+            }
+          />
 
-          <div className="chip-row" role="group" aria-label="Filtros de inventario">
-            {STOCK_STATES.map((state) => {
-              const active = stockStates.includes(state.value)
-              return (
-                <button
-                  key={state.value}
-                  type="button"
-                  className={`filter-chip ${active ? 'filter-chip--active' : ''}`}
-                  aria-pressed={active}
-                  onClick={() =>
-                    updateParams((next) => {
-                      const values = toggleValue(stockStates, state.value)
-                      if (values.length) next.set('stock', values.join(','))
-                      else next.delete('stock')
-                    })
-                  }
-                >
-                  {state.label}
-                </button>
-              )
-            })}
-            {CATALOG_STATUSES.map((status) => {
-              const active = catalogStatuses.includes(status.value)
-              return (
-                <button
-                  key={status.value}
-                  type="button"
-                  className={`filter-chip ${active ? 'filter-chip--active' : ''}`}
-                  aria-pressed={active}
-                  onClick={() =>
-                    updateParams((next) => {
-                      const values = toggleValue(catalogStatuses, status.value)
-                      if (values.length) next.set('estado', values.join(','))
-                      else next.delete('estado')
-                    })
-                  }
-                >
-                  {status.label}
-                </button>
-              )
-            })}
+          <div className="inventory-toolbar__row">
+            <label className="sr-only" htmlFor="inventory-sort">
+              Ordenar por
+            </label>
+            <select
+              id="inventory-sort"
+              value={`${sort}:${descending ? 'desc' : 'asc'}`}
+              onChange={(event) => {
+                const [nextSort, direction] = event.target.value.split(':')
+                updateParams((next) => {
+                  next.set('orden', nextSort)
+                  if (direction === 'desc') next.set('desc', '1')
+                  else next.delete('desc')
+                })
+              }}
+            >
+              <option value="name:asc">Nombre (A-Z)</option>
+              <option value="name:desc">Nombre (Z-A)</option>
+              <option value="available:desc">Más disponibles</option>
+              <option value="available:asc">Menos disponibles</option>
+              <option value="salePrice:desc">Precio de venta mayor</option>
+              <option value="createdAt:desc">Más recientes</option>
+            </select>
+
+            <div className="chip-row" role="group" aria-label="Filtros de inventario">
+              {STOCK_STATES.map((state) => {
+                const active = stockStates.includes(state.value)
+                return (
+                  <button
+                    key={state.value}
+                    type="button"
+                    className={`filter-chip ${active ? 'filter-chip--active' : ''}`}
+                    aria-pressed={active}
+                    onClick={() =>
+                      updateParams((next) => {
+                        const values = toggleValue(stockStates, state.value)
+                        if (values.length) next.set('stock', values.join(','))
+                        else next.delete('stock')
+                      })
+                    }
+                  >
+                    {state.label}
+                  </button>
+                )
+              })}
+              {CATALOG_STATUSES.map((status) => {
+                const active = catalogStatuses.includes(status.value)
+                return (
+                  <button
+                    key={status.value}
+                    type="button"
+                    className={`filter-chip ${active ? 'filter-chip--active' : ''}`}
+                    aria-pressed={active}
+                    onClick={() =>
+                      updateParams((next) => {
+                        const values = toggleValue(catalogStatuses, status.value)
+                        if (values.length) next.set('estado', values.join(','))
+                        else next.delete('estado')
+                      })
+                    }
+                  >
+                    {status.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {products.isError ? (
-        <div className="form-message form-message--error" role="alert">
-          <strong>No pudimos cargar el inventario</strong>
-          <span>
-            {products.error instanceof TendaApiError
-              ? products.error.message
-              : 'Revisa tu conexión e inténtalo nuevamente.'}
-          </span>
-          <button
-            className="button button--secondary"
-            type="button"
-            onClick={() => void products.refetch()}
-          >
-            Reintentar
-          </button>
-        </div>
-      ) : null}
+        {products.isError ? (
+          <div className="form-message form-message--error" role="alert">
+            <strong>No pudimos cargar el inventario</strong>
+            <span>
+              {products.error instanceof TendaApiError
+                ? products.error.message
+                : 'Revisa tu conexión e inténtalo nuevamente.'}
+            </span>
+            <button
+              className="button button--secondary"
+              type="button"
+              onClick={() => void products.refetch()}
+            >
+              Reintentar
+            </button>
+          </div>
+        ) : null}
 
-      {!products.isPending && !products.isError && rows.length === 0 ? (
-        hasFilters ? (
-          <EmptyState
-            title="Sin resultados"
-            description="Ningún producto coincide con la búsqueda y los filtros aplicados."
-            action={
-              <button
-                className="button button--secondary"
-                type="button"
-                onClick={() => setParams(new URLSearchParams(), { replace: true })}
-              >
-                Limpiar filtros
-              </button>
-            }
-          />
-        ) : (
-          <EmptyState
-            title="Aún no tienes productos"
-            description="Crea tu primer producto para llevar control de disponibilidad y movimientos."
-            action={
-              <Link className="button button--primary" to="/app/inventario/nuevo">
-                Crear producto
-              </Link>
-            }
-          />
-        )
-      ) : null}
+        {!products.isPending && !products.isError && rows.length === 0 ? (
+          hasFilters ? (
+            <EmptyState
+              title="Sin resultados"
+              description="Ningún producto coincide con la búsqueda y los filtros aplicados."
+              action={
+                <button
+                  className="button button--secondary"
+                  type="button"
+                  onClick={() => setParams(new URLSearchParams(), { replace: true })}
+                >
+                  Limpiar filtros
+                </button>
+              }
+            />
+          ) : (
+            <EmptyState
+              title="Aún no tienes productos"
+              description="Crea tu primer producto para llevar control de disponibilidad y movimientos."
+              action={
+                <Link className="button button--primary" to="/app/inventario/nuevo">
+                  Crear producto
+                </Link>
+              }
+            />
+          )
+        ) : null}
       </div>
 
       {products.isPending ? (

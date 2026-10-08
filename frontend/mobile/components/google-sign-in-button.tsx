@@ -8,8 +8,7 @@ import {
   View,
 } from 'react-native'
 
-const GOOGLE_G =
-  'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.png'
+const GOOGLE_G = 'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.png'
 
 type Props = {
   loading?: boolean

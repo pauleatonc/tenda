@@ -139,96 +139,96 @@ export function ShippingListPage() {
   return (
     <div className="list-page">
       <div className="list-page__chrome">
-      <header className="page-heading page-heading--split">
-        <div>
-          <p className="eyebrow">Operación de entrega</p>
-          <h1>Despachos</h1>
-          <p>
-            {shipments.isPending
-              ? 'Cargando envíos…'
-              : `${shipments.data?.totalCount ?? 0} envíos registrados`}
-          </p>
-        </div>
-      </header>
+        <header className="page-heading page-heading--split">
+          <div>
+            <p className="eyebrow">Operación de entrega</p>
+            <h1>Despachos</h1>
+            <p>
+              {shipments.isPending
+                ? 'Cargando envíos…'
+                : `${shipments.data?.totalCount ?? 0} envíos registrados`}
+            </p>
+          </div>
+        </header>
 
-      <ShippingDashboardCards />
+        <ShippingDashboardCards />
 
-      <section className="sales-toolbar" aria-label="Buscar y filtrar despachos">
-        <SearchField
-          value={search}
-          label="Buscar despachos"
-          placeholder="Número, destinatario o tracking…"
-          onChange={(value) => updateParam('q', value)}
-        />
-        <label>
-          <span>Estado</span>
-          <select
-            value={status}
-            onChange={(event) => updateParam('estado', event.target.value)}
-          >
-            <option value="">Todos</option>
-            {shipmentStatuses.map((value) => (
-              <option key={value} value={value}>
-                {shipmentStatusLabels[value]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Modalidad</span>
-          <select
-            value={deliveryMode}
-            onChange={(event) => updateParam('modalidad', event.target.value)}
-          >
-            <option value="">Todas</option>
-            {deliveryModes.map((value) => (
-              <option key={value} value={value}>
-                {deliveryModeLabels[value]}
-              </option>
-            ))}
-          </select>
-        </label>
-        {activeFilters ? (
-          <button
-            className="button button--secondary"
-            type="button"
-            onClick={() => setParams(new URLSearchParams(), { replace: true })}
-          >
-            Limpiar filtros ({activeFilters})
-          </button>
+        <section className="sales-toolbar" aria-label="Buscar y filtrar despachos">
+          <SearchField
+            value={search}
+            label="Buscar despachos"
+            placeholder="Número, destinatario o tracking…"
+            onChange={(value) => updateParam('q', value)}
+          />
+          <label>
+            <span>Estado</span>
+            <select
+              value={status}
+              onChange={(event) => updateParam('estado', event.target.value)}
+            >
+              <option value="">Todos</option>
+              {shipmentStatuses.map((value) => (
+                <option key={value} value={value}>
+                  {shipmentStatusLabels[value]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Modalidad</span>
+            <select
+              value={deliveryMode}
+              onChange={(event) => updateParam('modalidad', event.target.value)}
+            >
+              <option value="">Todas</option>
+              {deliveryModes.map((value) => (
+                <option key={value} value={value}>
+                  {deliveryModeLabels[value]}
+                </option>
+              ))}
+            </select>
+          </label>
+          {activeFilters ? (
+            <button
+              className="button button--secondary"
+              type="button"
+              onClick={() => setParams(new URLSearchParams(), { replace: true })}
+            >
+              Limpiar filtros ({activeFilters})
+            </button>
+          ) : null}
+        </section>
+
+        {shipments.isError ? (
+          <ErrorMessage
+            title="No pudimos cargar los despachos"
+            error={shipments.error}
+            onRetry={() => void shipments.refetch()}
+          />
         ) : null}
-      </section>
 
-      {shipments.isError ? (
-        <ErrorMessage
-          title="No pudimos cargar los despachos"
-          error={shipments.error}
-          onRetry={() => void shipments.refetch()}
-        />
-      ) : null}
-
-      {!shipments.isPending && !shipments.isError && rows.length === 0 ? (
-        activeFilters ? (
-          <EmptyState
-            title="No encontramos envíos"
-            description="Ningún despacho coincide con los filtros aplicados."
-            action={
-              <button
-                className="button button--secondary"
-                type="button"
-                onClick={() => setParams(new URLSearchParams(), { replace: true })}
-              >
-                Limpiar filtros
-              </button>
-            }
-          />
-        ) : (
-          <EmptyState
-            title="Aún no tienes despachos"
-            description="Cuando una venta se pague, Tenda crea el envío para que registres el despacho o la entrega."
-          />
-        )
-      ) : null}
+        {!shipments.isPending && !shipments.isError && rows.length === 0 ? (
+          activeFilters ? (
+            <EmptyState
+              title="No encontramos envíos"
+              description="Ningún despacho coincide con los filtros aplicados."
+              action={
+                <button
+                  className="button button--secondary"
+                  type="button"
+                  onClick={() => setParams(new URLSearchParams(), { replace: true })}
+                >
+                  Limpiar filtros
+                </button>
+              }
+            />
+          ) : (
+            <EmptyState
+              title="Aún no tienes despachos"
+              description="Cuando una venta se pague, Tenda crea el envío para que registres el despacho o la entrega."
+            />
+          )
+        ) : null}
       </div>
 
       {shipments.isPending ? (

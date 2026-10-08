@@ -78,7 +78,11 @@ export function createGtagAdapter(options: GtagAdapterOptions): AnalyticsAdapter
  * Safe to call once; no-ops without a measurement ID or when `window` is missing.
  */
 export function initGtag(measurementId: string): void {
-  if (!measurementId || typeof window === 'undefined' || typeof document === 'undefined') {
+  if (
+    !measurementId ||
+    typeof window === 'undefined' ||
+    typeof document === 'undefined'
+  ) {
     return
   }
   if (document.getElementById('tenda-ga4')) return

@@ -1,10 +1,7 @@
 import { Link } from 'react-router-dom'
 
 import { AnalyticsEvents, getAnalytics } from '../analytics'
-import {
-  SIGNUP_PLAN_OPTIONS,
-  formatSignupPlanPrice,
-} from '../billing/planCatalog'
+import { SIGNUP_PLAN_OPTIONS, formatSignupPlanPrice } from '../billing/planCatalog'
 
 function trackCta(cta: string) {
   getAnalytics().track(AnalyticsEvents.landingCtaClick, { cta })
@@ -25,7 +22,10 @@ export function LandingPage() {
           </div>
         </div>
 
-        <nav className="landing__nav landing__nav--over-hero" aria-label="Navegación principal">
+        <nav
+          className="landing__nav landing__nav--over-hero"
+          aria-label="Navegación principal"
+        >
           <a className="landing__nav-skip" href="#como-funciona">
             Ir al contenido
           </a>
@@ -79,8 +79,8 @@ export function LandingPage() {
           <li>
             <h3>Ordena el inventario</h3>
             <p>
-              Carga productos a mano o con foto asistida. Ves stock, reservas y alertas
-              en un vistazo.
+              Carga productos a mano o con foto asistida. Ves stock, reservas y alertas en
+              un vistazo.
             </p>
           </li>
           <li>
@@ -93,8 +93,8 @@ export function LandingPage() {
           <li>
             <h3>Despacha con seguimiento</h3>
             <p>
-              Generas la etiqueta, registras el envío y el comprador ve el estado hasta
-              la entrega.
+              Generas la etiqueta, registras el envío y el comprador ve el estado hasta la
+              entrega.
             </p>
           </li>
         </ol>
@@ -104,8 +104,8 @@ export function LandingPage() {
         <div className="landing-section__intro">
           <h2 id="plans-title">Empieza gratis. Crece cuando lo necesites.</h2>
           <p>
-            Hasta 5 productos sin costo. La creación asistida con foto y más cupo están
-            en los planes de pago.
+            Hasta 5 productos sin costo. La creación asistida con foto y más cupo están en
+            los planes de pago.
           </p>
         </div>
         <div className="landing-plans__grid">

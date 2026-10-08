@@ -1,11 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import './App.css'
 import { LoginPage, RecoveryPage, RegisterPage, VerificationPage } from './auth/AuthPages'
-import {
-  ApplicationShell,
-  DashboardPage,
-  MorePage,
-} from './app/AppShell'
+import { ApplicationShell, DashboardPage, MorePage } from './app/AppShell'
 import { ProfilePage } from './app/ProfilePage'
 import './app/profile.css'
 import { LandingPage } from './landing/LandingPage'

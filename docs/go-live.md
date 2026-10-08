@@ -8,16 +8,16 @@ La Etapa 4 no se despliega. `AGENT_FEATURE_STATUS` permanece en `coming_soon`.
 
 ## Gate de salida (Documento 03 §9.1)
 
-| Criterio                                                           | Estado en código     | Pendiente humano     |
-| ------------------------------------------------------------------ | -------------------- | -------------------- |
-| Pedido impago no despacha                                          | Cubierto (T3.1)      | —                    |
-| Etiqueta interna coherente con el destino registrado               | Cubierto (T3.3)      | Impresión física     |
-| Registro de despacho/entrega idempotente y terminal                | Cubierto (T3.8) + E2E| —                    |
-| Correo al comprador con transportista, tracking y detalle          | Cubierto (T3.8)      | Brevo real           |
-| Envío registrado sale de operaciones activas y conserva historial  | Cubierto             | —                    |
-| Playwright journey + axe                                           | `pnpm test:e2e`      | Revisión manual WCAG |
-| Backup/restore, rollback, Kuma                                     | Scripts + runbook    | Ensayo real en VPS   |
-| Agente solo «Próximamente»                                         | Tests + E2E          | —                    |
+| Criterio                                                          | Estado en código      | Pendiente humano     |
+| ----------------------------------------------------------------- | --------------------- | -------------------- |
+| Pedido impago no despacha                                         | Cubierto (T3.1)       | —                    |
+| Etiqueta interna coherente con el destino registrado              | Cubierto (T3.3)       | Impresión física     |
+| Registro de despacho/entrega idempotente y terminal               | Cubierto (T3.8) + E2E | —                    |
+| Correo al comprador con transportista, tracking y detalle         | Cubierto (T3.8)       | Brevo real           |
+| Envío registrado sale de operaciones activas y conserva historial | Cubierto              | —                    |
+| Playwright journey + axe                                          | `pnpm test:e2e`       | Revisión manual WCAG |
+| Backup/restore, rollback, Kuma                                    | Scripts + runbook     | Ensayo real en VPS   |
+| Agente solo «Próximamente»                                        | Tests + E2E           | —                    |
 
 ## Matriz de configuración de Producción
 
@@ -25,22 +25,22 @@ Los valores de desarrollo (Turnstile fake solo en local/E2E, R2 fake, Brevo
 fake, Mercado Pago fake, parámetros seed) **no** son una aprobación de
 Producción. Dev y Prod usan Turnstile real.
 
-| Dependencia          | Sin credencial (Dev/E2E)            | Requerido para Producción                        | Go-live   |
-| -------------------- | ----------------------------------- | ------------------------------------------------ | --------- |
-| Dominios / TLS       | `localhost`                         | `tenda-app.com`, Cloudflare Full, `WEB_ORIGIN` HTTPS; CD en repo (secrets VPS) | Parcial |
-| Cloudflare R2        | `OBJECT_STORAGE_PROVIDER=fake`      | Bucket/prefijo, CORS, lifecycle, claves mínimas  | Bloqueado |
-| Backup R2 + age      | No corre off-site                   | Recipient, bucket privado, retención aprobada    | Bloqueado |
-| Brevo                | Outbox fake                         | Dominio autenticado, webhook bounce              | Bloqueado |
-| Google OIDC          | Adapter fake                        | Client ID/secret y callback Prod                 | Opcional  |
-| Mercado Pago Chile   | Fake; transferencia/efectivo operan | OAuth, pago, refund, webhook, fee, desconexión   | Bloqueado |
-| Facturación Tenda (MP suscripciones) | `BILLING_PROVIDER=fake` | Token plataforma, webhook `mercado-pago-billing`, planes sync | Bloqueado |
-| Parámetros           | Seeds reserva 8 h / revisión 24 h   | Valores de Producción firmados                   | Bloqueado |
-| Retención/privacidad | Sin jobs de borrado                 | Política de comprador, envíos, fotos, analítica  | Bloqueado |
-| Analítica            | No hay tracker                      | Consentimiento si se incorpora                   | Bloqueado |
-| App stores           | Build local / EAS interno + Maestro | Cuentas, privacy disclosures, deep links         | Bloqueado |
-| VPS App/Ops          | Un solo host alcanza para Dev       | WireGuard, Kuma, Netdata/Portainer restringidos  | Bloqueado |
-| Django Admin         | `/admin` local                      | `control-*`, red WireGuard, MFA de acceso        | Bloqueado |
-| Sentry               | DSN vacío                           | DSN Prod y scrub de PII ya implementado          | Opcional  |
+| Dependencia                          | Sin credencial (Dev/E2E)            | Requerido para Producción                                                      | Go-live   |
+| ------------------------------------ | ----------------------------------- | ------------------------------------------------------------------------------ | --------- |
+| Dominios / TLS                       | `localhost`                         | `tenda-app.com`, Cloudflare Full, `WEB_ORIGIN` HTTPS; CD en repo (secrets VPS) | Parcial   |
+| Cloudflare R2                        | `OBJECT_STORAGE_PROVIDER=fake`      | Bucket/prefijo, CORS, lifecycle, claves mínimas                                | Bloqueado |
+| Backup R2 + age                      | No corre off-site                   | Recipient, bucket privado, retención aprobada                                  | Bloqueado |
+| Brevo                                | Outbox fake                         | Dominio autenticado, webhook bounce                                            | Bloqueado |
+| Google OIDC                          | Adapter fake                        | Client ID/secret y callback Prod                                               | Opcional  |
+| Mercado Pago Chile                   | Fake; transferencia/efectivo operan | OAuth, pago, refund, webhook, fee, desconexión                                 | Bloqueado |
+| Facturación Tenda (MP suscripciones) | `BILLING_PROVIDER=fake`             | Token plataforma, webhook `mercado-pago-billing`, planes sync                  | Bloqueado |
+| Parámetros                           | Seeds reserva 8 h / revisión 24 h   | Valores de Producción firmados                                                 | Bloqueado |
+| Retención/privacidad                 | Sin jobs de borrado                 | Política de comprador, envíos, fotos, analítica                                | Bloqueado |
+| Analítica                            | No hay tracker                      | Consentimiento si se incorpora                                                 | Bloqueado |
+| App stores                           | Build local / EAS interno + Maestro | Cuentas, privacy disclosures, deep links                                       | Bloqueado |
+| VPS App/Ops                          | Un solo host alcanza para Dev       | WireGuard, Kuma, Netdata/Portainer restringidos                                | Bloqueado |
+| Django Admin                         | `/admin` local                      | `control-*`, red WireGuard, MFA de acceso                                      | Bloqueado |
+| Sentry                               | DSN vacío                           | DSN Prod y scrub de PII ya implementado                                        | Opcional  |
 
 Hasta que un ítem «Bloqueado» se apruebe, el go-live permanece detenido. No
 convierte esos huecos en código de Etapa 4 ni en integraciones reales desde

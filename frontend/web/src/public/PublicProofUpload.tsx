@@ -92,8 +92,8 @@ export function PublicProofUpload({
         <div className="public-upload-success" role="status">
           <h2>Comprobante en revisión</h2>
           <p>
-            El vendedor validará el archivo antes de confirmar el pago. La reserva
-            queda pausada mientras tanto.
+            El vendedor validará el archivo antes de confirmar el pago. La reserva queda
+            pausada mientras tanto.
           </p>
           <Link className="button button--primary" to={`/p/${token}/estado`}>
             Ver estado

@@ -113,8 +113,8 @@ export function BillingPlanPage() {
           <p className="eyebrow">Suscripción Tenda</p>
           <h1>Plan y facturación</h1>
           <p>
-            El servicio es gratuito hasta 5 productos. Los planes de pago amplían el
-            cupo e incluyen creación asistida con foto.
+            El servicio es gratuito hasta 5 productos. Los planes de pago amplían el cupo
+            e incluyen creación asistida con foto.
           </p>
         </div>
       </header>
@@ -143,7 +143,8 @@ export function BillingPlanPage() {
               <StatusChip status={data.subscriptionStatus} />
             </div>
             <p>
-              {formatPlanPrice(data.priceClp)} / mes · {formatProductLimit(data.productLimit)}
+              {formatPlanPrice(data.priceClp)} / mes ·{' '}
+              {formatProductLimit(data.productLimit)}
             </p>
             <p>
               Usas <strong>{data.productCount}</strong>
@@ -154,7 +155,9 @@ export function BillingPlanPage() {
             </p>
             <p>{statusLabels[data.subscriptionStatus] ?? data.subscriptionStatus}</p>
             {data.cancelAtPeriodEnd ? (
-              <p role="status">La suscripción se cancelará al final del período actual.</p>
+              <p role="status">
+                La suscripción se cancelará al final del período actual.
+              </p>
             ) : null}
             <div className="button-row">
               {data.planCode !== 'free' && !data.cancelAtPeriodEnd ? (
@@ -233,8 +236,8 @@ export function BillingPlanPage() {
 
           <p>
             Los cobros a tus compradores siguen en{' '}
-            <Link to="/app/configuracion/pagos">Configuración de pagos</Link>. Esta
-            página solo factura el plan de Tenda.
+            <Link to="/app/configuracion/pagos">Configuración de pagos</Link>. Esta página
+            solo factura el plan de Tenda.
           </p>
         </>
       )}

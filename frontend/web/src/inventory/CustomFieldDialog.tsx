@@ -202,8 +202,8 @@ export function CustomFieldDialog({ onClose, onFieldCreated }: Props) {
         <h3>Nuevo campo</h3>
         {remaining <= 0 ? (
           <p className="column-form__limit" role="status">
-            Alcanzaste el máximo de {maxActive} campos activos. Desactiva uno para
-            liberar cupo.
+            Alcanzaste el máximo de {maxActive} campos activos. Desactiva uno para liberar
+            cupo.
           </p>
         ) : null}
 

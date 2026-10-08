@@ -32,14 +32,7 @@ import {
 } from './model'
 
 type ActionKind =
-  | 'approve'
-  | 'reject'
-  | 'manual'
-  | 'cancel'
-  | 'restore'
-  | 'refund'
-  | 'resend'
-  | 'reissue'
+  'approve' | 'reject' | 'manual' | 'cancel' | 'restore' | 'refund' | 'resend' | 'reissue'
 
 type ActionRequest =
   | { kind: 'approve'; reason: string; idempotencyKey: string }
@@ -789,7 +782,9 @@ export function SaleDetailPage() {
               Caduca {formatDate(savedLabel.expiresAt)} · {savedLabel.fileName}
             </p>
           ) : (
-            <p>El enlace de esta etiqueta ya expiró. Genera una nueva para descargarla.</p>
+            <p>
+              El enlace de esta etiqueta ya expiró. Genera una nueva para descargarla.
+            </p>
           )}
         </Modal>
       ) : null}

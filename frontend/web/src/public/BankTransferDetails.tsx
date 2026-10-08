@@ -43,7 +43,9 @@ export function BankTransferDetails({
   }
 
   return (
-    <div className={`bank-instructions bank-instructions--structured${compact ? ' bank-instructions--compact' : ''}`}>
+    <div
+      className={`bank-instructions bank-instructions--structured${compact ? ' bank-instructions--compact' : ''}`}
+    >
       <div className="bank-instructions__intro">
         <h2>Datos para transferir</h2>
         <p>Copia cada dato o todos juntos. Transfiere el monto exacto a esta cuenta.</p>

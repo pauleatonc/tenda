@@ -2,11 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import {
-  AnalyticsConsentBanner,
-  AnalyticsRouteListener,
-  getAnalytics,
-} from './analytics'
+import { AnalyticsConsentBanner, AnalyticsRouteListener, getAnalytics } from './analytics'
 import './analytics/analytics.css'
 import './app/app-shell.css'
 import './components/ui.css'

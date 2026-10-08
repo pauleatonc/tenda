@@ -1,4 +1,9 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -23,10 +28,7 @@ import { AnalyticsEvents, getAnalytics, markActivationFlag } from '../../../lib/
 import { MobileApiError } from '../../../lib/auth-api'
 import { catalogStatusLabels, formatPrice } from '../../../lib/format'
 import { isOfflineError, newIdempotencyKey } from '../../../lib/graphql'
-import {
-  billingKeys,
-  fetchOrganisationBilling,
-} from '../../../lib/billing-api'
+import { billingKeys, fetchOrganisationBilling } from '../../../lib/billing-api'
 import {
   attachProductMedia,
   createProduct,
@@ -126,9 +128,9 @@ export default function ProductFormScreen() {
   const [suggestionKey, setSuggestionKey] = useState(newIdempotencyKey)
   const [photos, setPhotos] = useState<PickedImage[]>([])
   const [candidates, setCandidates] = useState<ProductImageCandidate[]>([])
-  const [assistedPhase, setAssistedPhase] = useState<'photo' | 'searching' | 'pick' | 'form'>(
-    'photo',
-  )
+  const [assistedPhase, setAssistedPhase] = useState<
+    'photo' | 'searching' | 'pick' | 'form'
+  >('photo')
   const [searchError, setSearchError] = useState<string | null>(null)
   const [pickerQuery, setPickerQuery] = useState('')
   const [debouncedPicker, setDebouncedPicker] = useState('')
@@ -403,7 +405,9 @@ export default function ProductFormScreen() {
   function applyCandidate(candidate: ProductImageCandidate) {
     setName(candidate.name)
     setSalePrice(candidate.salePrice != null ? String(candidate.salePrice) : '')
-    setPurchasePrice(candidate.purchasePrice != null ? String(candidate.purchasePrice) : '')
+    setPurchasePrice(
+      candidate.purchasePrice != null ? String(candidate.purchasePrice) : '',
+    )
     setAttributes((current) => {
       const next = { ...current }
       for (const [key, value] of Object.entries(candidate.extraAttributes)) {
@@ -417,7 +421,8 @@ export default function ProductFormScreen() {
 
   async function addPhoto(from: 'library' | 'camera') {
     try {
-      const image = from === 'camera' ? await takeProductImage() : await pickProductImage()
+      const image =
+        from === 'camera' ? await takeProductImage() : await pickProductImage()
       if (!image) return
       const isFirstAssistedPhoto = isAssisted && photos.length === 0
       setPhotos((current) => [...current, image])
@@ -475,7 +480,8 @@ export default function ProductFormScreen() {
   const showAssistedGate = isAssisted && photos.length === 0 && assistedPhase === 'photo'
   const showCandidates =
     isAssisted && (assistedPhase === 'searching' || assistedPhase === 'pick')
-  const showForm = (!isVariant || Boolean(sourceProduct)) && !showAssistedGate && !showCandidates
+  const showForm =
+    (!isVariant || Boolean(sourceProduct)) && !showAssistedGate && !showCandidates
   const title = isEdit
     ? 'Editar producto'
     : isVariant
@@ -541,7 +547,9 @@ export default function ProductFormScreen() {
                 onChangeText={setPickerQuery}
                 placeholder="Buscar producto por nombre…"
               />
-              {picker.isPending ? <Text style={styles.muted}>Buscando productos…</Text> : null}
+              {picker.isPending ? (
+                <Text style={styles.muted}>Buscando productos…</Text>
+              ) : null}
               {picker.data?.products.map((row) => (
                 <Pressable
                   key={row.id}
@@ -621,7 +629,9 @@ export default function ProductFormScreen() {
                         <Text style={styles.candidateName}>{candidate.name}</Text>
                         <Text style={styles.candidatePrice}>
                           {formatPrice(
-                            candidate.salePrice != null ? String(candidate.salePrice) : null,
+                            candidate.salePrice != null
+                              ? String(candidate.salePrice)
+                              : null,
                           )}
                         </Text>
                         {candidate.sourceUrl ? (
@@ -695,8 +705,8 @@ export default function ProductFormScreen() {
 
               <SectionCard title="Precios de referencia">
                 <Text style={styles.muted}>
-                  El precio efectivo se define en cada venta y puede variar entre unidades.
-                  Moneda: CLP.
+                  El precio efectivo se define en cada venta y puede variar entre
+                  unidades. Moneda: CLP.
                 </Text>
                 <SheetField
                   label="Precio de compra"
@@ -740,7 +750,10 @@ export default function ProductFormScreen() {
                     setAttributes((current) => ({ ...current, [field.key]: next }))
                     setDirty(true)
                   }
-                  if (field.fieldType === 'boolean' || field.fieldType === 'single_select') {
+                  if (
+                    field.fieldType === 'boolean' ||
+                    field.fieldType === 'single_select'
+                  ) {
                     const options =
                       field.fieldType === 'boolean'
                         ? [
@@ -767,7 +780,9 @@ export default function ProductFormScreen() {
                       key={field.id}
                       label={`${field.label}${field.isRequired ? ' *' : ''}`}
                       help={field.helpText || undefined}
-                      keyboardType={field.fieldType === 'decimal' ? 'decimal-pad' : 'default'}
+                      keyboardType={
+                        field.fieldType === 'decimal' ? 'decimal-pad' : 'default'
+                      }
                       placeholder={field.fieldType === 'date' ? 'AAAA-MM-DD' : undefined}
                       value={value}
                       onChangeText={update}
@@ -796,7 +811,8 @@ export default function ProductFormScreen() {
               ) : (
                 <SectionCard title="Fotos">
                   <Text style={styles.muted}>
-                    Guarda los cambios y administra las fotos desde el detalle del producto.
+                    Guarda los cambios y administra las fotos desde el detalle del
+                    producto.
                   </Text>
                 </SectionCard>
               )}

@@ -203,7 +203,7 @@ export default function PaymentsScreen() {
                 <MobileStatusChip
                   label={
                     connection
-                      ? CONNECTION_LABELS[connection.status] ?? connection.status
+                      ? (CONNECTION_LABELS[connection.status] ?? connection.status)
                       : 'Sin conectar'
                   }
                   tone={connection?.status === 'connected' ? 'success' : 'warning'}
@@ -241,8 +241,8 @@ export default function PaymentsScreen() {
                 </>
               ) : (
                 <Text style={salesStyles.muted}>
-                  Aún no hay una cuenta vinculada. Mercado Pago permanecerá desactivado
-                  al crear ventas.
+                  Aún no hay una cuenta vinculada. Mercado Pago permanecerá desactivado al
+                  crear ventas.
                 </Text>
               )}
 

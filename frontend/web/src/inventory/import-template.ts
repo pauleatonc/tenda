@@ -15,7 +15,9 @@ const CORE_IMPORT_COLUMNS: ImportColumn[] = [
 export function importColumnsForFields(
   fields: { key: string; label: string }[],
 ): ImportColumn[] {
-  const used = new Set(CORE_IMPORT_COLUMNS.map((column) => column.header.toLocaleLowerCase('es-CL')))
+  const used = new Set(
+    CORE_IMPORT_COLUMNS.map((column) => column.header.toLocaleLowerCase('es-CL')),
+  )
   const extra: ImportColumn[] = []
   for (const field of fields) {
     let header = field.label.trim()
@@ -61,7 +63,9 @@ export function mappingFromImportHeaders(
     const source = folded.get(column.header.toLocaleLowerCase('es-CL'))
     if (source) mapping[column.destination] = source
   }
-  const used = new Set(Object.values(mapping).map((header) => header.toLocaleLowerCase('es-CL')))
+  const used = new Set(
+    Object.values(mapping).map((header) => header.toLocaleLowerCase('es-CL')),
+  )
   for (const [destination, aliases] of Object.entries(HEADER_ALIASES)) {
     if (mapping[destination]) continue
     const source = aliases

@@ -47,14 +47,7 @@ x-backend: &backend
 services:
   postgres:
     image: postgres:17.5-bookworm
-    command:
-      [
-        'postgres',
-        '-c',
-        'shared_buffers=256MB',
-        '-c',
-        'effective_cache_size=1GB',
-      ]
+    command: ['postgres', '-c', 'shared_buffers=256MB', '-c', 'effective_cache_size=1GB']
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-tenda}
       POSTGRES_USER: ${POSTGRES_USER:-tenda}
@@ -108,15 +101,7 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-    command:
-      [
-        'uvicorn',
-        'tenda.asgi:application',
-        '--host',
-        '0.0.0.0',
-        '--port',
-        '8000',
-      ]
+    command: ['uvicorn', 'tenda.asgi:application', '--host', '0.0.0.0', '--port', '8000']
     healthcheck:
       test:
         [

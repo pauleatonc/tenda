@@ -72,7 +72,9 @@ export function InventoryImportPage() {
     queryFn: () => fetchInventoryImport(jobId),
     enabled: Boolean(jobId),
     refetchInterval: (query) =>
-      query.state.data && POLLING_STATUSES.has(query.state.data.status) ? pollDelay : false,
+      query.state.data && POLLING_STATUSES.has(query.state.data.status)
+        ? pollDelay
+        : false,
   })
 
   useEffect(() => {
@@ -209,7 +211,9 @@ export function InventoryImportPage() {
         >
           <strong>
             Plan {billing.data.planName}: {billing.data.productCount}
-            {billing.data.productLimit != null ? ` / ${billing.data.productLimit}` : ''}{' '}
+            {billing.data.productLimit != null
+              ? ` / ${billing.data.productLimit}`
+              : ''}{' '}
             productos
           </strong>
           <span>
@@ -276,7 +280,10 @@ export function InventoryImportPage() {
               </button>
             ) : null}
           </div>
-          <p>Máximo 25 MB. Aceptamos la planilla .xlsx (o un CSV con los mismos encabezados).</p>
+          <p>
+            Máximo 25 MB. Aceptamos la planilla .xlsx (o un CSV con los mismos
+            encabezados).
+          </p>
           <UploadField
             label="Planilla de productos"
             accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
@@ -395,7 +402,9 @@ export function InventoryImportPage() {
                   </ul>
                 </>
               ) : (
-                <p>La muestra no presenta errores. Confirma para procesar todo el archivo.</p>
+                <p>
+                  La muestra no presenta errores. Confirma para procesar todo el archivo.
+                </p>
               )}
               <button
                 className="button button--primary"

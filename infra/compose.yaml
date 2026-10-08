@@ -238,16 +238,7 @@ services:
   mobile:
     <<: *frontend
     command:
-      [
-        'pnpm',
-        '--filter',
-        '@tenda/mobile',
-        'start',
-        '--',
-        '--lan',
-        '--port',
-        '8081',
-      ]
+      ['pnpm', '--filter', '@tenda/mobile', 'start', '--', '--lan', '--port', '8081']
     environment:
       EXPO_DEVTOOLS_LISTEN_ADDRESS: 0.0.0.0
     ports:

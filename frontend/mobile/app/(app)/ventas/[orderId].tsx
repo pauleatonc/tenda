@@ -51,14 +51,7 @@ import {
 } from '../../../lib/sales-api'
 
 type ActionKind =
-  | 'approve'
-  | 'reject'
-  | 'manual'
-  | 'cancel'
-  | 'restore'
-  | 'refund'
-  | 'resend'
-  | 'reissue'
+  'approve' | 'reject' | 'manual' | 'cancel' | 'restore' | 'refund' | 'resend' | 'reissue'
 
 const ACTION_TITLES: Record<ActionKind, string> = {
   approve: 'Validar comprobante',
@@ -209,14 +202,12 @@ function SaleActionSheet({
       ) : null}
       {action === 'approve' ? (
         <Text style={salesStyles.muted}>
-          Esta confirmación no puede ejecutarse dos veces: Tenda conserva la misma
-          clave si debes reintentar por una falla de red.
+          Esta confirmación no puede ejecutarse dos veces: Tenda conserva la misma clave
+          si debes reintentar por una falla de red.
         </Text>
       ) : null}
       {action === 'resend' ? (
-        <Text style={salesStyles.muted}>
-          Enviaremos el enlace vigente a este correo.
-        </Text>
+        <Text style={salesStyles.muted}>Enviaremos el enlace vigente a este correo.</Text>
       ) : null}
       {actionError ? <StatusMessage message={actionError} /> : null}
     </Sheet>
@@ -677,7 +668,10 @@ export default function SaleDetailScreen() {
           {buyer?.recipientName || data.deliveryMode === 'shipping' ? (
             <>
               <DetailRow label="Destinatario" value={buyer?.recipientName ?? ''} />
-              <DetailRow label="RUT de quien recibe" value={buyer?.recipientTaxId ?? ''} />
+              <DetailRow
+                label="RUT de quien recibe"
+                value={buyer?.recipientTaxId ?? ''}
+              />
               <DetailRow
                 label="Dirección"
                 value={formatChileAddress(
@@ -709,10 +703,7 @@ export default function SaleDetailScreen() {
           <DetailRow label="Monto" value={formatClp(payment?.amount)} />
           <DetailRow label="Pagado" value={formatDate(payment?.paidAt)} />
           {payment?.refundedAmount && payment.refundedAmount !== '0' ? (
-            <DetailRow
-              label="Reembolsado"
-              value={formatClp(payment.refundedAmount)}
-            />
+            <DetailRow label="Reembolsado" value={formatClp(payment.refundedAmount)} />
           ) : null}
           {payment?.rejectionReason ? (
             <DetailRow label="Motivo de rechazo" value={payment.rejectionReason} />
@@ -750,10 +741,7 @@ export default function SaleDetailScreen() {
           ) : null}
           <View style={salesStyles.actions}>
             {allowed.approveProof ? (
-              <PrimaryButton
-                label="Validar"
-                onPress={() => openAction('approve')}
-              />
+              <PrimaryButton label="Validar" onPress={() => openAction('approve')} />
             ) : null}
             {allowed.rejectProof && data.paymentMethod !== 'bank_transfer' ? (
               <PrimaryButton
@@ -819,7 +807,9 @@ export default function SaleDetailScreen() {
               <View style={styles.timelineDot} />
               <View style={styles.timelineCopy}>
                 <Text style={styles.lineTitle}>{event.title}</Text>
-                {event.detail ? <Text style={salesStyles.muted}>{event.detail}</Text> : null}
+                {event.detail ? (
+                  <Text style={salesStyles.muted}>{event.detail}</Text>
+                ) : null}
                 <Text style={styles.timelineMeta}>
                   {formatDate(event.createdAt)}
                   {event.actorName ? ` · ${event.actorName}` : ''}
@@ -881,13 +871,21 @@ export default function SaleDetailScreen() {
           onChangeText={setContactPhone}
           keyboardType="phone-pad"
         />
-        <SheetField label="Quién recibe" value={recipientName} onChangeText={setRecipientName} />
+        <SheetField
+          label="Quién recibe"
+          value={recipientName}
+          onChangeText={setRecipientName}
+        />
         <SheetField
           label="RUT de quien recibe"
           value={recipientTaxId}
           onChangeText={(value) => setRecipientTaxId(formatRutInput(value))}
         />
-        <SheetField label="Dirección" value={deliveryAddress} onChangeText={setDeliveryAddress} />
+        <SheetField
+          label="Dirección"
+          value={deliveryAddress}
+          onChangeText={setDeliveryAddress}
+        />
         <ChileLocationFields
           region={deliveryRegion}
           commune={deliveryCommune}
@@ -896,7 +894,11 @@ export default function SaleDetailScreen() {
             setDeliveryCommune(commune)
           }}
         />
-        <SheetField label="Indicaciones" value={deliveryNotes} onChangeText={setDeliveryNotes} />
+        <SheetField
+          label="Indicaciones"
+          value={deliveryNotes}
+          onChangeText={setDeliveryNotes}
+        />
         {actionError && editingContact ? <StatusMessage message={actionError} /> : null}
       </Sheet>
     </SafeAreaView>
@@ -933,7 +935,12 @@ const styles = StyleSheet.create({
     gap: 11,
     paddingBottom: 13,
   },
-  productImage: { backgroundColor: colors.paper, borderRadius: 10, height: 52, width: 52 },
+  productImage: {
+    backgroundColor: colors.paper,
+    borderRadius: 10,
+    height: 52,
+    width: 52,
+  },
   lineCopy: { flex: 1, gap: 4 },
   lineTitle: { color: colors.ink, fontSize: 15, fontWeight: '800' },
   lineTotal: { color: colors.ink, fontSize: 14, fontWeight: '800' },

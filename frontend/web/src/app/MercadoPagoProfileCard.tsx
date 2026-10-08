@@ -25,7 +25,11 @@ export function MercadoPagoProfileCard() {
           </p>
         </div>
         <span className={`profile-bank-status${enabled ? ' is-ready' : ''}`}>
-          {connection.isPending ? 'Consultando…' : enabled ? 'Habilitado' : 'No habilitado'}
+          {connection.isPending
+            ? 'Consultando…'
+            : enabled
+              ? 'Habilitado'
+              : 'No habilitado'}
         </span>
       </div>
       <Link className="button button--primary" to="/app/configuracion/pagos">

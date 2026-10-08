@@ -1,6 +1,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import { Link, NavLink, Navigate, Outlet, useNavigate, useOutletContext } from 'react-router-dom'
+import {
+  Link,
+  NavLink,
+  Navigate,
+  Outlet,
+  useNavigate,
+  useOutletContext,
+} from 'react-router-dom'
 
 import { getAnalytics } from '../analytics'
 import { getViewer, logout, TendaApiError, type ViewerPayload } from '../auth/api'
@@ -107,95 +114,95 @@ export function ApplicationShell() {
       <ConnectivityBanner />
       <div className="app-shell__body">
         <aside className="app-sidebar">
-        <div className="app-sidebar__brand">
-          <Link className="wordmark" to="/app" aria-label="Tenda, inicio">
-            tenda
-          </Link>
-          <button
-            type="button"
-            onClick={() => setCollapsed((value) => !value)}
-            aria-label={collapsed ? 'Expandir navegación' : 'Contraer navegación'}
-            aria-expanded={!collapsed}
-          >
-            {collapsed ? '›' : '‹'}
-          </button>
-        </div>
-        <nav aria-label="Aplicación">
-          {visibleNavigation.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/app'}
-              title={collapsed ? item.label : undefined}
-              className={item.financial ? 'nav-financial' : undefined}
+          <div className="app-sidebar__brand">
+            <Link className="wordmark" to="/app" aria-label="Tenda, inicio">
+              tenda
+            </Link>
+            <button
+              type="button"
+              onClick={() => setCollapsed((value) => !value)}
+              aria-label={collapsed ? 'Expandir navegación' : 'Contraer navegación'}
+              aria-expanded={!collapsed}
             >
-              <span aria-hidden="true">{item.icon}</span>
-              <span>{item.label}</span>
-            </NavLink>
-          ))}
-        </nav>
-        <Link
-          className="app-sidebar__account"
-          to="/app/configuracion"
-          aria-label="Perfil y negocio"
-          title="Perfil y negocio"
-        >
-          <PersonAvatar
-            name={data.viewer.profile.fullName || data.viewer.email}
-            photoUrl={data.viewer.profile.photoUrl}
-          />
-          <div>
-            <strong>{data.viewer.profile.fullName || data.viewer.email}</strong>
-            <small>{data.membership.roleLabel}</small>
+              {collapsed ? '›' : '‹'}
+            </button>
           </div>
-        </Link>
-      </aside>
-
-      <div className="app-workspace">
-        <header className="app-header">
-          <Link className="app-header__store" to="/app/configuracion">
-            <span className="store-logo" aria-hidden="true">
-              <span className="store-logo__fallback">{storeInitial}</span>
-              {data.organisation.logoUrl ? (
-                <AuthenticatedImage
-                  src={data.organisation.logoUrl}
-                  alt=""
-                  className="store-logo__img"
-                />
-              ) : null}
-            </span>
+          <nav aria-label="Aplicación">
+            {visibleNavigation.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/app'}
+                title={collapsed ? item.label : undefined}
+                className={item.financial ? 'nav-financial' : undefined}
+              >
+                <span aria-hidden="true">{item.icon}</span>
+                <span>{item.label}</span>
+              </NavLink>
+            ))}
+          </nav>
+          <Link
+            className="app-sidebar__account"
+            to="/app/configuracion"
+            aria-label="Perfil y negocio"
+            title="Perfil y negocio"
+          >
+            <PersonAvatar
+              name={data.viewer.profile.fullName || data.viewer.email}
+              photoUrl={data.viewer.profile.photoUrl}
+            />
             <div>
-              <small>Tienda</small>
-              <strong>{data.organisation.name}</strong>
+              <strong>{data.viewer.profile.fullName || data.viewer.email}</strong>
+              <small>{data.membership.roleLabel}</small>
             </div>
           </Link>
-          <div className="app-header__actions">
-            <button type="button" aria-label="Notificaciones" title="Notificaciones">
-              ♢
-            </button>
-            <button
-              className="button button--secondary"
-              type="button"
-              disabled={loggingOut}
-              onClick={async () => {
-                setLoggingOut(true)
-                try {
-                  await logout()
-                  queryClient.clear()
-                  navigate('/login', { replace: true })
-                } finally {
-                  setLoggingOut(false)
-                }
-              }}
-            >
-              {loggingOut ? 'Cerrando…' : 'Cerrar sesión'}
-            </button>
-          </div>
-        </header>
-        <main className="app-content">
-          <Outlet context={data} />
-        </main>
-      </div>
+        </aside>
+
+        <div className="app-workspace">
+          <header className="app-header">
+            <Link className="app-header__store" to="/app/configuracion">
+              <span className="store-logo" aria-hidden="true">
+                <span className="store-logo__fallback">{storeInitial}</span>
+                {data.organisation.logoUrl ? (
+                  <AuthenticatedImage
+                    src={data.organisation.logoUrl}
+                    alt=""
+                    className="store-logo__img"
+                  />
+                ) : null}
+              </span>
+              <div>
+                <small>Tienda</small>
+                <strong>{data.organisation.name}</strong>
+              </div>
+            </Link>
+            <div className="app-header__actions">
+              <button type="button" aria-label="Notificaciones" title="Notificaciones">
+                ♢
+              </button>
+              <button
+                className="button button--secondary"
+                type="button"
+                disabled={loggingOut}
+                onClick={async () => {
+                  setLoggingOut(true)
+                  try {
+                    await logout()
+                    queryClient.clear()
+                    navigate('/login', { replace: true })
+                  } finally {
+                    setLoggingOut(false)
+                  }
+                }}
+              >
+                {loggingOut ? 'Cerrando…' : 'Cerrar sesión'}
+              </button>
+            </div>
+          </header>
+          <main className="app-content">
+            <Outlet context={data} />
+          </main>
+        </div>
       </div>
     </div>
   )

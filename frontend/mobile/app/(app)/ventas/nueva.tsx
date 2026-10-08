@@ -16,10 +16,7 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import {
-  bankAccountOptionLabel,
-  organisationHasBankDetails,
-} from '@tenda/api-client'
+import { bankAccountOptionLabel, organisationHasBankDetails } from '@tenda/api-client'
 import { BankDetailsRequired } from '../../../components/bank-details-required'
 import { PrimaryButton, StatusMessage, colors } from '../../../components/auth-ui'
 import {
@@ -102,11 +99,7 @@ function StepHeading({ step }: { step: SaleDraftStep }) {
   )
 }
 
-function ProductSearch({
-  onAdd,
-}: {
-  onAdd: (product: ProductCard) => void
-}) {
+function ProductSearch({ onAdd }: { onAdd: (product: ProductCard) => void }) {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
@@ -181,10 +174,7 @@ function ProductSearch({
               accessibilityState={{ disabled: product.stock.available <= 0 }}
               disabled={product.stock.available <= 0}
               onPress={() => onAdd(product)}
-              style={[
-                styles.addButton,
-                product.stock.available <= 0 && styles.disabled,
-              ]}
+              style={[styles.addButton, product.stock.available <= 0 && styles.disabled]}
             >
               <Text style={styles.addButtonText}>Agregar</Text>
             </Pressable>
@@ -243,9 +233,7 @@ function DraftLineCard({
         help={`Referencia: ${formatPrice(line.referencePrice)}. Este es el precio que queda guardado en la venta.`}
         keyboardType="number-pad"
         value={line.unitSalePrice}
-        onChangeText={(unitSalePrice) =>
-          onChange({ unitSalePrice, discountPercent: '' })
-        }
+        onChangeText={(unitSalePrice) => onChange({ unitSalePrice, discountPercent: '' })}
         error={errors.find((error) => error.includes('precio'))}
       />
       <SheetField
@@ -327,21 +315,18 @@ export default function NewSaleScreen() {
   )
   const mercadoPagoActive =
     paymentConnection.data?.sellerPaymentConnection?.status === 'connected'
-  const depositBlocked =
-    draft.paymentMethod === 'bank_transfer' && !hasBankDetails
+  const depositBlocked = draft.paymentMethod === 'bank_transfer' && !hasBankDetails
 
-  const validation = useMemo(
-    () => validateSaleDraftLines(draft.lines),
-    [draft.lines],
-  )
+  const validation = useMemo(() => validateSaleDraftLines(draft.lines), [draft.lines])
   const total = useMemo(
     () =>
       draft.lines.reduce((sum, line) => {
         const quantity = Number(line.quantity)
         const price = Number(line.unitSalePrice)
-        return sum + (Number.isFinite(quantity) && Number.isFinite(price)
-          ? quantity * price
-          : 0)
+        return (
+          sum +
+          (Number.isFinite(quantity) && Number.isFinite(price) ? quantity * price : 0)
+        )
       }, 0),
     [draft.lines],
   )
@@ -479,428 +464,428 @@ export default function NewSaleScreen() {
 
   return (
     <>
-    <SafeAreaView style={salesStyles.safeArea}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.flex}
-      >
-        <ScrollView
-          contentContainerStyle={salesStyles.content}
-          keyboardShouldPersistTaps="handled"
+      <SafeAreaView style={salesStyles.safeArea}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.flex}
         >
-          <View style={styles.topBar}>
-            <StepHeading step={draft.step} />
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                if (draft.step === 'result') {
-                  void clearSaleDraft()
-                  setDraft(createEmptySaleDraft())
-                  setCompletedNotice(null)
-                }
-                router.back()
-              }}
-            >
-              <Text style={styles.close}>Cerrar</Text>
-            </Pressable>
-          </View>
-
-          {completedNotice ? (
-            <View accessibilityRole="summary" style={styles.completedNotice}>
-              <Text style={styles.completedTitle}>
-                La venta {completedNotice.orderNumber} ya está creada
-              </Text>
-              <Text style={salesStyles.muted}>
-                Ábrela para copiar el enlace o sigue con una venta nueva.
-              </Text>
-              <PrimaryButton
-                label="Ver ficha"
-                variant="secondary"
-                onPress={() => router.push(`/ventas/${completedNotice.orderId}`)}
-              />
+          <ScrollView
+            contentContainerStyle={salesStyles.content}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.topBar}>
+              <StepHeading step={draft.step} />
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  if (draft.step === 'result') {
+                    void clearSaleDraft()
+                    setDraft(createEmptySaleDraft())
+                    setCompletedNotice(null)
+                  }
+                  router.back()
+                }}
+              >
+                <Text style={styles.close}>Cerrar</Text>
+              </Pressable>
             </View>
-          ) : null}
 
-          {apiError ? (
-            <>
-              <StatusMessage message={apiError.message} />
-              {isOfflineError(apiError) ? (
-                <Text style={salesStyles.muted}>
-                  No encolamos la venta. El borrador y su clave de reintento siguen
-                  guardados en este dispositivo.
+            {completedNotice ? (
+              <View accessibilityRole="summary" style={styles.completedNotice}>
+                <Text style={styles.completedTitle}>
+                  La venta {completedNotice.orderNumber} ya está creada
                 </Text>
-              ) : null}
-            </>
-          ) : null}
+                <Text style={salesStyles.muted}>
+                  Ábrela para copiar el enlace o sigue con una venta nueva.
+                </Text>
+                <PrimaryButton
+                  label="Ver ficha"
+                  variant="secondary"
+                  onPress={() => router.push(`/ventas/${completedNotice.orderId}`)}
+                />
+              </View>
+            ) : null}
 
-          {draft.step === 'products' ? (
-            <>
-              <Text style={salesStyles.muted}>
-                Puedes repetir un producto en líneas separadas si cada grupo tiene un
-                precio distinto. La disponibilidad se valida sumando todas sus líneas.
-              </Text>
-              <ProductSearch onAdd={addProduct} />
-              {draft.lines.map((line) => (
-                <DraftLineCard
-                  key={line.id}
-                  line={line}
-                  errors={validation.lineErrors[line.id] ?? []}
-                  onChange={(update) =>
-                    setDraft((current) => updateLine(current, line.id, update))
-                  }
-                  onDuplicate={() =>
-                    setDraft((current) => ({
-                      ...current,
-                      lines: [
-                        ...current.lines,
-                        {
-                          ...line,
-                          id: createSaleDraftLine({
-                            id: line.productId,
-                            name: line.productName,
-                            salePrice: line.referencePrice,
-                            stock: {
-                              available: line.available,
-                              reserved: line.reserved,
-                            },
-                          }).id,
-                          quantity: '1',
-                          discountPercent: '',
-                        },
-                      ],
-                    }))
-                  }
-                  onRemove={() =>
-                    setDraft((current) => ({
-                      ...current,
-                      lines: current.lines.filter((item) => item.id !== line.id),
-                    }))
-                  }
-                />
-              ))}
-              {Object.values(validation.productErrors).map((message) => (
-                <StatusMessage key={message} message={message} />
-              ))}
-              {!draft.lines.length ? (
-                <StatusMessage message="Agrega al menos un producto para continuar." />
-              ) : null}
-              <PrimaryButton
-                label="Continuar a entrega y pago"
-                disabled={!validation.valid}
-                onPress={goNext}
-              />
-            </>
-          ) : null}
-
-          {draft.step === 'terms' ? (
-            <>
-              <SectionCard title="Entrega">
-                <OptionRow
-                  label="Modo de entrega"
-                  value={draft.deliveryMode}
-                  onChange={(deliveryMode) =>
-                    setDraft((current) => ({ ...current, deliveryMode }))
-                  }
-                  options={[
-                    { value: 'shipping', label: deliveryModeLabels.shipping },
-                    { value: 'pickup', label: deliveryModeLabels.pickup },
-                  ]}
-                />
-              </SectionCard>
-              <SectionCard title="Pago">
-                <OptionRow
-                  label="Método de pago"
-                  value={draft.paymentMethod}
-                  onChange={(paymentMethod) =>
-                    setDraft((current) => ({ ...current, paymentMethod }))
-                  }
-                  options={[
-                    {
-                      value: 'bank_transfer',
-                      label: paymentMethodLabels.bank_transfer,
-                    },
-                    { value: 'cash', label: paymentMethodLabels.cash },
-                    {
-                      value: 'mercado_pago',
-                      label: paymentMethodLabels.mercado_pago,
-                      disabled: !mercadoPagoActive,
-                      hint: mercadoPagoActive
-                        ? undefined
-                        : 'Conecta la cuenta del negocio en Más, Pagos.',
-                    },
-                  ]}
-                />
-                {!mercadoPagoActive ? (
+            {apiError ? (
+              <>
+                <StatusMessage message={apiError.message} />
+                {isOfflineError(apiError) ? (
                   <Text style={salesStyles.muted}>
-                    Mercado Pago está desactivado hasta que el Owner conecte una cuenta
-                    activa en Más › Pagos.
+                    No encolamos la venta. El borrador y su clave de reintento siguen
+                    guardados en este dispositivo.
                   </Text>
                 ) : null}
-                {depositBlocked ? <BankDetailsRequired /> : null}
-                {!depositBlocked &&
-                draft.paymentMethod === 'bank_transfer' &&
-                selectableAccounts.length > 1 ? (
-                  <View style={{ gap: 8 }}>
-                    <Text style={salesStyles.muted}>Cuenta para el depósito</Text>
-                    {selectableAccounts.map((account) => (
-                      <Pressable
-                        key={account.id}
-                        accessibilityRole="button"
-                        onPress={() =>
-                          setDraft((current) => ({
-                            ...current,
-                            bankAccountId: account.id,
-                          }))
-                        }
-                      >
-                        <Text
-                          style={{
-                            color:
-                              (draft.bankAccountId ?? selectableAccounts[0]?.id) ===
-                              account.id
-                                ? colors.green
-                                : colors.ink,
-                            fontWeight: '700',
-                          }}
-                        >
-                          {bankAccountOptionLabel(account)}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                ) : null}
-              </SectionCard>
-              <View accessibilityRole="summary" style={styles.reserveNotice}>
-                <Text style={styles.reserveTitle}>Reserva por 8 horas</Text>
+              </>
+            ) : null}
+
+            {draft.step === 'products' ? (
+              <>
                 <Text style={salesStyles.muted}>
-                  Al crear la venta, Tenda reserva el stock durante ocho horas mientras
-                  el comprador completa el pago. Si vence, la disponibilidad se libera.
+                  Puedes repetir un producto en líneas separadas si cada grupo tiene un
+                  precio distinto. La disponibilidad se valida sumando todas sus líneas.
                 </Text>
-              </View>
-              <View style={salesStyles.actions}>
+                <ProductSearch onAdd={addProduct} />
+                {draft.lines.map((line) => (
+                  <DraftLineCard
+                    key={line.id}
+                    line={line}
+                    errors={validation.lineErrors[line.id] ?? []}
+                    onChange={(update) =>
+                      setDraft((current) => updateLine(current, line.id, update))
+                    }
+                    onDuplicate={() =>
+                      setDraft((current) => ({
+                        ...current,
+                        lines: [
+                          ...current.lines,
+                          {
+                            ...line,
+                            id: createSaleDraftLine({
+                              id: line.productId,
+                              name: line.productName,
+                              salePrice: line.referencePrice,
+                              stock: {
+                                available: line.available,
+                                reserved: line.reserved,
+                              },
+                            }).id,
+                            quantity: '1',
+                            discountPercent: '',
+                          },
+                        ],
+                      }))
+                    }
+                    onRemove={() =>
+                      setDraft((current) => ({
+                        ...current,
+                        lines: current.lines.filter((item) => item.id !== line.id),
+                      }))
+                    }
+                  />
+                ))}
+                {Object.values(validation.productErrors).map((message) => (
+                  <StatusMessage key={message} message={message} />
+                ))}
+                {!draft.lines.length ? (
+                  <StatusMessage message="Agrega al menos un producto para continuar." />
+                ) : null}
                 <PrimaryButton
-                  label="Revisar venta"
-                  disabled={depositBlocked}
+                  label="Continuar a entrega y pago"
+                  disabled={!validation.valid}
                   onPress={goNext}
                 />
-                <PrimaryButton label="Volver" variant="secondary" onPress={goBack} />
-              </View>
-            </>
-          ) : null}
+              </>
+            ) : null}
 
-          {draft.step === 'review' ? (
-            <>
-              <SectionCard title="Productos">
-                {draft.lines.map((line) => (
-                  <View key={line.id} style={styles.reviewLine}>
-                    <View style={styles.productCopy}>
-                      <Text style={styles.productName}>{line.productName}</Text>
-                      <Text style={salesStyles.muted}>
-                        {line.quantity} × {formatClp(line.unitSalePrice)}
+            {draft.step === 'terms' ? (
+              <>
+                <SectionCard title="Entrega">
+                  <OptionRow
+                    label="Modo de entrega"
+                    value={draft.deliveryMode}
+                    onChange={(deliveryMode) =>
+                      setDraft((current) => ({ ...current, deliveryMode }))
+                    }
+                    options={[
+                      { value: 'shipping', label: deliveryModeLabels.shipping },
+                      { value: 'pickup', label: deliveryModeLabels.pickup },
+                    ]}
+                  />
+                </SectionCard>
+                <SectionCard title="Pago">
+                  <OptionRow
+                    label="Método de pago"
+                    value={draft.paymentMethod}
+                    onChange={(paymentMethod) =>
+                      setDraft((current) => ({ ...current, paymentMethod }))
+                    }
+                    options={[
+                      {
+                        value: 'bank_transfer',
+                        label: paymentMethodLabels.bank_transfer,
+                      },
+                      { value: 'cash', label: paymentMethodLabels.cash },
+                      {
+                        value: 'mercado_pago',
+                        label: paymentMethodLabels.mercado_pago,
+                        disabled: !mercadoPagoActive,
+                        hint: mercadoPagoActive
+                          ? undefined
+                          : 'Conecta la cuenta del negocio en Más, Pagos.',
+                      },
+                    ]}
+                  />
+                  {!mercadoPagoActive ? (
+                    <Text style={salesStyles.muted}>
+                      Mercado Pago está desactivado hasta que el Owner conecte una cuenta
+                      activa en Más › Pagos.
+                    </Text>
+                  ) : null}
+                  {depositBlocked ? <BankDetailsRequired /> : null}
+                  {!depositBlocked &&
+                  draft.paymentMethod === 'bank_transfer' &&
+                  selectableAccounts.length > 1 ? (
+                    <View style={{ gap: 8 }}>
+                      <Text style={salesStyles.muted}>Cuenta para el depósito</Text>
+                      {selectableAccounts.map((account) => (
+                        <Pressable
+                          key={account.id}
+                          accessibilityRole="button"
+                          onPress={() =>
+                            setDraft((current) => ({
+                              ...current,
+                              bankAccountId: account.id,
+                            }))
+                          }
+                        >
+                          <Text
+                            style={{
+                              color:
+                                (draft.bankAccountId ?? selectableAccounts[0]?.id) ===
+                                account.id
+                                  ? colors.green
+                                  : colors.ink,
+                              fontWeight: '700',
+                            }}
+                          >
+                            {bankAccountOptionLabel(account)}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : null}
+                </SectionCard>
+                <View accessibilityRole="summary" style={styles.reserveNotice}>
+                  <Text style={styles.reserveTitle}>Reserva por 8 horas</Text>
+                  <Text style={salesStyles.muted}>
+                    Al crear la venta, Tenda reserva el stock durante ocho horas mientras
+                    el comprador completa el pago. Si vence, la disponibilidad se libera.
+                  </Text>
+                </View>
+                <View style={salesStyles.actions}>
+                  <PrimaryButton
+                    label="Revisar venta"
+                    disabled={depositBlocked}
+                    onPress={goNext}
+                  />
+                  <PrimaryButton label="Volver" variant="secondary" onPress={goBack} />
+                </View>
+              </>
+            ) : null}
+
+            {draft.step === 'review' ? (
+              <>
+                <SectionCard title="Productos">
+                  {draft.lines.map((line) => (
+                    <View key={line.id} style={styles.reviewLine}>
+                      <View style={styles.productCopy}>
+                        <Text style={styles.productName}>{line.productName}</Text>
+                        <Text style={salesStyles.muted}>
+                          {line.quantity} × {formatClp(line.unitSalePrice)}
+                        </Text>
+                      </View>
+                      <Text style={styles.reviewAmount}>
+                        {formatClp(
+                          String(Number(line.quantity) * Number(line.unitSalePrice)),
+                        )}
                       </Text>
                     </View>
-                    <Text style={styles.reviewAmount}>
-                      {formatClp(
-                        String(Number(line.quantity) * Number(line.unitSalePrice)),
-                      )}
-                    </Text>
-                  </View>
-                ))}
-              </SectionCard>
-              <SectionCard title="Condiciones">
-                <Text style={styles.reviewDetail}>
-                  {deliveryModeLabels[draft.deliveryMode]}
+                  ))}
+                </SectionCard>
+                <SectionCard title="Condiciones">
+                  <Text style={styles.reviewDetail}>
+                    {deliveryModeLabels[draft.deliveryMode]}
+                  </Text>
+                  <Text style={styles.reviewDetail}>
+                    {paymentMethodLabels[draft.paymentMethod]}
+                  </Text>
+                  <Text style={styles.total}>Total {formatClp(String(total))}</Text>
+                </SectionCard>
+                {depositBlocked ? <BankDetailsRequired /> : null}
+                <Text style={salesStyles.muted}>
+                  {draft.paymentMethod === 'cash'
+                    ? 'Crear reserva el stock. Luego abrirás la ficha para completar los datos y registrar el pago.'
+                    : 'Crear reserva stock y publica un enlace opaco. No se enviará a ningún contacto automáticamente.'}
                 </Text>
-                <Text style={styles.reviewDetail}>
-                  {paymentMethodLabels[draft.paymentMethod]}
-                </Text>
-                <Text style={styles.total}>Total {formatClp(String(total))}</Text>
-              </SectionCard>
-              {depositBlocked ? <BankDetailsRequired /> : null}
-              <Text style={salesStyles.muted}>
-                {draft.paymentMethod === 'cash'
-                  ? 'Crear reserva el stock. Luego abrirás la ficha para completar los datos y registrar el pago.'
-                  : 'Crear reserva stock y publica un enlace opaco. No se enviará a ningún contacto automáticamente.'}
-              </Text>
-              <View style={salesStyles.actions}>
-                <PrimaryButton
-                  label={
-                    draft.paymentMethod === 'cash'
-                      ? 'Crear venta en efectivo'
-                      : 'Crear venta y enlace'
-                  }
-                  loading={submit.isPending}
-                  disabled={depositBlocked}
-                  onPress={() => {
-                    if (depositBlocked || submitLock.current || submit.isPending) return
-                    setApiError(null)
-                    if (draft.paymentMethod === 'cash') {
-                      setConfirmCash(true)
-                      return
+                <View style={salesStyles.actions}>
+                  <PrimaryButton
+                    label={
+                      draft.paymentMethod === 'cash'
+                        ? 'Crear venta en efectivo'
+                        : 'Crear venta y enlace'
                     }
-                    submitLock.current = true
-                    submit.mutate()
-                  }}
-                />
-                <PrimaryButton label="Volver" variant="secondary" onPress={goBack} />
-              </View>
-            </>
-          ) : null}
+                    loading={submit.isPending}
+                    disabled={depositBlocked}
+                    onPress={() => {
+                      if (depositBlocked || submitLock.current || submit.isPending) return
+                      setApiError(null)
+                      if (draft.paymentMethod === 'cash') {
+                        setConfirmCash(true)
+                        return
+                      }
+                      submitLock.current = true
+                      submit.mutate()
+                    }}
+                  />
+                  <PrimaryButton label="Volver" variant="secondary" onPress={goBack} />
+                </View>
+              </>
+            ) : null}
 
-          {draft.step === 'result' && draft.result ? (
-            <>
-              <View accessibilityRole="summary" style={styles.result}>
-                <Text style={styles.resultIcon}>✓</Text>
-                <Text style={styles.resultTitle}>
-                  Venta {draft.result.orderNumber} creada
+            {draft.step === 'result' && draft.result ? (
+              <>
+                <View accessibilityRole="summary" style={styles.result}>
+                  <Text style={styles.resultIcon}>✓</Text>
+                  <Text style={styles.resultTitle}>
+                    Venta {draft.result.orderNumber} creada
+                  </Text>
+                  <Text selectable style={styles.publicUrl}>
+                    {draft.result.publicUrl}
+                  </Text>
+                </View>
+                <View style={salesStyles.actions}>
+                  <PrimaryButton
+                    label="Compartir"
+                    onPress={() =>
+                      void Share.share({
+                        title: `Venta ${draft.result?.orderNumber ?? ''}`,
+                        message: draft.result?.publicUrl ?? '',
+                        url: draft.result?.publicUrl,
+                      })
+                    }
+                  />
+                  <PrimaryButton
+                    label="Copiar enlace"
+                    variant="secondary"
+                    onPress={() => {
+                      if (draft.result) Clipboard.setString(draft.result.publicUrl)
+                    }}
+                  />
+                  <PrimaryButton
+                    label="Vista previa"
+                    variant="secondary"
+                    onPress={() => {
+                      if (draft.result) void Linking.openURL(draft.result.publicUrl)
+                    }}
+                  />
+                  <PrimaryButton
+                    label="Ver detalle de la venta"
+                    variant="secondary"
+                    onPress={() => {
+                      const orderId = draft.result?.orderId ?? ''
+                      void clearSaleDraft()
+                      setDraft(createEmptySaleDraft())
+                      setCompletedNotice(null)
+                      router.replace(`/ventas/${orderId}`)
+                    }}
+                  />
+                  <PrimaryButton
+                    label="Enviar por correo"
+                    variant="secondary"
+                    onPress={() => {
+                      setApiError(null)
+                      setEmailOpen(true)
+                    }}
+                  />
+                  {emailSent ? (
+                    <Text style={salesStyles.muted}>Correo enviado.</Text>
+                  ) : null}
+                  <PrimaryButton
+                    label="Crear otra venta"
+                    variant="secondary"
+                    onPress={() => {
+                      void clearSaleDraft()
+                      setDraft(createEmptySaleDraft())
+                      setCompletedNotice(null)
+                      setApiError(null)
+                      setEmail('')
+                      setEmailSent(false)
+                      setEmailOpen(false)
+                      setEmailKey(newIdempotencyKey())
+                    }}
+                  />
+                </View>
+                <Text style={salesStyles.muted}>
+                  El enlace solo se comparte cuando eliges Compartir o Copiar. Tenda no
+                  contacta automáticamente al comprador.
                 </Text>
-                <Text selectable style={styles.publicUrl}>
-                  {draft.result.publicUrl}
-                </Text>
-              </View>
-              <View style={salesStyles.actions}>
-                <PrimaryButton
-                  label="Compartir"
-                  onPress={() =>
-                    void Share.share({
-                      title: `Venta ${draft.result?.orderNumber ?? ''}`,
-                      message: draft.result?.publicUrl ?? '',
-                      url: draft.result?.publicUrl,
-                    })
-                  }
-                />
-                <PrimaryButton
-                  label="Copiar enlace"
-                  variant="secondary"
-                  onPress={() => {
-                    if (draft.result) Clipboard.setString(draft.result.publicUrl)
-                  }}
-                />
-                <PrimaryButton
-                  label="Vista previa"
-                  variant="secondary"
-                  onPress={() => {
-                    if (draft.result) void Linking.openURL(draft.result.publicUrl)
-                  }}
-                />
-                <PrimaryButton
-                  label="Ver detalle de la venta"
-                  variant="secondary"
-                  onPress={() => {
-                    const orderId = draft.result?.orderId ?? ''
-                    void clearSaleDraft()
-                    setDraft(createEmptySaleDraft())
-                    setCompletedNotice(null)
-                    router.replace(`/ventas/${orderId}`)
-                  }}
-                />
-                <PrimaryButton
-                  label="Enviar por correo"
-                  variant="secondary"
-                  onPress={() => {
-                    setApiError(null)
-                    setEmailOpen(true)
-                  }}
-                />
-                {emailSent ? (
-                  <Text style={salesStyles.muted}>Correo enviado.</Text>
-                ) : null}
-                <PrimaryButton
-                  label="Crear otra venta"
-                  variant="secondary"
-                  onPress={() => {
-                    void clearSaleDraft()
-                    setDraft(createEmptySaleDraft())
-                    setCompletedNotice(null)
-                    setApiError(null)
-                    setEmail('')
-                    setEmailSent(false)
-                    setEmailOpen(false)
-                    setEmailKey(newIdempotencyKey())
-                  }}
-                />
-              </View>
-              <Text style={salesStyles.muted}>
-                El enlace solo se comparte cuando eliges Compartir o Copiar. Tenda no
-                contacta automáticamente al comprador.
-              </Text>
-            </>
-          ) : null}
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
-    <Sheet
-      visible={confirmCash}
-      title="Confirmar venta en efectivo"
-      description="Se reservará el stock y abrirás la ficha para completar los datos y registrar el pago."
-      onClose={() => {
-        if (!submit.isPending) setConfirmCash(false)
-      }}
-      footer={
-        <>
-          <View style={styles.footerItem}>
-            <PrimaryButton
-              label="Volver"
-              variant="secondary"
-              disabled={submit.isPending}
-              onPress={() => setConfirmCash(false)}
-            />
-          </View>
-          <View style={styles.footerItem}>
-            <PrimaryButton
-              label={submit.isPending ? 'Creando…' : 'Crear venta'}
-              loading={submit.isPending}
-              onPress={() => {
-                if (submitLock.current || submit.isPending) return
-                submitLock.current = true
-                submit.mutate()
-              }}
-            />
-          </View>
-        </>
-      }
-    >
-      <Text style={styles.total}>Total {formatClp(String(total))}</Text>
-    </Sheet>
-    <Sheet
-      visible={emailOpen}
-      title="Enviar por correo"
-      description="Ingresa el correo del comprador para enviarle el enlace."
-      onClose={() => {
-        if (!sendEmail.isPending) setEmailOpen(false)
-      }}
-      footer={
-        <>
-          <View style={styles.footerItem}>
-            <PrimaryButton
-              label="Volver"
-              variant="secondary"
-              disabled={sendEmail.isPending}
-              onPress={() => setEmailOpen(false)}
-            />
-          </View>
-          <View style={styles.footerItem}>
-            <PrimaryButton
-              label={sendEmail.isPending ? 'Enviando…' : 'Enviar'}
-              loading={sendEmail.isPending}
-              disabled={!email.includes('@') || email.includes(' ') || !email.trim()}
-              onPress={() => sendEmail.mutate()}
-            />
-          </View>
-        </>
-      }
-    >
-      <SheetField
-        label="Correo del comprador"
-        keyboardType="email-address"
-        autoCapitalize="none"
-        value={email}
-        onChangeText={(value) => {
-          setEmail(value)
-          setEmailSent(false)
+              </>
+            ) : null}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+      <Sheet
+        visible={confirmCash}
+        title="Confirmar venta en efectivo"
+        description="Se reservará el stock y abrirás la ficha para completar los datos y registrar el pago."
+        onClose={() => {
+          if (!submit.isPending) setConfirmCash(false)
         }}
-      />
-    </Sheet>
+        footer={
+          <>
+            <View style={styles.footerItem}>
+              <PrimaryButton
+                label="Volver"
+                variant="secondary"
+                disabled={submit.isPending}
+                onPress={() => setConfirmCash(false)}
+              />
+            </View>
+            <View style={styles.footerItem}>
+              <PrimaryButton
+                label={submit.isPending ? 'Creando…' : 'Crear venta'}
+                loading={submit.isPending}
+                onPress={() => {
+                  if (submitLock.current || submit.isPending) return
+                  submitLock.current = true
+                  submit.mutate()
+                }}
+              />
+            </View>
+          </>
+        }
+      >
+        <Text style={styles.total}>Total {formatClp(String(total))}</Text>
+      </Sheet>
+      <Sheet
+        visible={emailOpen}
+        title="Enviar por correo"
+        description="Ingresa el correo del comprador para enviarle el enlace."
+        onClose={() => {
+          if (!sendEmail.isPending) setEmailOpen(false)
+        }}
+        footer={
+          <>
+            <View style={styles.footerItem}>
+              <PrimaryButton
+                label="Volver"
+                variant="secondary"
+                disabled={sendEmail.isPending}
+                onPress={() => setEmailOpen(false)}
+              />
+            </View>
+            <View style={styles.footerItem}>
+              <PrimaryButton
+                label={sendEmail.isPending ? 'Enviando…' : 'Enviar'}
+                loading={sendEmail.isPending}
+                disabled={!email.includes('@') || email.includes(' ') || !email.trim()}
+                onPress={() => sendEmail.mutate()}
+              />
+            </View>
+          </>
+        }
+      >
+        <SheetField
+          label="Correo del comprador"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          value={email}
+          onChangeText={(value) => {
+            setEmail(value)
+            setEmailSent(false)
+          }}
+        />
+      </Sheet>
     </>
   )
 }

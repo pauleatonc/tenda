@@ -78,7 +78,9 @@ export function MobileProductMedia({
     onSuccess: refresh,
     onError: (actionError: unknown) =>
       setError(
-        actionError instanceof Error ? actionError.message : 'No pudimos eliminar la foto.',
+        actionError instanceof Error
+          ? actionError.message
+          : 'No pudimos eliminar la foto.',
       ),
   })
 
@@ -209,7 +211,9 @@ export function MobilePendingPhotoQueue({
             source={{ uri: photo.uri }}
             style={styles.image}
           />
-          <Text style={styles.name}>{index === 0 ? 'Principal' : `Foto ${index + 1}`}</Text>
+          <Text style={styles.name}>
+            {index === 0 ? 'Principal' : `Foto ${index + 1}`}
+          </Text>
           <Pressable
             accessibilityRole="button"
             onPress={() => onRemove(photo.uri)}

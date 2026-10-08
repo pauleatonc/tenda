@@ -347,11 +347,7 @@ mutation UpdateOrderBuyer(
   $input: BuyerDetailsInput!
   $idempotencyKey: String!
 ) {
-  updateOrderBuyer(
-    orderId: $orderId
-    input: $input
-    idempotencyKey: $idempotencyKey
-  ) {
+  updateOrderBuyer(orderId: $orderId, input: $input, idempotencyKey: $idempotencyKey) {
     replayed
     order {
       ...SellerOrder

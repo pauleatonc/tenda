@@ -102,6 +102,8 @@ describe('listado de despachos', () => {
         filter: { search: null, statuses: ['pending'], deliveryMode: 'pickup' },
       }),
     )
-    expect(screen.getByRole('button', { name: 'Limpiar filtros (2)' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Limpiar filtros (2)' }),
+    ).toBeInTheDocument()
   })
 })

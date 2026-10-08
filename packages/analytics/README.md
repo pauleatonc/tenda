@@ -27,8 +27,8 @@ Catálogo compartido de eventos GA4 para web (`gtag`) y mobile (Firebase Analyti
 
 ## Variables de entorno
 
-| Variable | Dónde | Uso |
-|----------|--------|-----|
+| Variable                 | Dónde                  | Uso                                                         |
+| ------------------------ | ---------------------- | ----------------------------------------------------------- |
 | `VITE_GA_MEASUREMENT_ID` | web / Docker / compose | Measurement ID del stream web. Vacío = no-op (sin scripts). |
 
 ## Privacidad

@@ -37,6 +37,7 @@ data/web-dist/*
 .DS_Store
 
 # Runtime artifacts
+.cache/
 coverage/
 playwright-report/
 test-results/

@@ -369,22 +369,26 @@ def test_public_order_exposes_photos_and_media_route() -> None:
     response = Client().get(f"/api/v1/public/orders/{token}/media/{asset.public_id}")
     assert response.status_code == 200
     assert response.content
-    payload = Client().post(
-        "/graphql/",
-        data=json.dumps(
-            {
-                "query": """
+    payload = (
+        Client()
+        .post(
+            "/graphql/",
+            data=json.dumps(
+                {
+                    "query": """
                 query ($token: String!) {
                   publicOrder(token: $token) {
                     lines { photos imageUrl }
                   }
                 }
                 """,
-                "variables": {"token": token},
-            }
-        ),
-        content_type="application/json",
-    ).json()
+                    "variables": {"token": token},
+                }
+            ),
+            content_type="application/json",
+        )
+        .json()
+    )
     assert "errors" not in payload, payload.get("errors")
     line = payload["data"]["publicOrder"]["lines"][0]
     assert line["photos"]
@@ -415,22 +419,26 @@ def test_public_order_exposes_seller_logo() -> None:
     context.organisation.logo_asset_id = asset.public_id
     context.organisation.save(update_fields=("logo_asset_id", "updated_at"))
     token = decrypt_credential(order.public_token_ciphertext)
-    payload = Client().post(
-        "/graphql/",
-        data=json.dumps(
-            {
-                "query": """
+    payload = (
+        Client()
+        .post(
+            "/graphql/",
+            data=json.dumps(
+                {
+                    "query": """
                 query ($token: String!) {
                   publicOrder(token: $token) {
                     seller { name logoUrl }
                   }
                 }
                 """,
-                "variables": {"token": token},
-            }
-        ),
-        content_type="application/json",
-    ).json()
+                    "variables": {"token": token},
+                }
+            ),
+            content_type="application/json",
+        )
+        .json()
+    )
     assert "errors" not in payload, payload.get("errors")
     seller = payload["data"]["publicOrder"]["seller"]
     assert seller["logoUrl"]
@@ -477,11 +485,13 @@ def test_public_order_exposes_structured_bank_details() -> None:
     _user, context = identity("deposit-bank@example.com")
     order, _product = offer_order(context)
     token = decrypt_credential(order.public_token_ciphertext)
-    payload = Client().post(
-        "/graphql/",
-        data=json.dumps(
-            {
-                "query": """
+    payload = (
+        Client()
+        .post(
+            "/graphql/",
+            data=json.dumps(
+                {
+                    "query": """
                 query ($token: String!) {
                   publicOrder(token: $token) {
                     bankTransferInstructions
@@ -496,11 +506,13 @@ def test_public_order_exposes_structured_bank_details() -> None:
                   }
                 }
                 """,
-                "variables": {"token": token},
-            }
-        ),
-        content_type="application/json",
-    ).json()
+                    "variables": {"token": token},
+                }
+            ),
+            content_type="application/json",
+        )
+        .json()
+    )
     assert "errors" not in payload, payload.get("errors")
     public = payload["data"]["publicOrder"]
     assert public["bankDetails"] == {

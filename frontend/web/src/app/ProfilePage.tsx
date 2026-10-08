@@ -1,7 +1,4 @@
-import {
-  UpdateOrganisationDocument,
-  UpdateProfileDocument,
-} from '@tenda/api-client'
+import { UpdateOrganisationDocument, UpdateProfileDocument } from '@tenda/api-client'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
@@ -222,7 +219,9 @@ export function ProfilePage() {
                 onSelect={(file) => uploadLogo.mutate(file)}
               />
             ) : (
-              <p className="field__hint">Solo quien titula la tienda puede editar estos datos.</p>
+              <p className="field__hint">
+                Solo quien titula la tienda puede editar estos datos.
+              </p>
             )}
             {canManageStore ? (
               <button

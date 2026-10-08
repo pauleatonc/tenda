@@ -1,9 +1,5 @@
 import { useState } from 'react'
-import {
-  applyConsent,
-  getStoredConsent,
-  isAnalyticsConfigured,
-} from './client'
+import { applyConsent, getStoredConsent, isAnalyticsConfigured } from './client'
 
 export function AnalyticsConsentBanner() {
   const [visible, setVisible] = useState(() => {
@@ -14,7 +10,11 @@ export function AnalyticsConsentBanner() {
   if (!visible) return null
 
   return (
-    <div className="analytics-consent" role="dialog" aria-label="Preferencias de analítica">
+    <div
+      className="analytics-consent"
+      role="dialog"
+      aria-label="Preferencias de analítica"
+    >
       <p>
         Usamos Google Analytics para entender cómo se usa Tenda y mejorar el producto. No
         enviamos datos personales como RUT, correo o números de cuenta.

@@ -37,8 +37,7 @@ function publicStateCopy(status: string, paymentStatus: string, reason: string |
   if (['paid', 'approved'].includes(paymentStatus) || ['paid', 'sold'].includes(status)) {
     return {
       title: 'Pago confirmado',
-      description:
-        'El vendedor confirmó el pago y preparará la entrega.',
+      description: 'El vendedor confirmó el pago y preparará la entrega.',
     }
   }
   if (status === 'purchase_validation' || paymentStatus === 'proof_submitted') {
@@ -227,7 +226,10 @@ function PublicProductCard({
             ))}
           </div>
         ) : (
-          <div className="public-product__photo public-product__photo--empty" aria-hidden="true">
+          <div
+            className="public-product__photo public-product__photo--empty"
+            aria-hidden="true"
+          >
             ◇
           </div>
         )}
@@ -251,7 +253,9 @@ function PublicProductCard({
       <div className="public-product__info">
         <PublicStoreMark seller={seller} />
         <h2>{line.name}</h2>
-        {line.description ? <p className="public-product__copy">{line.description}</p> : null}
+        {line.description ? (
+          <p className="public-product__copy">{line.description}</p>
+        ) : null}
         {line.attributes.length ? (
           <dl className="public-product__attrs">
             {line.attributes.map((attribute) => (
@@ -263,7 +267,10 @@ function PublicProductCard({
           </dl>
         ) : null}
         <p className="public-product__price">{formatClp(line.unitSalePrice)}</p>
-        <div className="public-product__qty" aria-label={`Cantidad reservada: ${line.quantity}`}>
+        <div
+          className="public-product__qty"
+          aria-label={`Cantidad reservada: ${line.quantity}`}
+        >
           <span aria-hidden="true">−</span>
           <strong>{line.quantity}</strong>
           <span aria-hidden="true">+</span>
@@ -311,13 +318,11 @@ export function PublicOrderSummary({
     return (
       <section className="public-summary public-summary--product" aria-label="Tu compra">
         {order.lines.map((line) => (
-          <PublicProductCard
-            key={line.id}
-            line={line}
-            seller={order.seller}
-          />
+          <PublicProductCard key={line.id} line={line} seller={order.seller} />
         ))}
-        {showTotals ? <PublicOrderTotals order={order} /> : (
+        {showTotals ? (
+          <PublicOrderTotals order={order} />
+        ) : (
           <p className="public-summary__expiry">
             Reserva disponible hasta {formatDate(order.expiresAt)}.
           </p>

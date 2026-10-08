@@ -22,7 +22,9 @@ const WEB_ORIGIN = process.env.EXPO_PUBLIC_WEB_ORIGIN ?? 'http://localhost:5173'
 export default function PlanScreen() {
   const queryClient = useQueryClient()
   const params = useLocalSearchParams<{ checkout?: string }>()
-  const checkoutParam = Array.isArray(params.checkout) ? params.checkout[0] : params.checkout
+  const checkoutParam = Array.isArray(params.checkout)
+    ? params.checkout[0]
+    : params.checkout
   const [error, setError] = useState('')
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const autoCheckoutStarted = useRef(false)
@@ -53,7 +55,9 @@ export default function PlanScreen() {
       await Linking.openURL(result.initPoint)
     },
     onError: (err: unknown) => {
-      setError(err instanceof MobileApiError ? err.message : 'No pudimos iniciar el pago.')
+      setError(
+        err instanceof MobileApiError ? err.message : 'No pudimos iniciar el pago.',
+      )
     },
   })
 
@@ -110,7 +114,8 @@ export default function PlanScreen() {
         <>
           <SectionCard title={data.planName}>
             <Text style={styles.line}>
-              {formatPlanPrice(data.priceClp)} / mes · {formatProductLimit(data.productLimit)}
+              {formatPlanPrice(data.priceClp)} / mes ·{' '}
+              {formatProductLimit(data.productLimit)}
             </Text>
             <Text style={styles.line}>
               Usas {data.productCount}
@@ -146,9 +151,7 @@ export default function PlanScreen() {
             onPress={() => setAcceptedTerms((current) => !current)}
             style={styles.termsRow}
           >
-            <View
-              style={[styles.termsMark, acceptedTerms && styles.termsMarkChecked]}
-            >
+            <View style={[styles.termsMark, acceptedTerms && styles.termsMarkChecked]}>
               <Text style={styles.termsCheck}>{acceptedTerms ? '✓' : ''}</Text>
             </View>
             <Text style={styles.termsLabel}>

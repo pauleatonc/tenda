@@ -14,7 +14,12 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 
 import { AppScreen } from '../../../components/app-ui'
 import { AuthImage } from '../../../components/auth-image'
-import { FormField, PrimaryButton, StatusMessage, colors } from '../../../components/auth-ui'
+import {
+  FormField,
+  PrimaryButton,
+  StatusMessage,
+  colors,
+} from '../../../components/auth-ui'
 import { OptionRow, Sheet } from '../../../components/inventory-ui'
 import { AnalyticsEvents, getAnalytics, markActivationFlag } from '../../../lib/analytics'
 import { MobileApiError, getMobileViewer, getStoredToken } from '../../../lib/auth-api'
@@ -64,13 +69,15 @@ export default function ProfileScreen() {
     retry: false,
   })
   const data = viewer.data
-  const canManageStore = data?.membership.permissions.manageSensitiveConfiguration === true
+  const canManageStore =
+    data?.membership.permissions.manageSensitiveConfiguration === true
   const [fullName, setFullName] = useState(data?.viewer.profile.fullName ?? '')
   const [phone, setPhone] = useState(data?.viewer.profile.phone ?? '')
   const [storeName, setStoreName] = useState(data?.organisation.name ?? '')
   const [address, setAddress] = useState(data?.organisation.address ?? '')
   const [description, setDescription] = useState(data?.organisation.description ?? '')
-  const fallbackEmail = data?.organisation.bankConfirmationEmail || data?.viewer.email || ''
+  const fallbackEmail =
+    data?.organisation.bankConfirmationEmail || data?.viewer.email || ''
   const [accounts, setAccounts] = useState<DraftAccount[]>([
     toDraft(undefined, fallbackEmail, 0),
   ])
@@ -119,7 +126,9 @@ export default function ProfileScreen() {
 
   function updateAccount(key: string, patch: Partial<DraftAccount>) {
     setAccounts((current) =>
-      current.map((account) => (account.key === key ? { ...account, ...patch } : account)),
+      current.map((account) =>
+        account.key === key ? { ...account, ...patch } : account,
+      ),
     )
   }
 
@@ -133,7 +142,9 @@ export default function ProfileScreen() {
     },
     onError: (saveError: unknown) => {
       setError(
-        saveError instanceof MobileApiError ? saveError.message : 'No pudimos guardar tu perfil.',
+        saveError instanceof MobileApiError
+          ? saveError.message
+          : 'No pudimos guardar tu perfil.',
       )
     },
   })
@@ -156,7 +167,9 @@ export default function ProfileScreen() {
     },
     onError: (saveError: unknown) => {
       setError(
-        saveError instanceof MobileApiError ? saveError.message : 'No pudimos guardar la tienda.',
+        saveError instanceof MobileApiError
+          ? saveError.message
+          : 'No pudimos guardar la tienda.',
       )
     },
   })
@@ -274,7 +287,12 @@ export default function ProfileScreen() {
         </View>
         <FormField label="Correo" value={data?.viewer.email ?? ''} editable={false} />
         <FormField label="Nombre" value={fullName} onChangeText={setFullName} />
-        <FormField label="Teléfono" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+        <FormField
+          label="Teléfono"
+          value={phone}
+          onChangeText={setPhone}
+          keyboardType="phone-pad"
+        />
         <PrimaryButton
           label={saveProfile.isPending ? 'Guardando…' : 'Guardar perfil'}
           onPress={() => saveProfile.mutate(undefined)}
@@ -323,7 +341,9 @@ export default function ProfileScreen() {
             onPress={() => saveStore.mutate(undefined)}
           />
         ) : (
-          <Text style={styles.hint}>Solo quien titula la tienda puede editar estos datos.</Text>
+          <Text style={styles.hint}>
+            Solo quien titula la tienda puede editar estos datos.
+          </Text>
         )}
       </View>
 
@@ -388,7 +408,9 @@ export default function ProfileScreen() {
                   <OptionRow
                     label="Tipo de cuenta"
                     value={account.accountType}
-                    onChange={(value) => updateAccount(account.key, { accountType: value })}
+                    onChange={(value) =>
+                      updateAccount(account.key, { accountType: value })
+                    }
                     options={BANK_ACCOUNT_TYPES.map((type) => ({
                       value: type.value,
                       label: type.label,

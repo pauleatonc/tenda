@@ -23,7 +23,9 @@ export function createAnalytics(adapter: AnalyticsAdapter): AnalyticsClient {
     track(event, params) {
       adapter.track(
         event,
-        toParamBag(params as Record<string, string | number | boolean | undefined> | undefined),
+        toParamBag(
+          params as Record<string, string | number | boolean | undefined> | undefined,
+        ),
       )
     },
     pageView(path, title) {

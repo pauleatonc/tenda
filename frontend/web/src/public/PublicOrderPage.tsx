@@ -74,7 +74,9 @@ export function PublicOrderPage() {
     return (
       <PublicPage seller={detail.seller}>
         <section className="public-order-intro public-order-intro--offer">
-          <p className="eyebrow">{confirmed ? 'Compra confirmada' : 'Producto reservado'}</p>
+          <p className="eyebrow">
+            {confirmed ? 'Compra confirmada' : 'Producto reservado'}
+          </p>
           <p>
             {confirmed
               ? 'El vendedor confirmó el pago de este producto.'

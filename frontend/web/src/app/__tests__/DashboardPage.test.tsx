@@ -152,7 +152,9 @@ describe('DashboardPage', () => {
 
     expect(screen.queryByText('Todo listo para comenzar')).not.toBeInTheDocument()
     expect(screen.queryByText('Tu contexto')).not.toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'Agregar producto' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('link', { name: 'Agregar producto' }),
+    ).not.toBeInTheDocument()
   })
 
   it('muestra la advertencia de correo si la cuenta no está verificada', async () => {

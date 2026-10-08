@@ -52,10 +52,7 @@ export type CustomField = OperationCustomFieldDefinitionFragment
 export type ProductMedia = Omit<OperationProductMediaFragment, 'createdAt'> & {
   createdAt: string
 }
-type InventoryAlert = Omit<
-  OperationInventoryAlertFragment,
-  'openedAt' | 'updatedAt'
-> & {
+type InventoryAlert = Omit<OperationInventoryAlertFragment, 'openedAt' | 'updatedAt'> & {
   openedAt: string
   updatedAt: string
 }
@@ -425,12 +422,16 @@ export async function confirmInventoryImport(
   return toImportJob(data.confirmInventoryImport.importJob)
 }
 
-export async function retryInventoryImport(importId: string): Promise<InventoryImportJob> {
+export async function retryInventoryImport(
+  importId: string,
+): Promise<InventoryImportJob> {
   const data = await graphqlRequest(RetryInventoryImportDocument, { importId })
   return toImportJob(data.retryInventoryImport.importJob)
 }
 
-export async function fetchInventoryImport(id: string): Promise<InventoryImportJob | null> {
+export async function fetchInventoryImport(
+  id: string,
+): Promise<InventoryImportJob | null> {
   const data = await graphqlRequest(InventoryImportDocument, { id })
   return data.inventoryImport ? toImportJob(data.inventoryImport) : null
 }
@@ -466,12 +467,16 @@ export async function fetchInventoryExports(): Promise<InventoryExportJob[]> {
   return data.inventoryExports.map(toExportJob)
 }
 
-export async function retryInventoryExport(exportId: string): Promise<InventoryExportJob> {
+export async function retryInventoryExport(
+  exportId: string,
+): Promise<InventoryExportJob> {
   const data = await graphqlRequest(RetryInventoryExportDocument, { exportId })
   return toExportJob(data.retryInventoryExport.exportJob)
 }
 
-export async function updateInventoryLowStockThreshold(threshold: number): Promise<number> {
+export async function updateInventoryLowStockThreshold(
+  threshold: number,
+): Promise<number> {
   const data = await graphqlRequest(UpdateInventoryLowStockThresholdDocument, {
     threshold,
   })

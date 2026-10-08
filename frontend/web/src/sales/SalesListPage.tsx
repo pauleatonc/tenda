@@ -167,161 +167,162 @@ export function SalesListPage() {
   return (
     <div className="list-page">
       <div className="list-page__chrome">
-      <header className="page-heading page-heading--split">
-        <div>
-          <p className="eyebrow">Operación comercial</p>
-          <h1>Ventas</h1>
-          <p>
-            {orders.isPending
-              ? 'Cargando pedidos…'
-              : `${orders.data?.totalCount ?? 0} ventas registradas`}
-          </p>
-        </div>
-        <div className="page-heading__actions">
-          <Link className="button button--primary" to="/app/ventas/nueva">
-            Venta de múltiples artículos
-          </Link>
-          <Link className="button button--secondary" to="/app/ventas/reconciliaciones">
-            Reconciliaciones
-          </Link>
-        </div>
-      </header>
+        <header className="page-heading page-heading--split">
+          <div>
+            <p className="eyebrow">Operación comercial</p>
+            <h1>Ventas</h1>
+            <p>
+              {orders.isPending
+                ? 'Cargando pedidos…'
+                : `${orders.data?.totalCount ?? 0} ventas registradas`}
+            </p>
+          </div>
+          <div className="page-heading__actions">
+            <Link className="button button--primary" to="/app/ventas/nueva">
+              Venta de múltiples artículos
+            </Link>
+            <Link className="button button--secondary" to="/app/ventas/reconciliaciones">
+              Reconciliaciones
+            </Link>
+          </div>
+        </header>
 
-      <SalesDashboardCards />
+        <SalesDashboardCards />
 
-      {reconciliationCount > 0 ? (
-        <div className="sales-notice sales-notice--warning" role="status">
-          <strong>Hay ventas con conciliación pendiente</strong>
-          <span>
-            No las mostramos como resueltas. Revisa la cola antes de cerrar la operación.
-          </span>
-          <Link to="/app/ventas/reconciliaciones">Revisar incidencias</Link>
-        </div>
-      ) : null}
-
-      <section className="sales-toolbar" aria-label="Buscar y filtrar ventas">
-        <SearchField
-          value={search}
-          label="Buscar ventas"
-          placeholder="Número, comprador o contacto…"
-          onChange={(value) => updateParam('q', value)}
-        />
-        <label>
-          <span>Estado</span>
-          <select
-            value={status}
-            onChange={(event) => updateParam('estado', event.target.value)}
-          >
-            <option value="">Todos</option>
-            {orderStatuses.map((value) => (
-              <option key={value} value={value}>
-                {orderStatusLabels[value]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Método de pago</span>
-          <select
-            value={method}
-            onChange={(event) => updateParam('metodo', event.target.value)}
-          >
-            <option value="">Todos</option>
-            {paymentMethods.map((value) => (
-              <option key={value} value={value}>
-                {paymentMethodLabels[value]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Desde</span>
-          <input
-            type="date"
-            value={dateFrom}
-            max={dateTo || undefined}
-            onChange={(event) => updateParam('desde', event.target.value)}
-          />
-        </label>
-        <label>
-          <span>Hasta</span>
-          <input
-            type="date"
-            value={dateTo}
-            min={dateFrom || undefined}
-            onChange={(event) => updateParam('hasta', event.target.value)}
-          />
-        </label>
-        {activeFilters ? (
-          <button
-            className="button button--secondary"
-            type="button"
-            onClick={() => setParams(new URLSearchParams(), { replace: true })}
-          >
-            Limpiar filtros ({activeFilters})
-          </button>
+        {reconciliationCount > 0 ? (
+          <div className="sales-notice sales-notice--warning" role="status">
+            <strong>Hay ventas con conciliación pendiente</strong>
+            <span>
+              No las mostramos como resueltas. Revisa la cola antes de cerrar la
+              operación.
+            </span>
+            <Link to="/app/ventas/reconciliaciones">Revisar incidencias</Link>
+          </div>
         ) : null}
-      </section>
 
-      {productId || dateField === 'paid_at' ? (
-        <div className="sales-notice" role="status">
-          <strong>
-            {dateField === 'paid_at'
-              ? 'Filtro por fecha de confirmación del pago'
-              : 'Filtro de producto aplicado desde Balances'}
-          </strong>
-          <span>
-            {dateField === 'paid_at'
-              ? 'El rango usa paid_at, igual que el balance de ventas.'
-              : 'La lista conserva el mismo alcance comercial del desglose.'}
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              if (productId) updateParam('producto', '')
-              if (dateField === 'paid_at') updateParam('corte', '')
-            }}
-          >
-            Quitar filtro de Balances
-          </button>
-        </div>
-      ) : null}
-
-      {orders.isError ? (
-        <ErrorMessage
-          title="No pudimos cargar las ventas"
-          error={orders.error}
-          onRetry={() => void orders.refetch()}
-        />
-      ) : null}
-
-      {!orders.isPending && !orders.isError && rows.length === 0 ? (
-        activeFilters ? (
-          <EmptyState
-            title="No encontramos ventas"
-            description="Ninguna venta coincide con los filtros aplicados."
-            action={
-              <button
-                className="button button--secondary"
-                type="button"
-                onClick={() => setParams(new URLSearchParams(), { replace: true })}
-              >
-                Limpiar filtros
-              </button>
-            }
+        <section className="sales-toolbar" aria-label="Buscar y filtrar ventas">
+          <SearchField
+            value={search}
+            label="Buscar ventas"
+            placeholder="Número, comprador o contacto…"
+            onChange={(value) => updateParam('q', value)}
           />
-        ) : (
-          <EmptyState
-            title="Aún no tienes ventas"
-            description="Crea una venta para reservar stock y compartir un enlace de compra."
-            action={
-              <Link className="button button--primary" to="/app/ventas/nueva">
-                Crear primera venta
-              </Link>
-            }
+          <label>
+            <span>Estado</span>
+            <select
+              value={status}
+              onChange={(event) => updateParam('estado', event.target.value)}
+            >
+              <option value="">Todos</option>
+              {orderStatuses.map((value) => (
+                <option key={value} value={value}>
+                  {orderStatusLabels[value]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Método de pago</span>
+            <select
+              value={method}
+              onChange={(event) => updateParam('metodo', event.target.value)}
+            >
+              <option value="">Todos</option>
+              {paymentMethods.map((value) => (
+                <option key={value} value={value}>
+                  {paymentMethodLabels[value]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Desde</span>
+            <input
+              type="date"
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={(event) => updateParam('desde', event.target.value)}
+            />
+          </label>
+          <label>
+            <span>Hasta</span>
+            <input
+              type="date"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={(event) => updateParam('hasta', event.target.value)}
+            />
+          </label>
+          {activeFilters ? (
+            <button
+              className="button button--secondary"
+              type="button"
+              onClick={() => setParams(new URLSearchParams(), { replace: true })}
+            >
+              Limpiar filtros ({activeFilters})
+            </button>
+          ) : null}
+        </section>
+
+        {productId || dateField === 'paid_at' ? (
+          <div className="sales-notice" role="status">
+            <strong>
+              {dateField === 'paid_at'
+                ? 'Filtro por fecha de confirmación del pago'
+                : 'Filtro de producto aplicado desde Balances'}
+            </strong>
+            <span>
+              {dateField === 'paid_at'
+                ? 'El rango usa paid_at, igual que el balance de ventas.'
+                : 'La lista conserva el mismo alcance comercial del desglose.'}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                if (productId) updateParam('producto', '')
+                if (dateField === 'paid_at') updateParam('corte', '')
+              }}
+            >
+              Quitar filtro de Balances
+            </button>
+          </div>
+        ) : null}
+
+        {orders.isError ? (
+          <ErrorMessage
+            title="No pudimos cargar las ventas"
+            error={orders.error}
+            onRetry={() => void orders.refetch()}
           />
-        )
-      ) : null}
+        ) : null}
+
+        {!orders.isPending && !orders.isError && rows.length === 0 ? (
+          activeFilters ? (
+            <EmptyState
+              title="No encontramos ventas"
+              description="Ninguna venta coincide con los filtros aplicados."
+              action={
+                <button
+                  className="button button--secondary"
+                  type="button"
+                  onClick={() => setParams(new URLSearchParams(), { replace: true })}
+                >
+                  Limpiar filtros
+                </button>
+              }
+            />
+          ) : (
+            <EmptyState
+              title="Aún no tienes ventas"
+              description="Crea una venta para reservar stock y compartir un enlace de compra."
+              action={
+                <Link className="button button--primary" to="/app/ventas/nueva">
+                  Crear primera venta
+                </Link>
+              }
+            />
+          )
+        ) : null}
       </div>
 
       {orders.isPending ? (

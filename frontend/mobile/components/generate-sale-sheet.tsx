@@ -1,7 +1,4 @@
-import {
-  bankAccountOptionLabel,
-  organisationHasBankDetails,
-} from '@tenda/api-client'
+import { bankAccountOptionLabel, organisationHasBankDetails } from '@tenda/api-client'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { router } from 'expo-router'
 import { useMemo, useState } from 'react'
@@ -15,10 +12,7 @@ import { getMobileViewer, MobileApiError } from '../lib/auth-api'
 import { canGenerateSale } from '../lib/can-generate-sale'
 import { formatPrice, formatQuantity } from '../lib/format'
 import { newIdempotencyKey } from '../lib/graphql'
-import {
-  invalidateInventoryCatalog,
-  type ProductCard,
-} from '../lib/inventory-api'
+import { invalidateInventoryCatalog, type ProductCard } from '../lib/inventory-api'
 import {
   createOrder,
   fetchSellerPaymentConnection,
@@ -253,8 +247,7 @@ export function GenerateSaleSheet({
     return (
       <Sheet visible={visible} title="Generar venta" onClose={onClose}>
         <Text style={styles.muted}>
-          El producto debe estar activo, tener unidades disponibles y un precio de
-          venta.
+          El producto debe estar activo, tener unidades disponibles y un precio de venta.
         </Text>
       </Sheet>
     )
@@ -331,9 +324,7 @@ export function GenerateSaleSheet({
               variant="secondary"
               onPress={() => setEmailOpen(true)}
             />
-            {emailSent ? (
-              <Text style={styles.muted}>Correo enviado.</Text>
-            ) : null}
+            {emailSent ? <Text style={styles.muted}>Correo enviado.</Text> : null}
           </View>
         ) : (
           <View style={styles.choose}>
@@ -344,146 +335,148 @@ export function GenerateSaleSheet({
               </Text>
             ) : (
               <>
-            <Text style={styles.sectionLabel}>Entrega</Text>
-            {DELIVERY_MODES.map((item) => (
-              <Pressable
-                key={item.id}
-                accessibilityRole="button"
-                accessibilityState={{ selected: deliveryMode === item.id }}
-                accessibilityLabel={item.label}
-                onPress={() => setDeliveryMode(item.id)}
-              >
-                <View
-                  style={[
-                    styles.method,
-                    deliveryMode === item.id ? styles.methodActive : null,
-                  ]}
-                >
-                  <Text style={styles.methodTitle}>{item.label}</Text>
-                  <Text style={styles.muted}>{item.description}</Text>
-                </View>
-              </Pressable>
-            ))}
-            <Text style={styles.sectionLabel}>Pago</Text>
-            {METHODS.map((item) => {
-              const enabled = item.id !== 'online' || mercadoPagoActive
-              const card = (
-                <View
-                  style={[
-                    styles.method,
-                    enabled && method === item.id ? styles.methodActive : null,
-                  ]}
-                >
-                  <Text style={styles.methodTitle}>{item.label}</Text>
-                  <Text style={styles.muted}>
-                    {enabled
-                      ? item.description
-                      : 'Conecta Mercado Pago en Más › Pagos.'}
-                  </Text>
-                </View>
-              )
-              if (!enabled) {
-                return (
+                <Text style={styles.sectionLabel}>Entrega</Text>
+                {DELIVERY_MODES.map((item) => (
                   <Pressable
                     key={item.id}
                     accessibilityRole="button"
+                    accessibilityState={{ selected: deliveryMode === item.id }}
                     accessibilityLabel={item.label}
-                    accessibilityState={{ disabled: true }}
-                    onPress={() => {
-                      closeAll()
-                      router.push('/mas/pagos')
-                    }}
-                  >
-                    {card}
-                  </Pressable>
-                )
-              }
-              return (
-                <Pressable
-                  key={item.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={item.label}
-                  accessibilityState={{ selected: method === item.id }}
-                  onPress={() => {
-                    setError('')
-                    setConfirmCash(false)
-                    setMethod(item.id)
-                  }}
-                >
-                  {card}
-                </Pressable>
-              )
-            })}
-            <Text style={styles.price}>
-              Precio de venta: {formatPrice(product.salePrice)}
-            </Text>
-            {method === 'deposit' && hasBankDetails && selectableAccounts.length > 1 ? (
-              <View style={styles.accountPicker}>
-                <Text style={styles.sectionLabel}>Cuenta para el depósito</Text>
-                {selectableAccounts.map((account) => (
-                  <Pressable
-                    key={account.id}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: bankAccountId === account.id }}
-                    onPress={() => setBankAccountId(account.id)}
+                    onPress={() => setDeliveryMode(item.id)}
                   >
                     <View
                       style={[
                         styles.method,
-                        bankAccountId === account.id ? styles.methodActive : null,
+                        deliveryMode === item.id ? styles.methodActive : null,
                       ]}
                     >
-                      <Text style={styles.methodTitle}>
-                        {bankAccountOptionLabel(account)}
-                      </Text>
+                      <Text style={styles.methodTitle}>{item.label}</Text>
+                      <Text style={styles.muted}>{item.description}</Text>
                     </View>
                   </Pressable>
                 ))}
-              </View>
-            ) : null}
-            {available > 1 ? (
-              <View style={styles.stepper}>
-                <PrimaryButton
-                  label="−"
-                  variant="secondary"
-                  disabled={quantity <= 1}
-                  onPress={() => setQuantity((current) => Math.max(1, current - 1))}
-                />
-                <Text style={styles.qty}>{formatQuantity(quantity)}</Text>
-                <PrimaryButton
-                  label="+"
-                  variant="secondary"
-                  disabled={quantity >= available}
-                  onPress={() =>
-                    setQuantity((current) => Math.min(available, current + 1))
+                <Text style={styles.sectionLabel}>Pago</Text>
+                {METHODS.map((item) => {
+                  const enabled = item.id !== 'online' || mercadoPagoActive
+                  const card = (
+                    <View
+                      style={[
+                        styles.method,
+                        enabled && method === item.id ? styles.methodActive : null,
+                      ]}
+                    >
+                      <Text style={styles.methodTitle}>{item.label}</Text>
+                      <Text style={styles.muted}>
+                        {enabled
+                          ? item.description
+                          : 'Conecta Mercado Pago en Más › Pagos.'}
+                      </Text>
+                    </View>
+                  )
+                  if (!enabled) {
+                    return (
+                      <Pressable
+                        key={item.id}
+                        accessibilityRole="button"
+                        accessibilityLabel={item.label}
+                        accessibilityState={{ disabled: true }}
+                        onPress={() => {
+                          closeAll()
+                          router.push('/mas/pagos')
+                        }}
+                      >
+                        {card}
+                      </Pressable>
+                    )
                   }
-                />
-              </View>
-            ) : null}
-            {method === 'deposit' && hasBankDetails ? (
-              <PrimaryButton
-                label={publish.isPending ? 'Generando…' : 'Generar depósito'}
-                loading={publish.isPending}
-                onPress={() => publish.mutate()}
-              />
-            ) : null}
-            {method === 'online' && mercadoPagoActive ? (
-              <PrimaryButton
-                label={publish.isPending ? 'Generando…' : 'Generar enlace de pago'}
-                loading={publish.isPending}
-                onPress={() => publish.mutate()}
-              />
-            ) : null}
-            {method === 'cash' ? (
-              <PrimaryButton
-                label="Continuar"
-                onPress={() => {
-                  setError('')
-                  setConfirmCash(true)
-                }}
-              />
-            ) : null}
-            {method === 'deposit' && !hasBankDetails ? <BankDetailsRequired /> : null}
+                  return (
+                    <Pressable
+                      key={item.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={item.label}
+                      accessibilityState={{ selected: method === item.id }}
+                      onPress={() => {
+                        setError('')
+                        setConfirmCash(false)
+                        setMethod(item.id)
+                      }}
+                    >
+                      {card}
+                    </Pressable>
+                  )
+                })}
+                <Text style={styles.price}>
+                  Precio de venta: {formatPrice(product.salePrice)}
+                </Text>
+                {method === 'deposit' &&
+                hasBankDetails &&
+                selectableAccounts.length > 1 ? (
+                  <View style={styles.accountPicker}>
+                    <Text style={styles.sectionLabel}>Cuenta para el depósito</Text>
+                    {selectableAccounts.map((account) => (
+                      <Pressable
+                        key={account.id}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: bankAccountId === account.id }}
+                        onPress={() => setBankAccountId(account.id)}
+                      >
+                        <View
+                          style={[
+                            styles.method,
+                            bankAccountId === account.id ? styles.methodActive : null,
+                          ]}
+                        >
+                          <Text style={styles.methodTitle}>
+                            {bankAccountOptionLabel(account)}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
+                {available > 1 ? (
+                  <View style={styles.stepper}>
+                    <PrimaryButton
+                      label="−"
+                      variant="secondary"
+                      disabled={quantity <= 1}
+                      onPress={() => setQuantity((current) => Math.max(1, current - 1))}
+                    />
+                    <Text style={styles.qty}>{formatQuantity(quantity)}</Text>
+                    <PrimaryButton
+                      label="+"
+                      variant="secondary"
+                      disabled={quantity >= available}
+                      onPress={() =>
+                        setQuantity((current) => Math.min(available, current + 1))
+                      }
+                    />
+                  </View>
+                ) : null}
+                {method === 'deposit' && hasBankDetails ? (
+                  <PrimaryButton
+                    label={publish.isPending ? 'Generando…' : 'Generar depósito'}
+                    loading={publish.isPending}
+                    onPress={() => publish.mutate()}
+                  />
+                ) : null}
+                {method === 'online' && mercadoPagoActive ? (
+                  <PrimaryButton
+                    label={publish.isPending ? 'Generando…' : 'Generar enlace de pago'}
+                    loading={publish.isPending}
+                    onPress={() => publish.mutate()}
+                  />
+                ) : null}
+                {method === 'cash' ? (
+                  <PrimaryButton
+                    label="Continuar"
+                    onPress={() => {
+                      setError('')
+                      setConfirmCash(true)
+                    }}
+                  />
+                ) : null}
+                {method === 'deposit' && !hasBankDetails ? <BankDetailsRequired /> : null}
               </>
             )}
           </View>
@@ -555,7 +548,13 @@ const styles = StyleSheet.create({
     gap: 12,
     justifyContent: 'center',
   },
-  qty: { color: colors.ink, fontSize: 22, fontWeight: '800', minWidth: 40, textAlign: 'center' },
+  qty: {
+    color: colors.ink,
+    fontSize: 22,
+    fontWeight: '800',
+    minWidth: 40,
+    textAlign: 'center',
+  },
   ready: { gap: 12 },
   url: { color: colors.ink, fontSize: 14, fontWeight: '600' },
   footerItem: { flex: 1 },

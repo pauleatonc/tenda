@@ -181,9 +181,10 @@ function isCompletedSaleDraft(draft: SaleDraft): boolean {
   return draft.step === 4 && Boolean(draft.createdOrderId)
 }
 
-export function resolveSaleDraftOnEnter(
-  storage: Storage = window.localStorage,
-): { draft: SaleDraft; completed: CompletedSaleNotice | null } {
+export function resolveSaleDraftOnEnter(storage: Storage = window.localStorage): {
+  draft: SaleDraft
+  completed: CompletedSaleNotice | null
+} {
   const draft = loadSaleDraft(storage)
   if (!isCompletedSaleDraft(draft) || !draft.createdOrderId) {
     return { draft, completed: null }

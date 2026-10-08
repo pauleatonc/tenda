@@ -8,7 +8,8 @@ import * as billingApi from '../../billing/api'
 import { ProductCreateChooser } from '../ProductCreateChooser'
 
 vi.mock('../../billing/api', async () => {
-  const actual = await vi.importActual<typeof import('../../billing/api')>('../../billing/api')
+  const actual =
+    await vi.importActual<typeof import('../../billing/api')>('../../billing/api')
   return {
     ...actual,
     fetchOrganisationBilling: vi.fn(),
@@ -86,6 +87,8 @@ describe('ProductCreateChooser', () => {
     await waitFor(() =>
       expect(screen.getByText(/Disponible desde Starter/)).toBeInTheDocument(),
     )
-    expect(screen.queryByRole('link', { name: /Creación asistida/ })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('link', { name: /Creación asistida/ }),
+    ).not.toBeInTheDocument()
   })
 })

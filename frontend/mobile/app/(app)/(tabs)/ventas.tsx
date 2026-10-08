@@ -1,8 +1,4 @@
-import {
-  keepPreviousData,
-  useInfiniteQuery,
-  useQuery,
-} from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
 import {
@@ -29,11 +25,7 @@ import {
   salesStyles,
 } from '../../../components/sales-ui'
 import { MobileApiError } from '../../../lib/auth-api'
-import {
-  fetchOrders,
-  fetchSalesDashboard,
-  salesKeys,
-} from '../../../lib/sales-api'
+import { fetchOrders, fetchSalesDashboard, salesKeys } from '../../../lib/sales-api'
 
 const PAGE_SIZE = 20
 
@@ -102,10 +94,7 @@ export default function SalesScreen() {
     }),
     [debouncedSearch, statuses, paymentMethods, dateFrom, dateTo, productId],
   )
-  const variables = useMemo(
-    () => ({ filter, first: PAGE_SIZE, after: null }),
-    [filter],
-  )
+  const variables = useMemo(() => ({ filter, first: PAGE_SIZE, after: null }), [filter])
 
   const dashboard = useQuery({
     queryKey: salesKeys.dashboard(),
@@ -288,10 +277,7 @@ export default function SalesScreen() {
                   : 'Revisa tu conexión e inténtalo otra vez.'
               }
               action={
-                <PrimaryButton
-                  label="Reintentar"
-                  onPress={() => void orders.refetch()}
-                />
+                <PrimaryButton label="Reintentar" onPress={() => void orders.refetch()} />
               }
             />
           ) : hasFilters ? (
@@ -359,9 +345,7 @@ export default function SalesScreen() {
               key={method}
               label={paymentMethodLabels[method]}
               selected={paymentMethods.includes(method)}
-              onPress={() =>
-                setPaymentMethods((current) => toggle(current, method))
-              }
+              onPress={() => setPaymentMethods((current) => toggle(current, method))}
             />
           ))}
         </View>

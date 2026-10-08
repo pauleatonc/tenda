@@ -33,9 +33,7 @@ export function ClampedText({ children, lines = 2 }: ClampedTextProps) {
       <span ref={textRef} className="cell-text-clamp__text">
         {children}
       </span>
-      {overflowing ? (
-        <span aria-hidden="true" className="cell-text-clamp__fade" />
-      ) : null}
+      {overflowing ? <span aria-hidden="true" className="cell-text-clamp__fade" /> : null}
     </span>
   )
 }

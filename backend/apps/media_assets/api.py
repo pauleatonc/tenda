@@ -59,9 +59,7 @@ def _content_disposition(asset: MediaAsset) -> str:
         return "inline"
     raw_name = Path(asset.original_name or "archivo").name.replace('"', "")
     ascii_name = raw_name.encode("ascii", "ignore").decode("ascii") or "archivo"
-    return (
-        f'attachment; filename="{ascii_name}"; filename*=UTF-8\'\'{quote(raw_name)}'
-    )
+    return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(raw_name)}"
 
 
 @endpoint("POST")

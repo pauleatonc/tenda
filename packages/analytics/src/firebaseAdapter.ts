@@ -6,10 +6,7 @@ import type { AnalyticsAdapter, AnalyticsConsent, AnalyticsParamBag } from './ty
  */
 export type FirebaseAnalyticsModule = {
   logEvent: (name: string, params?: Record<string, unknown>) => Promise<void>
-  logScreenView: (params: {
-    screen_name: string
-    screen_class?: string
-  }) => Promise<void>
+  logScreenView: (params: { screen_name: string; screen_class?: string }) => Promise<void>
   setUserId: (id: string | null) => Promise<void>
   setUserProperties: (properties: Record<string, string | null>) => Promise<void>
   setAnalyticsCollectionEnabled: (enabled: boolean) => Promise<void>
@@ -50,7 +47,8 @@ export function createFirebaseAdapter(
       safe((analytics) =>
         analytics.logScreenView({
           screen_name: screenName,
-          screen_class: typeof params?.screen_class === 'string' ? params.screen_class : screenName,
+          screen_class:
+            typeof params?.screen_class === 'string' ? params.screen_class : screenName,
         }),
       )
     },

@@ -97,10 +97,15 @@ def mercado_pago_billing_webhook(request: HttpRequest) -> HttpResponse:
             "updated_at",
         )
     )
-    should_enqueue = created or not was_valid or event.status in {
-        BillingWebhookEvent.Status.RECEIVED,
-        BillingWebhookEvent.Status.FAILED,
-    }
+    should_enqueue = (
+        created
+        or not was_valid
+        or event.status
+        in {
+            BillingWebhookEvent.Status.RECEIVED,
+            BillingWebhookEvent.Status.FAILED,
+        }
+    )
     if should_enqueue:
         transaction.on_commit(
             lambda: process_billing_webhook.delay(event.pk)  # type: ignore[attr-defined]

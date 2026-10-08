@@ -66,9 +66,7 @@ async function readFlags(): Promise<ActivationFlags> {
   }
 }
 
-export async function markActivationFlag(
-  flag: keyof ActivationFlags,
-): Promise<void> {
+export async function markActivationFlag(flag: keyof ActivationFlags): Promise<void> {
   try {
     const SecureStore = await import('expo-secure-store')
     if ((await SecureStore.getItemAsync(ACTIVATION_KEY)) === '1') return

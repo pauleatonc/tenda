@@ -347,9 +347,7 @@ def test_google_oidc_start_points_to_google_accounts() -> None:
     assert parsed.path == "/o/oauth2/v2/auth"
     assert query["client_id"] == ["test-client.apps.googleusercontent.com"]
     assert query["response_type"] == ["code"]
-    assert query["redirect_uri"] == [
-        "http://localhost:8000/api/v1/auth/social/google/callback"
-    ]
+    assert query["redirect_uri"] == ["http://localhost:8000/api/v1/auth/social/google/callback"]
     assert "openid" in query["scope"][0]
     assert "email" in query["scope"][0]
 

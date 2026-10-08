@@ -207,11 +207,7 @@ describe('ProductFormPage', () => {
       expect(mocked.createProduct).toHaveBeenCalled()
     })
     expect(mocked.uploadPrivateFile).toHaveBeenCalled()
-    expect(mocked.attachProductMedia).toHaveBeenCalledWith(
-      'product-1',
-      'asset-1',
-      true,
-    )
+    expect(mocked.attachProductMedia).toHaveBeenCalledWith('product-1', 'asset-1', true)
   })
 
   it('bloquea una variante idéntica y no llama al API', async () => {
@@ -342,7 +338,9 @@ describe('ProductFormPage', () => {
     )
     expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: /Vela de soya aroma lavanda/ }))
+    await userEvent.click(
+      screen.getByRole('button', { name: /Vela de soya aroma lavanda/ }),
+    )
     expect(screen.getByLabelText('Nombre')).toHaveValue('Vela de soya aroma lavanda')
     expect(screen.getByLabelText('Precio de venta')).toHaveValue('12990')
   })

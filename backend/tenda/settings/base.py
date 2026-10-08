@@ -400,9 +400,7 @@ if SENTRY_DSN:
     )
 AGENT_FEATURE_STATUS = os.getenv("AGENT_FEATURE_STATUS", "coming_soon")
 if AGENT_FEATURE_STATUS not in {"disabled", "coming_soon", "enabled"}:
-    raise ValueError(
-        "AGENT_FEATURE_STATUS only supports 'disabled', 'coming_soon' or 'enabled'"
-    )
+    raise ValueError("AGENT_FEATURE_STATUS only supports 'disabled', 'coming_soon' or 'enabled'")
 PRODUCT_IMAGE_SEARCH_PROVIDER = os.getenv("PRODUCT_IMAGE_SEARCH_PROVIDER", "fake")
 NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "")
 NVIDIA_VISION_MODEL = os.getenv(

@@ -1,11 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 
-import {
-  billingKeys,
-  fetchOrganisationBilling,
-  formatProductLimit,
-} from '../billing/api'
+import { billingKeys, fetchOrganisationBilling, formatProductLimit } from '../billing/api'
 import { PRODUCT_CREATE_OPTIONS } from './create-options'
 
 export function ProductCreateChooser() {
@@ -40,8 +36,8 @@ export function ProductCreateChooser() {
         <div className="form-message form-message--error" role="alert">
           <strong>Límite de productos alcanzado</strong>
           <span>
-            Archiva productos o{' '}
-            <Link to="/app/configuracion/plan">mejora tu plan</Link> para crear más.
+            Archiva productos o <Link to="/app/configuracion/plan">mejora tu plan</Link>{' '}
+            para crear más.
           </span>
         </div>
       ) : null}

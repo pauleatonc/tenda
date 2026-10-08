@@ -92,9 +92,7 @@ def require_accepted_terms(*, accepted_terms: bool) -> None:
         raise DomainError(
             "TERMS_NOT_ACCEPTED",
             "Debes aceptar los términos y condiciones para continuar.",
-            field_errors={
-                "acceptedTerms": ["Marca la casilla para aceptar los términos."]
-            },
+            field_errors={"acceptedTerms": ["Marca la casilla para aceptar los términos."]},
             status=400,
         )
 
@@ -298,10 +296,14 @@ def resume_subscription(*, context: TenantContext) -> OrganisationSubscription:
             "No hay una suscripción para reactivar.",
             status=409,
         )
-    if subscription.status not in {
-        OrganisationSubscription.Status.PAUSED,
-        OrganisationSubscription.Status.CANCELED,
-    } and not subscription.cancel_at_period_end:
+    if (
+        subscription.status
+        not in {
+            OrganisationSubscription.Status.PAUSED,
+            OrganisationSubscription.Status.CANCELED,
+        }
+        and not subscription.cancel_at_period_end
+    ):
         raise DomainError(
             "SUBSCRIPTION_NOT_PAUSED",
             "La suscripción no está pausada.",

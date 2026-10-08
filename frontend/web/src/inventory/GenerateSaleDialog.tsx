@@ -1,7 +1,4 @@
-import {
-  bankAccountOptionLabel,
-  type OrganisationBankAccount,
-} from '@tenda/api-client'
+import { bankAccountOptionLabel, type OrganisationBankAccount } from '@tenda/api-client'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
@@ -106,9 +103,7 @@ export function GenerateSaleDialog({
   )
   const [method, setMethod] = useState<SaleMethodId>('deposit')
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('shipping')
-  const [bankAccountId, setBankAccountId] = useState(
-    selectableAccounts[0]?.id ?? '',
-  )
+  const [bankAccountId, setBankAccountId] = useState(selectableAccounts[0]?.id ?? '')
   const [confirmCash, setConfirmCash] = useState(false)
   const [quantity, setQuantity] = useState(1)
   const [email, setEmail] = useState('')
@@ -228,7 +223,8 @@ export function GenerateSaleDialog({
     })
   }
 
-  const showBankNotice = !result && !confirmCash && method === 'deposit' && !hasBankDetails
+  const showBankNotice =
+    !result && !confirmCash && method === 'deposit' && !hasBankDetails
 
   return (
     <Modal
@@ -331,7 +327,11 @@ export function GenerateSaleDialog({
             <input readOnly value={result.publicUrl} />
           </label>
           <div className="row-actions">
-            <button className="button button--primary" type="button" onClick={() => void copyUrl()}>
+            <button
+              className="button button--primary"
+              type="button"
+              onClick={() => void copyUrl()}
+            >
               {copied ? 'Copiado' : 'Copiar enlace'}
             </button>
             <a
@@ -475,7 +475,9 @@ export function GenerateSaleDialog({
                 >
                   −
                 </button>
-                <output aria-labelledby="generate-sale-qty">{formatQuantity(quantity)}</output>
+                <output aria-labelledby="generate-sale-qty">
+                  {formatQuantity(quantity)}
+                </output>
                 <button
                   type="button"
                   aria-label="Agregar una unidad"

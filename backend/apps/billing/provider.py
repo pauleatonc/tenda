@@ -299,9 +299,7 @@ class MercadoPagoBillingProvider:
                 },
                 "back_url": str(getattr(settings, "BILLING_BACK_URL", "")),
             },
-            idempotency_key=hashlib.sha256(
-                f"plan:{reason}:{amount_clp}".encode()
-            ).hexdigest()[:32],
+            idempotency_key=hashlib.sha256(f"plan:{reason}:{amount_clp}".encode()).hexdigest()[:32],
         )
         return PreapprovalPlanSnapshot(
             provider_id=str(data["id"]),
@@ -415,8 +413,7 @@ _fake_billing = FakeBillingProvider()
 
 def get_billing_provider() -> BillingProvider:
     mode = str(
-        getattr(settings, "BILLING_PROVIDER", "")
-        or getattr(settings, "PAYMENT_PROVIDER", "fake")
+        getattr(settings, "BILLING_PROVIDER", "") or getattr(settings, "PAYMENT_PROVIDER", "fake")
     )
     if mode == "mercado_pago":
         return MercadoPagoBillingProvider()

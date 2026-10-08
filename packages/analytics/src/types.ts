@@ -78,10 +78,7 @@ export type AnalyticsAdapter = {
 }
 
 export type AnalyticsClient = {
-  track: <E extends AnalyticsEventName>(
-    event: E,
-    params?: EventParamsMap[E],
-  ) => void
+  track: <E extends AnalyticsEventName>(event: E, params?: EventParamsMap[E]) => void
   pageView: (path: string, title?: string) => void
   screenView: (screenName: string, params?: AnalyticsParamBag) => void
   setUser: (userId: string | null) => void

@@ -150,13 +150,8 @@ def test_object_keys_group_media_and_documents() -> None:
         public_id="asset-1",
         variant="thumbnail",
         content_hash="a" * 64,
-    ) == (
-        "organisations/org-1/media/product_image/asset-1/"
-        f"thumbnail-{'a' * 32}.webp"
-    )
-    assert receipt == (
-        "organisations/org-1/documents/payment_receipt/order-9/asset-2.pdf"
-    )
+    ) == (f"organisations/org-1/media/product_image/asset-1/thumbnail-{'a' * 32}.webp")
+    assert receipt == ("organisations/org-1/documents/payment_receipt/order-9/asset-2.pdf")
 
 
 @override_settings(R2_PREFIX="dev")
@@ -191,12 +186,8 @@ def test_display_images_are_saved_as_thumbnail_medium_and_large_webp() -> None:
     thumbnail = Image.open(
         BytesIO(fake_object_storage.read_bytes(key=completed.variants["thumbnail"]))
     )
-    medium = Image.open(
-        BytesIO(fake_object_storage.read_bytes(key=completed.variants["medium"]))
-    )
-    large = Image.open(
-        BytesIO(fake_object_storage.read_bytes(key=completed.variants["large"]))
-    )
+    medium = Image.open(BytesIO(fake_object_storage.read_bytes(key=completed.variants["medium"])))
+    large = Image.open(BytesIO(fake_object_storage.read_bytes(key=completed.variants["large"])))
     assert max(thumbnail.size) == 256
     assert max(medium.size) == 800
     assert max(large.size) == 1600

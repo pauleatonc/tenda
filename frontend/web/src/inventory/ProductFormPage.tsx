@@ -1,4 +1,9 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
@@ -113,9 +118,9 @@ export function ProductFormPage({
   const [suggestionKey, setSuggestionKey] = useState(newIdempotencyKey)
   const [photos, setPhotos] = useState<StagedPhoto[]>([])
   const [candidates, setCandidates] = useState<ProductImageCandidate[]>([])
-  const [assistedPhase, setAssistedPhase] = useState<'photo' | 'searching' | 'pick' | 'form'>(
-    'photo',
-  )
+  const [assistedPhase, setAssistedPhase] = useState<
+    'photo' | 'searching' | 'pick' | 'form'
+  >('photo')
   const [searchError, setSearchError] = useState<string | null>(null)
   const [pickerQuery, setPickerQuery] = useState('')
   const [debouncedPicker, setDebouncedPicker] = useState('')
@@ -326,7 +331,10 @@ export function ProductFormPage({
     if (isVariant && sourceProduct && sourceIdentity) {
       if (productDraftEquals(currentIdentity(), sourceIdentity)) {
         nextErrors.variant = `Cambia al menos un dato respecto de ${sourceProduct.name}. Si el nombre queda igual, el inventario lo rechazará.`
-      } else if (name.trim().toLocaleLowerCase('es-CL') === sourceProduct.name.trim().toLocaleLowerCase('es-CL')) {
+      } else if (
+        name.trim().toLocaleLowerCase('es-CL') ===
+        sourceProduct.name.trim().toLocaleLowerCase('es-CL')
+      ) {
         nextErrors.name = `Elige un nombre distinto. Sugerencia: ${suggestVariantName(sourceProduct.name, 'variante')}.`
       }
     }
@@ -381,7 +389,9 @@ export function ProductFormPage({
   function applyCandidate(candidate: ProductImageCandidate) {
     setName(candidate.name)
     setSalePrice(candidate.salePrice != null ? String(candidate.salePrice) : '')
-    setPurchasePrice(candidate.purchasePrice != null ? String(candidate.purchasePrice) : '')
+    setPurchasePrice(
+      candidate.purchasePrice != null ? String(candidate.purchasePrice) : '',
+    )
     setAttributes((current) => {
       const next = { ...current }
       for (const [key, value] of Object.entries(candidate.extraAttributes)) {
@@ -457,7 +467,8 @@ export function ProductFormPage({
   const showAssistedGate = isAssisted && photos.length === 0 && assistedPhase === 'photo'
   const showCandidates =
     isAssisted && (assistedPhase === 'searching' || assistedPhase === 'pick')
-  const showForm = (!isVariant || Boolean(sourceProduct)) && !showAssistedGate && !showCandidates
+  const showForm =
+    (!isVariant || Boolean(sourceProduct)) && !showAssistedGate && !showCandidates
 
   return (
     <>
@@ -581,7 +592,9 @@ export function ProductFormPage({
                     {candidate.imageUrl ? (
                       <img src={candidate.imageUrl} alt="" referrerPolicy="no-referrer" />
                     ) : (
-                      <span className="product-candidates__missing">Sin foto del anuncio</span>
+                      <span className="product-candidates__missing">
+                        Sin foto del anuncio
+                      </span>
                     )}
                     <span className="product-candidates__name">{candidate.name}</span>
                     <span className="product-candidates__price">

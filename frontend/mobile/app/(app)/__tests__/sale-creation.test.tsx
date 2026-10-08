@@ -199,9 +199,7 @@ describe('Crear venta mobile', () => {
     )
     await renderScreen(<NewSaleScreen />)
 
-    expect(
-      await screen.findByText('La venta V-1042 ya está creada'),
-    ).toBeOnTheScreen()
+    expect(await screen.findByText('La venta V-1042 ya está creada')).toBeOnTheScreen()
     expect(screen.getByText('Productos y precios')).toBeOnTheScreen()
     expect(screen.getByRole('button', { name: 'Ver ficha' })).toBeOnTheScreen()
     expect(screen.queryByText('Tu enlace está listo')).not.toBeOnTheScreen()
@@ -226,7 +224,9 @@ describe('Crear venta mobile', () => {
     await renderScreen(<NewSaleScreen />)
     await reachReview()
     await fireEvent.press(screen.getByRole('button', { name: 'Crear venta y enlace' }))
-    await fireEvent.press(await screen.findByRole('button', { name: 'Enviar por correo' }))
+    await fireEvent.press(
+      await screen.findByRole('button', { name: 'Enviar por correo' }),
+    )
     const email = await screen.findByLabelText('Correo del comprador')
     await fireEvent.changeText(email, 'camila@example.cl')
     await fireEvent.press(screen.getByRole('button', { name: 'Enviar' }))

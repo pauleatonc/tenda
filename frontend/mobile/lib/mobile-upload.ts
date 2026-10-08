@@ -1,10 +1,6 @@
 import * as ImagePicker from 'expo-image-picker'
 
-import {
-  MobileApiError,
-  authenticatedRequest,
-  getStoredToken,
-} from './auth-api'
+import { MobileApiError, authenticatedRequest, getStoredToken } from './auth-api'
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000'
 
@@ -26,9 +22,7 @@ function uploadError(code: string, message: string, retryable = false) {
   })
 }
 
-async function toPickedImage(
-  image: ImagePicker.ImagePickerAsset,
-): Promise<PickedImage> {
+async function toPickedImage(image: ImagePicker.ImagePickerAsset): Promise<PickedImage> {
   const blob = await (await fetch(image.uri)).blob()
   return {
     uri: image.uri,

@@ -79,10 +79,10 @@ export function organisationHasBankDetails(
   }
   return Boolean(
     organisation.bankName?.trim() &&
-      organisation.bankAccountType?.trim() &&
-      organisation.bankAccountNumber?.trim() &&
-      organisation.bankHolderTaxId?.trim() &&
-      organisation.bankConfirmationEmail?.trim(),
+    organisation.bankAccountType?.trim() &&
+    organisation.bankAccountNumber?.trim() &&
+    organisation.bankHolderTaxId?.trim() &&
+    organisation.bankConfirmationEmail?.trim(),
   )
 }
 

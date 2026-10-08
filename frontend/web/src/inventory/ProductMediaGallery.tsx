@@ -72,12 +72,17 @@ export function ProductMediaGallery({
     onSuccess: refresh,
     onError: (actionError: unknown) =>
       setError(
-        actionError instanceof Error ? actionError.message : 'No pudimos eliminar la foto.',
+        actionError instanceof Error
+          ? actionError.message
+          : 'No pudimos eliminar la foto.',
       ),
   })
 
   return (
-    <section className="detail-section product-media" aria-labelledby="product-media-title">
+    <section
+      className="detail-section product-media"
+      aria-labelledby="product-media-title"
+    >
       <div className="detail-section__header">
         <div>
           <h2 id="product-media-title">Fotos</h2>

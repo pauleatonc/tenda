@@ -96,9 +96,7 @@ describe('envío idempotente de nueva venta', () => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: false })
     renderPage()
 
-    await userEvent.click(
-      await screen.findByRole('button', { name: 'Generar venta' }),
-    )
+    await userEvent.click(await screen.findByRole('button', { name: 'Generar venta' }))
 
     expect(
       await screen.findByText(/No enviaremos la venta sin conexión/),
@@ -199,7 +197,9 @@ describe('envío idempotente de nueva venta', () => {
 
     renderPage()
     await userEvent.click(await screen.findByRole('button', { name: 'Generar venta' }))
-    expect(await screen.findByRole('heading', { name: 'Tu enlace está listo' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: 'Tu enlace está listo' }),
+    ).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Volver al listado' }))
 
     expect(await screen.findByText('Listado de ventas')).toBeInTheDocument()
@@ -226,13 +226,18 @@ describe('envío idempotente de nueva venta', () => {
 
     renderPage()
     await userEvent.click(await screen.findByRole('button', { name: 'Generar venta' }))
-    await userEvent.click(await screen.findByRole('button', { name: 'Enviar por correo' }))
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Enviar por correo' }),
+    )
     expect(
       screen.getByText('Ingresa el correo del comprador para enviarle el enlace.'),
     ).toBeInTheDocument()
     const confirm = screen.getByRole('button', { name: 'Enviar' })
     expect(confirm).toBeDisabled()
-    await userEvent.type(screen.getByLabelText('Correo del comprador'), 'camila@example.cl')
+    await userEvent.type(
+      screen.getByLabelText('Correo del comprador'),
+      'camila@example.cl',
+    )
     await userEvent.click(confirm)
 
     await waitFor(() =>

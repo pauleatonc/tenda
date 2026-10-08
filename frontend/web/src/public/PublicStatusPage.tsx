@@ -18,7 +18,10 @@ function isTerminal(status: string, paymentStatus: string): boolean {
   )
 }
 
-function mercadoPagoReturnCopy(resultado: string | null): { title: string; body: string } {
+function mercadoPagoReturnCopy(resultado: string | null): {
+  title: string
+  body: string
+} {
   if (resultado === 'pending') {
     return {
       title: 'Pago pendiente en Mercado Pago',

@@ -1,8 +1,4 @@
-import {
-  keepPreviousData,
-  useInfiniteQuery,
-  useQuery,
-} from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Link, router } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
 import {
@@ -79,10 +75,7 @@ function FadingClampedText({
       {showFade ? (
         <View pointerEvents="none" style={styles.textClampFade}>
           {FADE_STOPS.map((opacity, index) => (
-            <View
-              key={index}
-              style={[styles.textClampFadeStop, { opacity }]}
-            />
+            <View key={index} style={[styles.textClampFadeStop, { opacity }]} />
           ))}
         </View>
       ) : null}
@@ -184,7 +177,9 @@ function ProductListItem({
       if (value === '—') return null
       return { key: field.key, label: field.label, value }
     })
-    .filter((item): item is { key: string; label: string; value: string } => item !== null)
+    .filter(
+      (item): item is { key: string; label: string; value: string } => item !== null,
+    )
 
   return (
     <View style={styles.card}>
@@ -599,11 +594,7 @@ export default function InventoryScreen() {
         />
       ) : null}
       {selling ? (
-        <GenerateSaleSheet
-          product={selling}
-          visible
-          onClose={() => setSelling(null)}
-        />
+        <GenerateSaleSheet product={selling} visible onClose={() => setSelling(null)} />
       ) : null}
     </SafeAreaView>
   )

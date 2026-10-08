@@ -47,7 +47,9 @@ export default function MoreScreen() {
               <Pressable accessibilityRole="button" style={styles.row}>
                 <View>
                   <Text style={styles.rowTitle}>Plan y facturación</Text>
-                  <Text style={styles.rowDetail}>Cupo de productos y creación asistida</Text>
+                  <Text style={styles.rowDetail}>
+                    Cupo de productos y creación asistida
+                  </Text>
                 </View>
                 <Text style={styles.chevron}>›</Text>
               </Pressable>

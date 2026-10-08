@@ -254,13 +254,14 @@ export function ShipmentDetailPage() {
               <p className="shipping-notice">
                 {detail.buyerEmail ? (
                   <>
-                    Al registrar, enviaremos un correo a <strong>{detail.buyerEmail}</strong>{' '}
-                    con estos datos. No se hace seguimiento posterior.
+                    Al registrar, enviaremos un correo a{' '}
+                    <strong>{detail.buyerEmail}</strong> con estos datos. No se hace
+                    seguimiento posterior.
                   </>
                 ) : (
                   <>
-                    <strong>El comprador no dejó correo.</strong> Registraremos el envío sin
-                    enviar notificación.
+                    <strong>El comprador no dejó correo.</strong> Registraremos el envío
+                    sin enviar notificación.
                   </>
                 )}
               </p>
@@ -280,13 +281,19 @@ export function ShipmentDetailPage() {
                         value={carrier}
                         required
                         aria-invalid={carrierError ? true : undefined}
-                        aria-describedby={carrierError ? 'shipment-carrier-error' : undefined}
+                        aria-describedby={
+                          carrierError ? 'shipment-carrier-error' : undefined
+                        }
                         onChange={(event) => setCarrier(event.target.value)}
                         placeholder="Chilexpress, Starken, Blue Express…"
                       />
                     </label>
                     {carrierError ? (
-                      <small id="shipment-carrier-error" className="field-error" role="alert">
+                      <small
+                        id="shipment-carrier-error"
+                        className="field-error"
+                        role="alert"
+                      >
                         {carrierError}
                       </small>
                     ) : null}

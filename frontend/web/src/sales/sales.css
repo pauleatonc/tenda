@@ -638,8 +638,7 @@
 .balance-hero {
   animation: balance-hero-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
   background:
-    linear-gradient(135deg, rgb(23 92 77 / 8%), transparent 55%),
-    var(--surface);
+    linear-gradient(135deg, rgb(23 92 77 / 8%), transparent 55%), var(--surface);
   border: 1px solid var(--line);
   border-radius: 22px;
   display: grid;

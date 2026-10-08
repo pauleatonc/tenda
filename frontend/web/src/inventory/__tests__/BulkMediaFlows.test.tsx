@@ -115,9 +115,7 @@ describe('Importación, exportación y fotos', () => {
     ).toBeInTheDocument()
     await userEvent.upload(screen.getByLabelText('Planilla de productos'), file)
 
-    expect(
-      await screen.findByText('Revisa la planilla y confirma'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Revisa la planilla y confirma')).toBeInTheDocument()
     expect(screen.getByLabelText('Nombre (obligatorio)')).toHaveValue('Nombre')
     expect(screen.queryByRole('button', { name: 'Previsualizar y validar' })).toBeNull()
     expect(
@@ -210,12 +208,10 @@ describe('Importación, exportación y fotos', () => {
 
   it('carga una foto y la adjunta como principal sin usar el asistente', async () => {
     const file = new File(['image'], 'vela.webp', { type: 'image/webp' })
-    mocked.uploadPrivateFile.mockImplementation(
-      async (_file, _purpose, onProgress) => {
-        onProgress?.(100)
-        return 'asset-1'
-      },
-    )
+    mocked.uploadPrivateFile.mockImplementation(async (_file, _purpose, onProgress) => {
+      onProgress?.(100)
+      return 'asset-1'
+    })
     mocked.attachProductMedia.mockResolvedValue({
       assetId: 'asset-1',
       url: 'https://files.invalid/asset-1',

@@ -28,8 +28,7 @@ def _shell(
 ) -> tuple[str, str]:
     brand = brand_name.strip() or "Tenda"
     brand_block = (
-        f'<div style="font-size:22px;font-weight:700;letter-spacing:-0.4px">'
-        f"{escape(brand)}</div>"
+        f'<div style="font-size:22px;font-weight:700;letter-spacing:-0.4px">{escape(brand)}</div>'
     )
     html = f"""<!doctype html>
 <html lang="es">

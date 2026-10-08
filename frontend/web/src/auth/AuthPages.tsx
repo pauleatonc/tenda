@@ -140,12 +140,7 @@ function PasswordInput({
 }
 
 function rememberSuggestedPlan(plan: string | null) {
-  if (
-    plan === 'free' ||
-    plan === 'starter' ||
-    plan === 'growth' ||
-    plan === 'pro'
-  ) {
+  if (plan === 'free' || plan === 'starter' || plan === 'growth' || plan === 'pro') {
     sessionStorage.setItem(SIGNUP_PLAN_STORAGE_KEY, plan)
   }
 }

@@ -91,7 +91,7 @@ identificadores públicos son UUID; las PK internas no salen por la API.
 | App             | Responsabilidad principal                                           |
 | --------------- | ------------------------------------------------------------------- |
 | `users`         | Email, verificación, OIDC fake, CSRF, rate limit durable            |
-| `organisations` | Tienda, inventario activo, roles y permisos                   |
+| `organisations` | Tienda, inventario activo, roles y permisos                         |
 | `configuration` | Parámetros versionados (reserva, revisión de comprobante)           |
 | `audit`         | Trazas de operaciones críticas                                      |
 | `media_assets`  | Presign/complete, propósito, tenant y tipo/tamaño                   |
@@ -178,15 +178,15 @@ Operación diaria: `docs/runbooks/operations.md`. Matriz go-live:
 
 ## Pruebas
 
-| Capa         | Dónde                           | Comando                                            |
-| ------------ | ------------------------------- | -------------------------------------------------- |
-| Backend      | `backend/tests`                 | `uv run --project backend pytest`                  |
+| Capa         | Dónde                              | Comando                                              |
+| ------------ | ---------------------------------- | ---------------------------------------------------- |
+| Backend      | `backend/tests`                    | `uv run --project backend pytest`                    |
 | Billing SaaS | `apps/billing` + `docs/billing.md` | Freemium planes vía MP Preapproval (no seller OAuth) |
-| Web unit     | `frontend/web/src/**/__tests__` | `pnpm --filter @tenda/web test`                    |
-| Mobile unit  | `frontend/mobile/**/__tests__`  | `pnpm --filter @tenda/mobile test`                 |
-| E2E web      | `e2e/web/tests`                 | `pnpm test:e2e`                                    |
-| A11y         | axe en Playwright               | incluido en `pnpm test:e2e`                        |
-| Mobile smoke | `frontend/mobile/.maestro`      | `maestro test frontend/mobile/.maestro/smoke.yaml` |
+| Web unit     | `frontend/web/src/**/__tests__`    | `pnpm --filter @tenda/web test`                      |
+| Mobile unit  | `frontend/mobile/**/__tests__`     | `pnpm --filter @tenda/mobile test`                   |
+| E2E web      | `e2e/web/tests`                    | `pnpm test:e2e`                                      |
+| A11y         | axe en Playwright                  | incluido en `pnpm test:e2e`                          |
+| Mobile smoke | `frontend/mobile/.maestro`         | `maestro test frontend/mobile/.maestro/smoke.yaml`   |
 
 El journey E2E cubre
 login → inventario → venta → pago con comprobante → balance → registro de

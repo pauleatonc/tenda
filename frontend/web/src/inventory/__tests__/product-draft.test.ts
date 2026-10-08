@@ -12,9 +12,7 @@ const base = {
 
 describe('productDraftEquals', () => {
   it('ignora mayúsculas y espacios en el nombre', () => {
-    expect(
-      productDraftEquals(base, { ...base, name: '  POLERA  ' }),
-    ).toBe(true)
+    expect(productDraftEquals(base, { ...base, name: '  POLERA  ' })).toBe(true)
   })
 
   it('trata cantidad y fotos como irrelevantes al no estar en el draft', () => {
@@ -22,9 +20,9 @@ describe('productDraftEquals', () => {
   })
 
   it('detecta un atributo distinto', () => {
-    expect(
-      productDraftEquals(base, { ...base, extraAttributes: { talla: 'L' } }),
-    ).toBe(false)
+    expect(productDraftEquals(base, { ...base, extraAttributes: { talla: 'L' } })).toBe(
+      false,
+    )
   })
 })
 

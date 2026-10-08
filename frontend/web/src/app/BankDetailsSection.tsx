@@ -114,7 +114,8 @@ export function BankDetailsSection({
     })),
   })
 
-  const previewAccount = accounts.find((account) => account.key === expandedKey) ?? accounts[0]
+  const previewAccount =
+    accounts.find((account) => account.key === expandedKey) ?? accounts[0]
   const preview = useMemo(() => {
     if (!previewAccount) return null
     const resolvedBank =
@@ -141,7 +142,9 @@ export function BankDetailsSection({
 
   function updateAccount(key: string, patch: Partial<DraftAccount>) {
     setAccounts((current) =>
-      current.map((account) => (account.key === key ? { ...account, ...patch } : account)),
+      current.map((account) =>
+        account.key === key ? { ...account, ...patch } : account,
+      ),
     )
   }
 
@@ -170,9 +173,11 @@ export function BankDetailsSection({
       const payload = accounts.map((account, index) => {
         const resolvedBank =
           account.bankName === OTHER_BANK ? account.customBank.trim() : account.bankName
-        if (!resolvedBank) nextErrors[`bankAccounts.${index}.bankName`] = 'Indica el banco.'
+        if (!resolvedBank)
+          nextErrors[`bankAccounts.${index}.bankName`] = 'Indica el banco.'
         if (!account.accountType) {
-          nextErrors[`bankAccounts.${index}.bankAccountType`] = 'Selecciona un tipo de cuenta.'
+          nextErrors[`bankAccounts.${index}.bankAccountType`] =
+            'Selecciona un tipo de cuenta.'
         }
         if (!/^\d{5,20}$/.test(account.accountNumber.replace(/\s/g, ''))) {
           nextErrors[`bankAccounts.${index}.bankAccountNumber`] =
@@ -182,7 +187,8 @@ export function BankDetailsSection({
           nextErrors[`bankAccounts.${index}.bankHolderTaxId`] = 'Ingresa un RUT válido.'
         }
         if (!account.email.trim() || !account.email.includes('@')) {
-          nextErrors[`bankAccounts.${index}.bankConfirmationEmail`] = 'Ingresa un correo válido.'
+          nextErrors[`bankAccounts.${index}.bankConfirmationEmail`] =
+            'Ingresa un correo válido.'
         }
         return {
           label: account.label.trim() || `Cuenta ${index + 1}`,
@@ -292,14 +298,14 @@ export function BankDetailsSection({
                         <select
                           value={account.bankName}
                           disabled={!canManage}
-                          aria-invalid={Boolean(
-                            errors[`bankAccounts.${index}.bankName`],
-                          )}
+                          aria-invalid={Boolean(errors[`bankAccounts.${index}.bankName`])}
                           onChange={(event) =>
                             updateAccount(account.key, {
                               bankName: event.target.value,
                               customBank:
-                                event.target.value === OTHER_BANK ? account.customBank : '',
+                                event.target.value === OTHER_BANK
+                                  ? account.customBank
+                                  : '',
                             })
                           }
                         >
@@ -324,7 +330,9 @@ export function BankDetailsSection({
                             value={account.customBank}
                             disabled={!canManage}
                             onChange={(event) =>
-                              updateAccount(account.key, { customBank: event.target.value })
+                              updateAccount(account.key, {
+                                customBank: event.target.value,
+                              })
                             }
                           />
                         </label>
@@ -338,7 +346,9 @@ export function BankDetailsSection({
                             errors[`bankAccounts.${index}.bankAccountType`],
                           )}
                           onChange={(event) =>
-                            updateAccount(account.key, { accountType: event.target.value })
+                            updateAccount(account.key, {
+                              accountType: event.target.value,
+                            })
                           }
                         >
                           <option value="">Selecciona el tipo</option>
@@ -462,7 +472,10 @@ export function BankDetailsSection({
             </p>
           )}
         </form>
-        <aside className="profile-bank-preview" aria-label="Vista previa para el comprador">
+        <aside
+          className="profile-bank-preview"
+          aria-label="Vista previa para el comprador"
+        >
           <p className="eyebrow">Así lo verá el comprador</p>
           <BankTransferDetails details={preview} compact />
         </aside>

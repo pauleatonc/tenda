@@ -1865,11 +1865,7 @@ def cancel_order(
 
 
 def _restore_target_status(order: Order) -> str:
-    event = (
-        order.timeline.filter(event_type="order.cancelled")
-        .order_by("-created_at")
-        .first()
-    )
+    event = order.timeline.filter(event_type="order.cancelled").order_by("-created_at").first()
     if event is None or event.from_status not in ACTIVE_ORDER_STATUSES:
         raise DomainError(
             "ORDER_TRANSITION_NOT_ALLOWED",
@@ -1880,11 +1876,7 @@ def _restore_target_status(order: Order) -> str:
     if target != Order.Status.PURCHASE_VALIDATION:
         return target
     payment = Payment.objects.filter(order=order).first()
-    proof = (
-        PaymentProof.objects.filter(payment=payment).first()
-        if payment is not None
-        else None
-    )
+    proof = PaymentProof.objects.filter(payment=payment).first() if payment is not None else None
     if proof is not None and proof.status == PaymentProof.Status.READY:
         return Order.Status.PURCHASE_VALIDATION
     if BuyerSnapshot.objects.filter(order=order).exists():
@@ -1911,10 +1903,7 @@ def _reopen_order_reservations(order: Order, expires_at: datetime) -> None:
             return
         reserve_stock(
             context=_context_for_order(order),
-            requests=[
-                StockRequest(product=item.product, quantity=item.quantity)
-                for item in items
-            ],
+            requests=[StockRequest(product=item.product, quantity=item.quantity) for item in items],
         )
         StockReservation.objects.bulk_create(
             [
@@ -2393,9 +2382,7 @@ def reissue_bank_transfer_offer(
                 delivery_mode=order.delivery_mode,
                 payment_method=Order.PaymentMethod.BANK_TRANSFER,
                 correlation_id=correlation_id,
-                bank_account_id=(
-                    str((order.deposit_bank_details or {}).get("id") or "") or None
-                ),
+                bank_account_id=(str((order.deposit_bank_details or {}).get("id") or "") or None),
             )
             replacement.published_at = timezone.now()
             replacement.save(update_fields=("published_at", "updated_at"))

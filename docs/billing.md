@@ -5,12 +5,12 @@ Esto es **independiente** del OAuth de cobro a compradores (`SellerPaymentConnec
 
 ## Planes
 
-| Código   | Precio CLP/mes | Productos (no archivados) | Creación asistida |
-|----------|----------------|---------------------------|-------------------|
-| `free`   | 0              | 5                         | No                |
-| `starter`| 4.990          | 15                        | Sí                |
-| `growth` | 9.990          | 25                        | Sí                |
-| `pro`    | 14.990         | Ilimitado                 | Sí                |
+| Código    | Precio CLP/mes | Productos (no archivados) | Creación asistida |
+| --------- | -------------- | ------------------------- | ----------------- |
+| `free`    | 0              | 5                         | No                |
+| `starter` | 4.990          | 15                        | Sí                |
+| `growth`  | 9.990          | 25                        | Sí                |
+| `pro`     | 14.990         | Ilimitado                 | Sí                |
 
 - Bloqueo duro al crear productos o importar filas nuevas si no hay cupo.
 - Archivar un producto libera cupo.

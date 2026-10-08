@@ -82,9 +82,7 @@ def _billing_payload(overview: BillingOverview, *, organisation: Any = None) -> 
         overview.subscription.organisation if overview.subscription is not None else None
     )
     needs_selection = (
-        organisation_needs_plan_selection(org)
-        if org is not None
-        else overview.subscription is None
+        organisation_needs_plan_selection(org) if org is not None else overview.subscription is None
     )
     return {
         "plan_code": entitlements.plan_code,
@@ -163,6 +161,7 @@ class SelectSignupPlan(graphene.Mutation):  # type: ignore[misc]
             }
         except DomainError as exc:
             raise graphql_error(info, exc) from exc
+
 
 class CancelSubscription(graphene.Mutation):  # type: ignore[misc]
     Output = CancelSubscriptionPayload

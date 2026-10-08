@@ -26,6 +26,7 @@ from tenda.errors import DomainError
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
+
 def identity(email: str) -> tuple[User, TenantContext]:
     user = User.objects.create_user(
         email=email,
@@ -84,9 +85,7 @@ def test_starter_allows_ai_and_fifteen_products() -> None:
 
 def test_archiving_frees_slot_on_free_plan() -> None:
     _user, context = identity("billing-archive@example.com")
-    products = [
-        create_product(context=context, name=f"Item {index}").product for index in range(5)
-    ]
+    products = [create_product(context=context, name=f"Item {index}").product for index in range(5)]
     with pytest.raises(DomainError):
         create_product(context=context, name="Extra")
     archive_product(context=context, product_id=products[0].public_id)

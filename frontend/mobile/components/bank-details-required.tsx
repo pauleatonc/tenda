@@ -5,11 +5,7 @@ import { BANK_DETAILS_REQUIRED_MESSAGE } from '@tenda/api-client'
 
 import { PrimaryButton } from './auth-ui'
 
-export function BankDetailsRequired({
-  onPress,
-}: {
-  onPress?: () => void
-}) {
+export function BankDetailsRequired({ onPress }: { onPress?: () => void }) {
   return (
     <View accessibilityRole="summary" style={styles.card}>
       <Text style={styles.title}>Faltan datos bancarios</Text>

@@ -1,7 +1,4 @@
-import {
-  bankAccountOptionLabel,
-  organisationHasBankDetails,
-} from '@tenda/api-client'
+import { bankAccountOptionLabel, organisationHasBankDetails } from '@tenda/api-client'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useOutletContext } from 'react-router-dom'
@@ -75,9 +72,7 @@ export function NewSalePage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const viewer = useOutletContext<ViewerPayload | undefined>()
-  const hasBankDetails = viewer
-    ? organisationHasBankDetails(viewer.organisation)
-    : true
+  const hasBankDetails = viewer ? organisationHasBankDetails(viewer.organisation) : true
   const bankAccounts = viewer?.organisation.bankAccounts ?? []
   const selectableAccounts = bankAccounts.filter(
     (account) =>
@@ -141,8 +136,7 @@ export function NewSalePage() {
     draft.paymentMethod === 'mercado_pago' && !mercadoPagoActive
       ? 'bank_transfer'
       : draft.paymentMethod
-  const depositBlocked =
-    selectedPaymentMethod === 'bank_transfer' && !hasBankDetails
+  const depositBlocked = selectedPaymentMethod === 'bank_transfer' && !hasBankDetails
   const isCash = selectedPaymentMethod === 'cash'
 
   function replaceDraft(update: (current: SaleDraft) => SaleDraft) {
@@ -686,7 +680,9 @@ export function NewSalePage() {
           <div className="sale-wizard-card__heading">
             <div>
               <span>Paso 3 de 4</span>
-              <h2>{isCash ? 'Revisa antes de crear' : 'Revisa antes de generar venta'}</h2>
+              <h2>
+                {isCash ? 'Revisa antes de crear' : 'Revisa antes de generar venta'}
+              </h2>
               <p>
                 {isCash
                   ? 'Crear reserva el stock. Luego abrirás la ficha para completar los datos y registrar el pago.'

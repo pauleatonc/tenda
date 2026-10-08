@@ -83,10 +83,7 @@ export function BalancesPage() {
   const method = params.get('metodo') ?? ''
   const status = params.get('estado') ?? ''
   const groupBy = (params.get('agrupar') ?? 'period') as
-    | 'period'
-    | 'product'
-    | 'payment_method'
-    | 'status'
+    'period' | 'product' | 'payment_method' | 'status'
   const cursor = params.get('cursor')
 
   function updateParams(values: Record<string, string | null>) {
@@ -197,8 +194,8 @@ export function BalancesPage() {
           <p className="eyebrow">Solo uso comercial</p>
           <h1>Balance de ventas</h1>
           <p>
-            Cómo van tus ventas en el período: neto, margen y lo que aún debes
-            cobrar o validar.
+            Cómo van tus ventas en el período: neto, margen y lo que aún debes cobrar o
+            validar.
           </p>
         </div>
         {data ? (
@@ -358,7 +355,9 @@ export function BalancesPage() {
       {data ? (
         <section className="balance-hero" aria-label="Resumen del período">
           <div className="balance-hero__main">
-            <p className="balance-hero__eyebrow">Ventas netas · {formatRangeLabel(dateFrom, dateTo)}</p>
+            <p className="balance-hero__eyebrow">
+              Ventas netas · {formatRangeLabel(dateFrom, dateTo)}
+            </p>
             <p className="balance-hero__value">
               <Link to={makeSalesFilterHref({ ...salesHrefBase, estado: 'paid' })}>
                 {formatClp(data.netSales)}
@@ -465,7 +464,9 @@ export function BalancesPage() {
         <section className="balance-inventory" aria-label="Stock actual">
           <div className="balance-inventory__intro">
             <h2>Stock actual</h2>
-            <p>No corresponde al período filtrado; es la valoración del inventario hoy.</p>
+            <p>
+              No corresponde al período filtrado; es la valoración del inventario hoy.
+            </p>
           </div>
           <div className="balance-metrics">
             <Link to="/app/inventario">
@@ -621,9 +622,9 @@ export function BalancesPage() {
 
       {data ? (
         <footer className="balance-disclaimer">
-          Corte según zona horaria <strong>{data.timezone}</strong>. El stock al costo,
-          a precio de venta y el margen potencial reflejan el inventario actual. No
-          incluye caja, impuestos, DTE, facturación ni conciliación bancaria.
+          Corte según zona horaria <strong>{data.timezone}</strong>. El stock al costo, a
+          precio de venta y el margen potencial reflejan el inventario actual. No incluye
+          caja, impuestos, DTE, facturación ni conciliación bancaria.
         </footer>
       ) : null}
     </>

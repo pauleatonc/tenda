@@ -21,14 +21,12 @@ module.exports = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'cl.tenda.app',
-    googleServicesFile:
-      process.env.GOOGLE_SERVICES_PLIST || './GoogleService-Info.plist',
+    googleServicesFile: process.env.GOOGLE_SERVICES_PLIST || './GoogleService-Info.plist',
   },
   android: {
     package: 'cl.tenda.app',
     predictiveBackGestureEnabled: false,
-    googleServicesFile:
-      process.env.GOOGLE_SERVICES_JSON || './google-services.json',
+    googleServicesFile: process.env.GOOGLE_SERVICES_JSON || './google-services.json',
   },
   web: {
     bundler: 'metro',

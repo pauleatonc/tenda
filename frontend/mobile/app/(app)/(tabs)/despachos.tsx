@@ -1,8 +1,4 @@
-import {
-  keepPreviousData,
-  useInfiniteQuery,
-  useQuery,
-} from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { router } from 'expo-router'
 import { useEffect, useMemo, useState } from 'react'
 import {
@@ -19,11 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { MobileEmptyState } from '../../../components/app-ui'
 import { colors } from '../../../components/auth-ui'
 import { InventoryChip } from '../../../components/inventory-ui'
-import {
-  SalesBanner,
-  SalesMetric,
-  salesStyles,
-} from '../../../components/sales-ui'
+import { SalesBanner, SalesMetric, salesStyles } from '../../../components/sales-ui'
 import {
   ShipmentCardView,
   deliveryModeLabels,
@@ -65,10 +57,7 @@ export default function ShippingScreen() {
     }),
     [debouncedSearch, deliveryMode, statuses],
   )
-  const variables = useMemo(
-    () => ({ filter, first: PAGE_SIZE, after: null }),
-    [filter],
-  )
+  const variables = useMemo(() => ({ filter, first: PAGE_SIZE, after: null }), [filter])
 
   const dashboard = useQuery({
     queryKey: shippingKeys.dashboard(),
@@ -89,7 +78,8 @@ export default function ShippingScreen() {
     [shipments.data],
   )
   const totalCount = shipments.data?.pages[0]?.totalCount ?? 0
-  const hasFilters = Boolean(debouncedSearch) || statuses.length > 0 || Boolean(deliveryMode)
+  const hasFilters =
+    Boolean(debouncedSearch) || statuses.length > 0 || Boolean(deliveryMode)
   const refreshing =
     (shipments.isRefetching && !shipments.isFetchingNextPage) || dashboard.isRefetching
 

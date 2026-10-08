@@ -91,11 +91,19 @@ describe('Detalle de despacho mobile', () => {
     expect(screen.queryByText('Compartir enlace público')).toBeNull()
 
     await fireEvent.changeText(screen.getByLabelText('Transportista'), 'Chilexpress')
-    await fireEvent.changeText(screen.getByLabelText('Código de tracking (opcional)'), 'CX-99')
-    await fireEvent.changeText(screen.getByLabelText('Nota para el comprador (opcional)'), 'Sale hoy')
+    await fireEvent.changeText(
+      screen.getByLabelText('Código de tracking (opcional)'),
+      'CX-99',
+    )
+    await fireEvent.changeText(
+      screen.getByLabelText('Nota para el comprador (opcional)'),
+      'Sale hoy',
+    )
     await fireEvent.press(screen.getByRole('button', { name: 'Registrar despacho' }))
 
-    expect(await screen.findByText('Se enviará un correo a camila@example.cl.')).toBeOnTheScreen()
+    expect(
+      await screen.findByText('Se enviará un correo a camila@example.cl.'),
+    ).toBeOnTheScreen()
     await fireEvent.press(screen.getByRole('button', { name: 'Confirmar y notificar' }))
 
     await waitFor(() =>
@@ -134,14 +142,18 @@ describe('Detalle de despacho mobile', () => {
 
     await renderScreen(<ShipmentDetailScreen />)
 
-    expect(await screen.findByRole('header', { name: 'Registrar entrega' })).toBeOnTheScreen()
+    expect(
+      await screen.findByRole('header', { name: 'Registrar entrega' }),
+    ).toBeOnTheScreen()
     expect(screen.queryByLabelText('Transportista')).toBeNull()
     expect(
       screen.getByText('El comprador no dejó correo.', { exact: false }),
     ).toBeOnTheScreen()
 
     await fireEvent.press(screen.getByRole('button', { name: 'Registrar entrega' }))
-    await fireEvent.press(await screen.findByRole('button', { name: 'Confirmar y notificar' }))
+    await fireEvent.press(
+      await screen.findByRole('button', { name: 'Confirmar y notificar' }),
+    )
 
     await waitFor(() =>
       expect(mocked.registerShipmentDispatch).toHaveBeenCalledWith(

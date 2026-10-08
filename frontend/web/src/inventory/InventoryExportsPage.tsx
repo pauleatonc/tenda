@@ -37,9 +37,7 @@ export function InventoryExportsPage() {
     queryKey: inventoryKeys.exports(),
     queryFn: fetchInventoryExports,
     refetchInterval: (query) =>
-      query.state.data?.some((job) => activeStatuses.has(job.status))
-        ? pollDelay
-        : false,
+      query.state.data?.some((job) => activeStatuses.has(job.status)) ? pollDelay : false,
   })
 
   useEffect(() => {
@@ -85,7 +83,9 @@ export function InventoryExportsPage() {
         <div>
           <p className="eyebrow">Inventario</p>
           <h1>Exportaciones</h1>
-          <p>Genera archivos privados con los filtros actuales y descárgalos por 24 horas.</p>
+          <p>
+            Genera archivos privados con los filtros actuales y descárgalos por 24 horas.
+          </p>
         </div>
         <Link className="button button--secondary" to="/app/inventario">
           Volver

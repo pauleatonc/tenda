@@ -339,10 +339,7 @@ export default function BalancesScreen() {
               />
             </View>
             <View style={salesStyles.footerItem}>
-              <PrimaryButton
-                label="Aplicar"
-                onPress={() => setFiltersOpen(false)}
-              />
+              <PrimaryButton label="Aplicar" onPress={() => setFiltersOpen(false)} />
             </View>
           </>
         }
@@ -405,9 +402,7 @@ export default function BalancesScreen() {
               key={method}
               label={paymentMethodLabels[method]}
               selected={paymentMethods.includes(method)}
-              onPress={() =>
-                setPaymentMethods((current) => toggle(current, method))
-              }
+              onPress={() => setPaymentMethods((current) => toggle(current, method))}
             />
           ))}
         </View>

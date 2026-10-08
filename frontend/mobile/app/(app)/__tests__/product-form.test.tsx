@@ -304,7 +304,9 @@ describe('Crear producto en mobile', () => {
     expect(screen.queryByLabelText('Nombre')).toBeNull()
 
     await fireEvent.press(screen.getByText('Vela de soya aroma lavanda'))
-    expect(screen.getByLabelText('Nombre')).toHaveDisplayValue('Vela de soya aroma lavanda')
+    expect(screen.getByLabelText('Nombre')).toHaveDisplayValue(
+      'Vela de soya aroma lavanda',
+    )
     expect(screen.getByLabelText('Precio de venta')).toHaveDisplayValue('12990')
   })
 

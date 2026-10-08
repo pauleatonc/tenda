@@ -18,7 +18,9 @@ test('mobileGoogleLogin opens Google and stores the token from the app redirect'
     .mockResolvedValueOnce({
       ok: true,
       json: async () => ({
-        data: { authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?state=abc' },
+        data: {
+          authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth?state=abc',
+        },
       }),
     })
     .mockResolvedValueOnce({
@@ -29,7 +31,13 @@ test('mobileGoogleLogin opens Google and stores the token from the app redirect'
             id: '1',
             email: 'ada@example.com',
             emailVerified: true,
-            profile: { id: 'p', fullName: 'Ada', phone: '', locale: 'es', photoUrl: null },
+            profile: {
+              id: 'p',
+              fullName: 'Ada',
+              phone: '',
+              locale: 'es',
+              photoUrl: null,
+            },
           },
           organisation: {
             id: 'o',
