@@ -34,4 +34,6 @@ FROM nginx:1.27.5-alpine AS runtime
 COPY frontend/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /repo/frontend/web/dist /usr/share/nginx/html
 
+# Non-root for Trivy DS-0002; nginx image user can serve the static tree.
+USER nginx
 EXPOSE 80

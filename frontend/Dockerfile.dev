@@ -25,6 +25,7 @@ RUN pnpm --filter @tenda/api-client build && pnpm --filter @tenda/analytics buil
 COPY frontend/docker-entrypoint-dev.sh /docker-entrypoint-dev.sh
 RUN chmod +x /docker-entrypoint-dev.sh
 
+USER node
 ENTRYPOINT ["/docker-entrypoint-dev.sh"]
 
 EXPOSE 5173 8081
