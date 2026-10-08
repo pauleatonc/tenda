@@ -112,6 +112,8 @@ jobs:
           DJANGO_ADMIN_PATH: control-ci-check
           DJANGO_ADMIN_ALLOWED_NETWORKS: 10.42.0.0/24
           DJANGO_ADMIN_TRUST_X_FORWARDED_FOR: 'true'
+          TURNSTILE_FAKE_MODE: 'false'
+          TURNSTILE_SECRET_KEY: ci-turnstile-secret-for-deploy-check
         run: uv run --project backend python backend/manage.py check --deploy
 
       - name: Frontend quality
