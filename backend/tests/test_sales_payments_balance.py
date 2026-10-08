@@ -9,6 +9,7 @@ from django.conf import settings
 from django.utils import timezone
 from PIL import Image
 
+from apps.billing.models import Plan
 from apps.inventory.media import attach_product_media
 from apps.inventory.models import Product, StockBalance, StockMovement
 from apps.inventory.services import create_product, update_product
@@ -49,7 +50,6 @@ from apps.sales.selectors import (
     sales_dashboard,
 )
 from apps.sales.webhooks import process_payment_webhook_event, retry_reconciliation
-from apps.billing.models import Plan
 from apps.users.models import User
 from tenda.crypto import decrypt_credential, encrypt_credential
 from tenda.errors import DomainError

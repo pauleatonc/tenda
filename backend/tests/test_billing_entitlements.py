@@ -11,7 +11,11 @@ from apps.billing.entitlements import (
     get_organisation_entitlements,
 )
 from apps.billing.models import OrganisationSubscription, Plan
-from apps.billing.provider import PreapprovalSnapshot, get_billing_provider, reset_fake_billing_provider
+from apps.billing.provider import (
+    PreapprovalSnapshot,
+    get_billing_provider,
+    reset_fake_billing_provider,
+)
 from apps.billing.services import start_plan_checkout, sync_subscription_from_provider
 from apps.inventory.models import Product
 from apps.inventory.services import create_product

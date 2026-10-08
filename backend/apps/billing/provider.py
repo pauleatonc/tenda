@@ -403,7 +403,7 @@ class MercadoPagoBillingProvider:
             init_point=str(data.get("init_point") or data.get("sandbox_init_point") or ""),
             external_reference=str(data.get("external_reference", "")),
             preapproval_plan_id=str(data.get("preapproval_plan_id", "")),
-            payer_email=str((data.get("payer_email") or "")),
+            payer_email=str(data.get("payer_email") or ""),
             next_payment_date=(
                 str(data["next_payment_date"]) if data.get("next_payment_date") else None
             ),
@@ -414,7 +414,10 @@ _fake_billing = FakeBillingProvider()
 
 
 def get_billing_provider() -> BillingProvider:
-    mode = str(getattr(settings, "BILLING_PROVIDER", "") or getattr(settings, "PAYMENT_PROVIDER", "fake"))
+    mode = str(
+        getattr(settings, "BILLING_PROVIDER", "")
+        or getattr(settings, "PAYMENT_PROVIDER", "fake")
+    )
     if mode == "mercado_pago":
         return MercadoPagoBillingProvider()
     return _fake_billing

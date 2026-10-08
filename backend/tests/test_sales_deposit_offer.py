@@ -5,9 +5,9 @@ import json
 from datetime import timedelta
 
 import pytest
-from PIL import Image
 from django.test import Client
 from django.utils import timezone
+from PIL import Image
 
 from apps.configuration.models import OperationalParameter
 from apps.inventory.media import attach_product_media

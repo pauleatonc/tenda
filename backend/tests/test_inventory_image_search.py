@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import io
 import json
+from datetime import timedelta
 
 import pytest
 from django.test import Client
 from django.utils import timezone
 from PIL import Image
 
+from apps.billing.models import OrganisationSubscription, Plan
 from apps.inventory.custom_fields import validate_extra_attributes
 from apps.inventory.image_search import (
     FakeImageSearchProvider,
@@ -26,9 +28,6 @@ from apps.inventory.services import create_custom_field
 from apps.media_assets.models import MediaAsset
 from apps.media_assets.services import complete_upload, prepare_upload
 from apps.media_assets.storage import fake_object_storage
-from datetime import timedelta
-
-from apps.billing.models import OrganisationSubscription, Plan
 from apps.organisations.selectors import TenantContext, resolve_tenant_context
 from apps.organisations.services import create_organisation_for_owner
 from apps.users.models import User

@@ -188,9 +188,15 @@ def test_display_images_are_saved_as_thumbnail_medium_and_large_webp() -> None:
     assert set(completed.variants) == {"thumbnail", "medium", "large"}
     assert completed.content_type == "image/webp"
     assert original_key not in fake_object_storage.objects
-    thumbnail = Image.open(BytesIO(fake_object_storage.read_bytes(key=completed.variants["thumbnail"])))
-    medium = Image.open(BytesIO(fake_object_storage.read_bytes(key=completed.variants["medium"])))
-    large = Image.open(BytesIO(fake_object_storage.read_bytes(key=completed.variants["large"])))
+    thumbnail = Image.open(
+        BytesIO(fake_object_storage.read_bytes(key=completed.variants["thumbnail"]))
+    )
+    medium = Image.open(
+        BytesIO(fake_object_storage.read_bytes(key=completed.variants["medium"]))
+    )
+    large = Image.open(
+        BytesIO(fake_object_storage.read_bytes(key=completed.variants["large"]))
+    )
     assert max(thumbnail.size) == 256
     assert max(medium.size) == 800
     assert max(large.size) == 1600

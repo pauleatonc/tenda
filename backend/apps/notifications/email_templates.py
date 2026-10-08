@@ -37,7 +37,8 @@ def _shell(
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td align="center" style="padding:32px 16px">
-          <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #dedbd1;border-radius:16px">
+          <table role="presentation" width="520" cellpadding="0" cellspacing="0"
+            style="background:#ffffff;border:1px solid #dedbd1;border-radius:16px">
             <tr>
               <td style="padding:28px 28px 8px">{brand_block}</td>
             </tr>
