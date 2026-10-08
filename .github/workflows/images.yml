@@ -25,9 +25,6 @@ jobs:
           - name: backend
             dockerfile: backend/Dockerfile
             build_args: ''
-          - name: web
-            dockerfile: frontend/web/Dockerfile
-            build_args: VITE_API_URL=
           - name: backup
             dockerfile: infra/backup/Dockerfile
             build_args: ''
@@ -85,3 +82,50 @@ jobs:
           provenance: mode=max
           sbom: true
           cache-from: type=gha,scope=${{ matrix.name }}
+
+  web-static:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Enable pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.34.5 --activate
+
+      - name: Install and build web
+        env:
+          VITE_API_URL: ''
+          VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
+          VITE_GA_MEASUREMENT_ID: ${{ vars.VITE_GA_MEASUREMENT_ID }}
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter @tenda/web build
+          test -f frontend/web/dist/index.html
+
+      - name: Pack web-dist
+        env:
+          IMAGE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: |
+          tar -C frontend/web/dist -czf "web-dist-${IMAGE_SHA}.tar.gz" .
+          printf '%s\n' "${IMAGE_SHA}" >web-dist-sha.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: |
+            web-dist-*.tar.gz
+            web-dist-sha.txt
+          if-no-files-found: error
+          retention-days: 14

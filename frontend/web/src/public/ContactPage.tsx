@@ -107,6 +107,15 @@ export function ContactPage() {
           </button>
         </form>
       </section>
+      <footer className="landing-footer">
+        <Link className="wordmark" to="/">
+          tenda
+        </Link>
+        <div className="landing-footer__links">
+          <Link to="/terminos">Términos y condiciones</Link>
+          <Link to="/login">Iniciar sesión</Link>
+        </div>
+      </footer>
     </main>
   )
 }

@@ -113,7 +113,7 @@ export default function RegisterScreen() {
           <Text style={localStyles.check}>{acceptedTerms ? '✓' : ''}</Text>
         </View>
         <Text style={localStyles.checkboxLabel}>
-          Acepto los términos y la política de privacidad de Tenda.
+          Acepto los términos y condiciones de Tenda.
         </Text>
       </Pressable>
       {validation.terms ? (

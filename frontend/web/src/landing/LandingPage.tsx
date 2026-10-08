@@ -154,6 +154,7 @@ export function LandingPage() {
         </Link>
         <div className="landing-footer__links">
           <Link to="/contacto">Contacto</Link>
+          <Link to="/terminos">Términos y condiciones</Link>
           <Link to="/login">Iniciar sesión</Link>
         </div>
       </footer>

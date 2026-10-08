@@ -11,6 +11,7 @@ import './app/profile.css'
 import { LandingPage } from './landing/LandingPage'
 import './landing/landing.css'
 import { ContactPage } from './public/ContactPage'
+import { TermsPage } from './public/TermsPage'
 import { InventoryListPage } from './inventory/InventoryListPage'
 import { InventoryExportsPage } from './inventory/InventoryExportsPage'
 import { InventoryImportPage } from './inventory/InventoryImportPage'
@@ -54,6 +55,7 @@ function App() {
       <Route path="/verificar-email" element={<VerificationPage />} />
       <Route path="/elige-plan" element={<ChoosePlanPage />} />
       <Route path="/contacto" element={<ContactPage />} />
+      <Route path="/terminos" element={<TermsPage />} />
       <Route path="/p/:token" element={<PublicOrderPage />} />
       <Route path="/p/:token/comprar" element={<PublicCheckoutPage />} />
       <Route path="/p/:token/comprobante" element={<PublicProofPage />} />

@@ -76,8 +76,16 @@ const OrganisationBillingDocument = parse(`
 `) as TypedDocumentNode<OrganisationBillingQuery, Record<string, never>>
 
 const StartPlanCheckoutDocument = parse(`
-  mutation StartPlanCheckout($planCode: String!, $payerEmail: String) {
-    startPlanCheckout(planCode: $planCode, payerEmail: $payerEmail) {
+  mutation StartPlanCheckout(
+    $planCode: String!
+    $payerEmail: String
+    $acceptedTerms: Boolean!
+  ) {
+    startPlanCheckout(
+      planCode: $planCode
+      payerEmail: $payerEmail
+      acceptedTerms: $acceptedTerms
+    ) {
       initPoint
       planCode
       preapprovalId
@@ -85,7 +93,7 @@ const StartPlanCheckoutDocument = parse(`
   }
 `) as TypedDocumentNode<
   StartPlanCheckoutMutation,
-  { planCode: string; payerEmail?: string | null }
+  { planCode: string; payerEmail?: string | null; acceptedTerms: boolean }
 >
 
 const CancelSubscriptionDocument = parse(`
@@ -117,10 +125,12 @@ export async function fetchOrganisationBilling(): Promise<OrganisationBilling> {
 export async function startPlanCheckout(input: {
   planCode: string
   payerEmail?: string
+  acceptedTerms: boolean
 }): Promise<{ initPoint: string; planCode: string; preapprovalId: string }> {
   const data = await graphqlRequest(StartPlanCheckoutDocument, {
     planCode: input.planCode,
     payerEmail: input.payerEmail,
+    acceptedTerms: input.acceptedTerms,
   })
   return data.startPlanCheckout
 }

@@ -25,6 +25,9 @@ frontend/mobile/.expo/
 .env
 .env.*
 !.env.example
+!.env.production.example
+data/web-dist/*
+!data/web-dist/.gitkeep
 *.pem
 *.key
 

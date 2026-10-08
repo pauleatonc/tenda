@@ -152,7 +152,15 @@ def test_register_defers_plan_selection() -> None:
     assert organisation_needs_plan_selection(membership.organisation) is True
 
     context = resolve_tenant_context(user)
-    overview = select_signup_plan(context=context, plan_code="free")
+    with pytest.raises(DomainError) as blocked:
+        select_signup_plan(context=context, plan_code="free", accepted_terms=False)
+    assert blocked.value.code == "TERMS_NOT_ACCEPTED"
+
+    overview = select_signup_plan(
+        context=context,
+        plan_code="free",
+        accepted_terms=True,
+    )
     assert overview.entitlements.plan_code == "free"
     assert organisation_needs_plan_selection(membership.organisation) is False
     subscription = OrganisationSubscription.objects.get(organisation=membership.organisation)
@@ -164,7 +172,14 @@ def test_checkout_and_webhook_activate_subscription() -> None:
     provider = reset_fake_billing_provider()
     user, context = identity("billing-checkout@example.com")
     assert context.membership.role == Membership.Role.OWNER
-    checkout = start_plan_checkout(context=context, plan_code="starter")
+    with pytest.raises(DomainError) as blocked:
+        start_plan_checkout(context=context, plan_code="starter", accepted_terms=False)
+    assert blocked.value.code == "TERMS_NOT_ACCEPTED"
+    checkout = start_plan_checkout(
+        context=context,
+        plan_code="starter",
+        accepted_terms=True,
+    )
     assert checkout.init_point.startswith("https://billing.invalid/")
     assert checkout.plan_code == "starter"
 

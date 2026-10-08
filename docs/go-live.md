@@ -27,7 +27,7 @@ Producción. Dev y Prod usan Turnstile real.
 
 | Dependencia          | Sin credencial (Dev/E2E)            | Requerido para Producción                        | Go-live   |
 | -------------------- | ----------------------------------- | ------------------------------------------------ | --------- |
-| Dominios / TLS       | `localhost`                         | Dominio, certificados, `WEB_ORIGIN` HTTPS        | Bloqueado |
+| Dominios / TLS       | `localhost`                         | `tenda-app.com`, Cloudflare Full, `WEB_ORIGIN` HTTPS; CD en repo (secrets VPS) | Parcial |
 | Cloudflare R2        | `OBJECT_STORAGE_PROVIDER=fake`      | Bucket/prefijo, CORS, lifecycle, claves mínimas  | Bloqueado |
 | Backup R2 + age      | No corre off-site                   | Recipient, bucket privado, retención aprobada    | Bloqueado |
 | Brevo                | Outbox fake                         | Dominio autenticado, webhook bounce              | Bloqueado |
@@ -72,17 +72,27 @@ Sin ese registro, el go-live sigue bloqueado aunque CI esté verde.
 
 ## Cómo desplegar cuando la matriz esté en verde
 
+Pipeline automático en `main`:
+
+```text
+CI → Publish images (GHCR backend+backup + artifact web-dist) → Deploy production
+```
+
+Bootstrap del VPS, firewall y secrets: `docs/runbooks/vps-bootstrap.md`.
+Plantilla de env: `.env.production.example`.
+
+Rollback / deploy puntual:
+
 ```bash
-# 1. CI en main/master en verde (jobs quality + e2e)
-# 2. Publish images (SHA de 40 caracteres)
-# 3. Deploy manual al ambiente protegido:
-#    image_sha = <git sha>
-#    environment = production
-#    skip_predeploy_backup = false
+# Actions → Deploy → workflow_dispatch
+#   image_sha = <git sha de 40 caracteres ya publicado>
+#   environment = production
+#   skip_predeploy_backup = false
 ```
 
 En el host, `infra/scripts/deploy.sh` es la única vía. No usar `latest` ni
-`compose up` improvisado sobre Producción.
+`compose up` improvisado sobre Producción. El front son estáticos en
+`data/web-dist` (nginx edge); no hay contenedor `web` en prod.
 
 ## Mobile
 

@@ -1,4 +1,5 @@
 type Query {
+  termsAndConditions: TermsAndConditionsType
   organisationBilling: OrganisationBillingType!
   sellerPaymentConnection: SellerPaymentConnectionType
   paymentCommissionConfiguration: PaymentCommissionConfigurationType!
@@ -60,6 +61,19 @@ type Query {
   health: String!
 }
 
+type TermsAndConditionsType {
+  title: String!
+  bodyHtml: String!
+  updatedAt: DateTime!
+}
+
+"""
+The `DateTime` scalar type represents a DateTime
+value as specified by
+[iso8601](https://en.wikipedia.org/wiki/ISO_8601).
+"""
+scalar DateTime
+
 type OrganisationBillingType {
   planCode: String!
   planName: String!
@@ -75,13 +89,6 @@ type OrganisationBillingType {
   needsPlanSelection: Boolean!
   plans: [BillingPlanType!]!
 }
-
-"""
-The `DateTime` scalar type represents a DateTime
-value as specified by
-[iso8601](https://en.wikipedia.org/wiki/ISO_8601).
-"""
-scalar DateTime
 
 type BillingPlanType {
   code: String!
@@ -784,8 +791,12 @@ type ProfileType {
 }
 
 type Mutation {
-  startPlanCheckout(payerEmail: String, planCode: String!): StartPlanCheckoutPayload!
-  selectSignupPlan(planCode: String!): SelectSignupPlanPayload!
+  startPlanCheckout(
+    acceptedTerms: Boolean!
+    payerEmail: String
+    planCode: String!
+  ): StartPlanCheckoutPayload!
+  selectSignupPlan(acceptedTerms: Boolean!, planCode: String!): SelectSignupPlanPayload!
   cancelSubscription: CancelSubscriptionPayload!
   resumeSubscription: ResumeSubscriptionPayload!
   startMercadoPagoConnection: StartMercadoPagoConnection!

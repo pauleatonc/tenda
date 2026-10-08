@@ -56,23 +56,29 @@ ping -c 3 10.42.0.2
 
 ## Imágenes y despliegue
 
-`Publish images` se ejecuta únicamente después de CI verde. Publica backend,
-web y backup en GHCR con el SHA completo, SBOM y provenance. El workflow
-manual `Deploy` usa ambientes protegidos y exige ese SHA.
+`Publish images` se ejecuta únicamente después de CI verde. Publica **backend**
+y **backup** en GHCR con el SHA completo, SBOM y provenance, y sube el artifact
+**web-dist** (SPA). No publica imagen `web` para prod. `Deploy` se dispara
+automáticamente tras Publish images en `main` (environment `production`) y
+también admite `workflow_dispatch` para rollback.
 
-En el host, `infra/scripts/deploy.sh`:
+En el host, el workflow hace rsync de estáticos a `data/web-dist` y luego
+`infra/scripts/deploy.sh`:
 
-1. rechaza tags mutables;
+1. rechaza tags mutables y exige `index.html` en web-dist;
 2. serializa despliegues con `flock`;
 3. valida Compose y descarga las imágenes exactas;
 4. crea un backup cifrado salvo excepción explícita de Dev;
 5. ejecuta migraciones como tarea one-shot;
-6. reemplaza servicios y espera readiness;
-7. restaura el último set de imágenes si readiness falla.
+6. reemplaza backend/celery/nginx (sin contenedor web) y espera readiness;
+7. si readiness falla, restaura imágenes anteriores y `web-dist.last-good`.
 
 El rollback de imagen no revierte esquema. Toda migración desplegada debe ser
 compatible hacia atrás durante una versión. Si no lo es, detener el despliegue
 y usar el procedimiento de restore aprobado.
+
+Primer VPS, firewall (solo 80 + SSH) y límites de memoria 8 GB:
+`docs/runbooks/vps-bootstrap.md`.
 
 ## Backup cifrado off-site
 

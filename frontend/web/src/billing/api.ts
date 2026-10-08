@@ -82,8 +82,16 @@ const OrganisationBillingDocument = parse(`
 `) as TypedDocumentNode<OrganisationBillingQuery, Record<string, never>>
 
 const StartPlanCheckoutDocument = parse(`
-  mutation StartPlanCheckout($planCode: String!, $payerEmail: String) {
-    startPlanCheckout(planCode: $planCode, payerEmail: $payerEmail) {
+  mutation StartPlanCheckout(
+    $planCode: String!
+    $payerEmail: String
+    $acceptedTerms: Boolean!
+  ) {
+    startPlanCheckout(
+      planCode: $planCode
+      payerEmail: $payerEmail
+      acceptedTerms: $acceptedTerms
+    ) {
       initPoint
       planCode
       preapprovalId
@@ -91,7 +99,7 @@ const StartPlanCheckoutDocument = parse(`
   }
 `) as TypedDocumentNode<
   StartPlanCheckoutMutation,
-  { planCode: string; payerEmail?: string | null }
+  { planCode: string; payerEmail?: string | null; acceptedTerms: boolean }
 >
 
 const CancelSubscriptionDocument = parse(`
@@ -111,12 +119,15 @@ const ResumeSubscriptionDocument = parse(`
 `) as TypedDocumentNode<ResumeSubscriptionMutation, Record<string, never>>
 
 const SelectSignupPlanDocument = parse(`
-  mutation SelectSignupPlan($planCode: String!) {
-    selectSignupPlan(planCode: $planCode) {
+  mutation SelectSignupPlan($planCode: String!, $acceptedTerms: Boolean!) {
+    selectSignupPlan(planCode: $planCode, acceptedTerms: $acceptedTerms) {
       organisationBilling { ${BILLING_FIELDS} }
     }
   }
-`) as TypedDocumentNode<SelectSignupPlanMutation, { planCode: string }>
+`) as TypedDocumentNode<
+  SelectSignupPlanMutation,
+  { planCode: string; acceptedTerms: boolean }
+>
 
 export const billingKeys = {
   root: ['billing'] as const,
@@ -131,10 +142,12 @@ export async function fetchOrganisationBilling(): Promise<OrganisationBilling> {
 export async function startPlanCheckout(input: {
   planCode: string
   payerEmail?: string
+  acceptedTerms: boolean
 }): Promise<{ initPoint: string; planCode: string; preapprovalId: string }> {
   const data = await graphqlRequest(StartPlanCheckoutDocument, {
     planCode: input.planCode,
     payerEmail: input.payerEmail,
+    acceptedTerms: input.acceptedTerms,
   })
   return data.startPlanCheckout
 }
@@ -149,8 +162,14 @@ export async function resumeSubscription(): Promise<OrganisationBilling> {
   return data.resumeSubscription.organisationBilling
 }
 
-export async function selectSignupPlan(planCode: string): Promise<OrganisationBilling> {
-  const data = await graphqlRequest(SelectSignupPlanDocument, { planCode })
+export async function selectSignupPlan(
+  planCode: string,
+  acceptedTerms: boolean,
+): Promise<OrganisationBilling> {
+  const data = await graphqlRequest(SelectSignupPlanDocument, {
+    planCode,
+    acceptedTerms,
+  })
   return data.selectSignupPlan.organisationBilling
 }
 

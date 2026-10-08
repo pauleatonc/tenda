@@ -87,11 +87,29 @@ def organisation_needs_plan_selection(organisation: Organisation) -> bool:
     return not OrganisationSubscription.objects.filter(organisation=organisation).exists()
 
 
+def require_accepted_terms(*, accepted_terms: bool) -> None:
+    if not accepted_terms:
+        raise DomainError(
+            "TERMS_NOT_ACCEPTED",
+            "Debes aceptar los términos y condiciones para continuar.",
+            field_errors={
+                "acceptedTerms": ["Marca la casilla para aceptar los términos."]
+            },
+            status=400,
+        )
+
+
 @transaction.atomic
-def select_signup_plan(*, context: TenantContext, plan_code: str) -> BillingOverview:
+def select_signup_plan(
+    *,
+    context: TenantContext,
+    plan_code: str,
+    accepted_terms: bool = False,
+) -> BillingOverview:
     """Complete onboarding plan selection before the dashboard."""
 
     _require_billing_manager(context)
+    require_accepted_terms(accepted_terms=accepted_terms)
     record_plan_intent(organisation=context.organisation, plan_code=plan_code)
     return billing_overview(context)
 
@@ -151,8 +169,10 @@ def start_plan_checkout(
     context: TenantContext,
     plan_code: str,
     payer_email: str = "",
+    accepted_terms: bool = False,
 ) -> PlanCheckout:
     _require_billing_manager(context)
+    require_accepted_terms(accepted_terms=accepted_terms)
     code = plan_code.strip().lower()
     if code == Plan.Code.FREE:
         raise DomainError(

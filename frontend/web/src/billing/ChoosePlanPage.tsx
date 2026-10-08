@@ -34,6 +34,7 @@ function suggestedPlanCode(): SignupPlanOption['code'] {
 export function ChoosePlanPage() {
   const queryClient = useQueryClient()
   const [selected, setSelected] = useState<SignupPlanOption['code']>(suggestedPlanCode)
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [error, setError] = useState<unknown>(null)
 
   const viewer = useQuery({
@@ -52,12 +53,29 @@ export function ChoosePlanPage() {
 
   const choose = useMutation({
     mutationFn: async (planCode: SignupPlanOption['code']) => {
+      if (!acceptedTerms) {
+        throw new TendaApiError(
+          {
+            code: 'TERMS_NOT_ACCEPTED',
+            message: 'Debes aceptar los términos y condiciones para continuar.',
+            fieldErrors: {
+              acceptedTerms: ['Marca la casilla para aceptar los términos.'],
+            },
+            correlationId: '',
+          },
+          400,
+        )
+      }
       if (planCode === 'free') {
-        return { kind: 'free' as const, billing: await selectSignupPlan(planCode) }
+        return {
+          kind: 'free' as const,
+          billing: await selectSignupPlan(planCode, true),
+        }
       }
       const checkout = await startPlanCheckout({
         planCode,
         payerEmail: viewer.data?.viewer.email,
+        acceptedTerms: true,
       })
       return { kind: 'paid' as const, checkout }
     },
@@ -173,10 +191,24 @@ export function ChoosePlanPage() {
               )
             })}
           </div>
+          <label className="checkbox-field">
+            <input
+              type="checkbox"
+              checked={acceptedTerms}
+              onChange={(event) => setAcceptedTerms(event.target.checked)}
+            />
+            <span>
+              Acepto los{' '}
+              <Link to="/terminos" target="_blank" rel="noreferrer">
+                términos y condiciones
+              </Link>
+              .
+            </span>
+          </label>
           <button
             className="button button--primary button--wide"
             type="button"
-            disabled={choose.isPending}
+            disabled={choose.isPending || !acceptedTerms}
             onClick={() => {
               setError(null)
               choose.mutate(selected)

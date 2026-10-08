@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
 
 import type { ViewerPayload } from '../auth/api'
@@ -28,6 +28,7 @@ export function BillingPlanPage() {
   const viewer = useOutletContext<ViewerPayload>()
   const [params] = useSearchParams()
   const queryClient = useQueryClient()
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const canManage =
     viewer.membership.role === 'owner' ||
     viewer.membership.permissions.manageSensitiveConfiguration
@@ -40,7 +41,11 @@ export function BillingPlanPage() {
 
   const checkout = useMutation({
     mutationFn: (planCode: string) =>
-      startPlanCheckout({ planCode, payerEmail: viewer.viewer.email }),
+      startPlanCheckout({
+        planCode,
+        payerEmail: viewer.viewer.email,
+        acceptedTerms: true,
+      }),
     onSuccess: (result) => {
       sessionStorage.removeItem(SIGNUP_PLAN_STORAGE_KEY)
       window.location.assign(result.initPoint)
@@ -50,13 +55,13 @@ export function BillingPlanPage() {
   const autoCheckoutStarted = useRef(false)
   const checkoutPlan = params.get('checkout')
   useEffect(() => {
-    if (autoCheckoutStarted.current || !canManage) return
+    if (autoCheckoutStarted.current || !canManage || !acceptedTerms) return
     if (!checkoutPlan || checkoutPlan === 'free') return
     autoCheckoutStarted.current = true
     checkout.mutate(checkoutPlan)
     // Intentionally run once when the return/signup query asks for checkout.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- checkout.mutate is stable enough for one-shot
-  }, [canManage, checkoutPlan])
+  }, [canManage, checkoutPlan, acceptedTerms])
 
   const cancel = useMutation({
     mutationFn: cancelSubscription,
@@ -176,6 +181,21 @@ export function BillingPlanPage() {
             </div>
           </section>
 
+          <label className="checkbox-field">
+            <input
+              type="checkbox"
+              checked={acceptedTerms}
+              onChange={(event) => setAcceptedTerms(event.target.checked)}
+            />
+            <span>
+              Acepto los{' '}
+              <Link to="/terminos" target="_blank" rel="noreferrer">
+                términos y condiciones
+              </Link>{' '}
+              para suscribirme a un plan de pago.
+            </span>
+          </label>
+
           <section className="plan-grid" aria-label="Planes disponibles">
             {data.plans.map((plan) => {
               const isCurrent = plan.isCurrent
@@ -198,7 +218,7 @@ export function BillingPlanPage() {
                     <button
                       type="button"
                       className="button button--primary"
-                      disabled={checkout.isPending}
+                      disabled={checkout.isPending || !acceptedTerms}
                       onClick={() => checkout.mutate(plan.code)}
                     >
                       {checkout.isPending && checkout.variables === plan.code

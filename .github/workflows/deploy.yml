@@ -1,6 +1,10 @@
 name: Deploy
 
 on:
+  workflow_run:
+    workflows: [Publish images]
+    branches: [main, master]
+    types: [completed]
   workflow_dispatch:
     inputs:
       environment:
@@ -8,6 +12,7 @@ on:
         type: choice
         options: [dev, production]
         required: true
+        default: production
       image_sha:
         description: Full 40-character Git commit SHA already published to GHCR
         type: string
@@ -20,25 +25,99 @@ on:
 permissions:
   contents: read
   packages: read
+  actions: read
 
 jobs:
   deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    environment: ${{ inputs.environment }}
+    timeout-minutes: 25
+    environment: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'production' }}
 
     steps:
-      - name: Validate release input
+      - name: Resolve release inputs
+        id: release
         env:
-          IMAGE_SHA: ${{ inputs.image_sha }}
-          TARGET_ENVIRONMENT: ${{ inputs.environment }}
-          SKIP_BACKUP: ${{ inputs.skip_predeploy_backup }}
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_SHA: ${{ inputs.image_sha }}
+          DISPATCH_ENV: ${{ inputs.environment }}
+          DISPATCH_SKIP: ${{ inputs.skip_predeploy_backup }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
-          [[ "${IMAGE_SHA}" =~ ^[a-f0-9]{40}$ ]]
-          if [[ "${TARGET_ENVIRONMENT}" == "production" && "${SKIP_BACKUP}" == "true" ]]; then
+          if [[ "${EVENT_NAME}" == 'workflow_dispatch' ]]; then
+            image_sha="${DISPATCH_SHA}"
+            target_env="${DISPATCH_ENV}"
+            skip_backup="${DISPATCH_SKIP}"
+            images_run_id=""
+          else
+            image_sha="${RUN_SHA}"
+            target_env="production"
+            skip_backup="false"
+            images_run_id="${RUN_ID}"
+          fi
+          [[ "${image_sha}" =~ ^[a-f0-9]{40}$ ]]
+          if [[ "${target_env}" == "production" && "${skip_backup}" == "true" ]]; then
             echo "Production deployments cannot skip the pre-deploy backup." >&2
             exit 64
           fi
+          {
+            echo "image_sha=${image_sha}"
+            echo "environment=${target_env}"
+            echo "skip_backup=${skip_backup}"
+            echo "images_run_id=${images_run_id}"
+          } >>"${GITHUB_OUTPUT}"
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.release.outputs.image_sha }}
+
+      - name: Download web-dist artifact from Publish images
+        id: artifact
+        if: steps.release.outputs.images_run_id != ''
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: .web-dist-artifact
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ steps.release.outputs.images_run_id }}
+
+      - uses: actions/setup-node@v6
+        if: steps.artifact.outcome != 'success'
+        with:
+          node-version: '22'
+
+      - name: Enable pnpm
+        if: steps.artifact.outcome != 'success'
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.34.5 --activate
+
+      - name: Build web-dist fallback
+        if: steps.artifact.outcome != 'success'
+        env:
+          VITE_API_URL: ''
+          VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
+          VITE_GA_MEASUREMENT_ID: ${{ vars.VITE_GA_MEASUREMENT_ID }}
+          IMAGE_SHA: ${{ steps.release.outputs.image_sha }}
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter @tenda/web build
+          mkdir -p .web-dist-artifact
+          tar -C frontend/web/dist -czf ".web-dist-artifact/web-dist-${IMAGE_SHA}.tar.gz" .
+
+      - name: Unpack web-dist for rsync
+        env:
+          IMAGE_SHA: ${{ steps.release.outputs.image_sha }}
+        run: |
+          mkdir -p data/web-dist
+          archive="$(find .web-dist-artifact -name 'web-dist-*.tar.gz' | head -n 1)"
+          test -n "${archive}"
+          tar -xzf "${archive}" -C data/web-dist
+          test -f data/web-dist/index.html
 
       - name: Configure pinned SSH host
         env:
@@ -50,14 +129,47 @@ jobs:
           printf '%s\n' "${DEPLOY_KNOWN_HOSTS}" >"${HOME}/.ssh/known_hosts"
           chmod 0600 "${HOME}/.ssh/id_ed25519" "${HOME}/.ssh/known_hosts"
 
+      - name: Checkout release on host
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          IMAGE_SHA: ${{ steps.release.outputs.image_sha }}
+        run: |
+          ssh -i "${HOME}/.ssh/id_ed25519" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            bash -s -- "${DEPLOY_PATH}" "${IMAGE_SHA}" <<'REMOTE'
+          set -Eeuo pipefail
+          deploy_path="$1"
+          image_sha="$2"
+          cd "${deploy_path}"
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "Deployment checkout has local changes; refusing to overwrite them." >&2
+            exit 65
+          fi
+          git fetch --quiet origin "${image_sha}"
+          git checkout --quiet --detach "${image_sha}"
+          mkdir -p "${deploy_path}/data/web-dist"
+          REMOTE
+
+      - name: Rsync web statics to host
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          rsync -az --delete \
+            -e "ssh -i ${HOME}/.ssh/id_ed25519" \
+            data/web-dist/ \
+            "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/data/web-dist/"
+
       - name: Deploy exact release and verify readiness
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
           TENDA_READY_URL: ${{ vars.TENDA_READY_URL }}
-          IMAGE_SHA: ${{ inputs.image_sha }}
-          SKIP_BACKUP: ${{ inputs.skip_predeploy_backup }}
+          IMAGE_SHA: ${{ steps.release.outputs.image_sha }}
+          SKIP_BACKUP: ${{ steps.release.outputs.skip_backup }}
         run: |
           ssh -i "${HOME}/.ssh/id_ed25519" "${DEPLOY_USER}@${DEPLOY_HOST}" \
             bash -s -- \
@@ -74,17 +186,10 @@ jobs:
           image_prefix="$5"
 
           cd "${deploy_path}"
-          if [[ -n "$(git status --porcelain)" ]]; then
-            echo "Deployment checkout has local changes; refusing to overwrite them." >&2
-            exit 65
-          fi
-          git fetch --quiet origin "${image_sha}"
-          git checkout --quiet --detach "${image_sha}"
-
           export TENDA_BACKEND_IMAGE="${image_prefix}-backend:${image_sha}"
-          export TENDA_WEB_IMAGE="${image_prefix}-web:${image_sha}"
           export TENDA_BACKUP_IMAGE="${image_prefix}-backup:${image_sha}"
           export TENDA_READY_URL="${ready_url}"
           export SKIP_PREDEPLOY_BACKUP="${skip_backup}"
+          export TENDA_WEB_DIST_PATH="${deploy_path}/data/web-dist"
           exec ./infra/scripts/deploy.sh
           REMOTE

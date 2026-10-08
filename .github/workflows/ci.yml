@@ -123,10 +123,6 @@ jobs:
           pnpm build
 
       - name: Validate Compose
-        env:
-          DJANGO_ALLOWED_HOSTS: example.com
-          DJANGO_CSRF_TRUSTED_ORIGINS: https://example.com
-          PUBLIC_API_URL: https://api.example.com
         run: |
           pnpm compose:config
           OPS_WIREGUARD_IP=10.42.0.1 \
@@ -142,7 +138,8 @@ jobs:
           docker run --rm -v "${PWD}:/mnt:ro" koalaman/shellcheck:v0.11.0 \
             /mnt/infra/scripts/backup-postgres.sh \
             /mnt/infra/scripts/restore-postgres.sh \
-            /mnt/infra/scripts/deploy.sh
+            /mnt/infra/scripts/deploy.sh \
+            /mnt/infra/scripts/bootstrap-vps.sh
 
   e2e:
     runs-on: ubuntu-24.04

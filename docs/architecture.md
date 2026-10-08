@@ -66,18 +66,20 @@ app/
 │   ├── compose.e2e.yaml     Solo Postgres/Redis publicados para el host
 │   ├── compose.ops.yaml     Uptime Kuma, Netdata Parent, Portainer (VPS Ops)
 │   ├── compose.ops-agents.yaml  Netdata Child y Portainer Agent (VPS App)
-│   ├── nginx/               TLS/headers hacia backend y web
+│   ├── nginx/               Edge: estáticos SPA + proxy API
 │   ├── backup/              Imagen pg_dump 17 + age
-│   ├── scripts/             deploy.sh, backup y restore
+│   ├── scripts/             deploy.sh, bootstrap-vps, backup y restore
 │   └── ops/                 Plantillas WireGuard y Netdata
+├── data/web-dist/           SPA de prod (rellenado por CD; no contenedor web)
 ├── docs/
 │   ├── architecture.md      Este mapa
 │   ├── go-live.md           Matriz de Producción y bloqueos humanos
 │   ├── accessibility.md     axe + checklist WCAG 2.2 AA
 │   ├── runbooks/operations.md  Backup, restore, Kuma, Admin, incidentes
+│   ├── runbooks/vps-bootstrap.md  Primer VPS, firewall, memoria 8 GB
 │   ├── adr/                 Decisiones (stack, invariantes)
 │   └── implementation-status.md  Checkpoint por paquete T0–T3.7
-└── .github/workflows/       CI, publicación GHCR, deploy protegido
+└── .github/workflows/       CI → GHCR + web-dist → deploy automático prod
 ```
 
 ## Backend: una app por dominio
@@ -151,20 +153,28 @@ corepack pnpm dev:web
 
 ### Producción
 
-1. CI verde (calidad + E2E Playwright/axe).
-2. Workflow `Publish images` etiqueta backend, web y backup en GHCR con el SHA
-   completo, SBOM y provenance. No hay tags `latest`.
-3. Workflow `Deploy` (ambiente protegido) hace SSH al VPS App, checkout del
-   mismo SHA y ejecuta `infra/scripts/deploy.sh`:
+Origen único `https://tenda-app.com` (SPA + API same-origin). Cloudflare
+termina TLS hacia nginx `:80`. Solo `80` y SSH restringido a Internet.
+
+1. Push a `main` → CI verde (calidad + E2E Playwright/axe).
+2. `Publish images` publica **backend** y **backup** en GHCR (SHA completo,
+   SBOM, provenance) y sube el artifact **web-dist** (Vite con
+   `VITE_API_URL` vacío). No hay imagen `web` en el camino prod.
+3. `Deploy` (environment `production`) se dispara solo tras Publish images;
+   también admite `workflow_dispatch` (rollback). Hace rsync de estáticos a
+   `data/web-dist`, SSH, checkout del SHA y `infra/scripts/deploy.sh`:
    - rechaza imágenes mutables;
    - `flock` para no solapar deploys;
    - backup cifrado salvo excepción explícita de Dev;
    - migración one-shot;
-   - reemplazo de servicios y espera de `/health/ready/`;
-   - rollback de imágenes si readiness falla (no revierte esquema).
+   - servicios: postgres, redis, backend, celery, nginx (sin contenedor web);
+   - espera de `/health/ready/`;
+   - rollback de imágenes **y** `web-dist.last-good` si readiness falla
+     (no revierte esquema).
 
-Detalle operativo: `docs/runbooks/operations.md`. Matriz de secretos y
-bloqueos humanos: `docs/go-live.md`.
+Presupuesto de memoria (VPS 8 GB) y firewall: `docs/runbooks/vps-bootstrap.md`.
+Operación diaria: `docs/runbooks/operations.md`. Matriz go-live:
+`docs/go-live.md`.
 
 ## Pruebas
 

@@ -17,11 +17,14 @@ import {
   startPlanCheckout,
 } from '../../../lib/billing-api'
 
+const WEB_ORIGIN = process.env.EXPO_PUBLIC_WEB_ORIGIN ?? 'http://localhost:5173'
+
 export default function PlanScreen() {
   const queryClient = useQueryClient()
   const params = useLocalSearchParams<{ checkout?: string }>()
   const checkoutParam = Array.isArray(params.checkout) ? params.checkout[0] : params.checkout
   const [error, setError] = useState('')
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const autoCheckoutStarted = useRef(false)
   const viewer = useQuery({
     queryKey: ['mobile-viewer'],
@@ -43,6 +46,7 @@ export default function PlanScreen() {
       startPlanCheckout({
         planCode,
         payerEmail: viewer.data?.viewer.email,
+        acceptedTerms: true,
       }),
     onSuccess: async (result) => {
       setError('')
@@ -54,13 +58,13 @@ export default function PlanScreen() {
   })
 
   useEffect(() => {
-    if (autoCheckoutStarted.current || !canManage) return
+    if (autoCheckoutStarted.current || !canManage || !acceptedTerms) return
     if (!checkoutParam || checkoutParam === 'free') return
     autoCheckoutStarted.current = true
     checkout.mutate(checkoutParam)
     // One-shot after signup verification.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canManage, checkoutParam])
+  }, [canManage, checkoutParam, acceptedTerms])
 
   const cancel = useMutation({
     mutationFn: cancelSubscription,
@@ -136,6 +140,29 @@ export default function PlanScreen() {
             ) : null}
           </SectionCard>
 
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: acceptedTerms }}
+            onPress={() => setAcceptedTerms((current) => !current)}
+            style={styles.termsRow}
+          >
+            <View
+              style={[styles.termsMark, acceptedTerms && styles.termsMarkChecked]}
+            >
+              <Text style={styles.termsCheck}>{acceptedTerms ? '✓' : ''}</Text>
+            </View>
+            <Text style={styles.termsLabel}>
+              Acepto los{' '}
+              <Text
+                style={styles.termsLink}
+                onPress={() => Linking.openURL(`${WEB_ORIGIN}/terminos`)}
+              >
+                términos y condiciones
+              </Text>
+              .
+            </Text>
+          </Pressable>
+
           {data.plans.map((plan) => (
             <SectionCard key={plan.code} title={plan.name}>
               <Text style={styles.line}>{formatPlanPrice(plan.priceClp)}</Text>
@@ -150,9 +177,18 @@ export default function PlanScreen() {
               ) : plan.code === 'free' ? null : (
                 <Pressable
                   accessibilityRole="button"
-                  disabled={checkout.isPending}
-                  style={styles.subscribe}
-                  onPress={() => checkout.mutate(plan.code)}
+                  disabled={checkout.isPending || !acceptedTerms}
+                  style={[
+                    styles.subscribe,
+                    (!acceptedTerms || checkout.isPending) && styles.subscribeDisabled,
+                  ]}
+                  onPress={() => {
+                    if (!acceptedTerms) {
+                      setError('Debes aceptar los términos y condiciones.')
+                      return
+                    }
+                    checkout.mutate(plan.code)
+                  }}
                 >
                   <Text style={styles.subscribeText}>
                     {checkout.isPending && checkout.variables === plan.code
@@ -180,12 +216,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 8,
   },
+  termsRow: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  termsMark: {
+    alignItems: 'center',
+    borderColor: colors.inkSoft,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    height: 22,
+    justifyContent: 'center',
+    marginTop: 2,
+    width: 22,
+  },
+  termsMarkChecked: {
+    backgroundColor: colors.ink,
+    borderColor: colors.ink,
+  },
+  termsCheck: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  termsLabel: {
+    color: colors.inkSoft,
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  termsLink: {
+    color: colors.ink,
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+  },
   subscribe: {
     backgroundColor: colors.ink,
     borderRadius: 14,
     marginTop: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  subscribeDisabled: {
+    opacity: 0.45,
   },
   subscribeText: {
     color: '#fff',

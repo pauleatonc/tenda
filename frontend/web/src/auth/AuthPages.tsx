@@ -354,7 +354,13 @@ export function RegisterPage() {
         />
         <label className="checkbox-field">
           <input {...register('acceptedTerms')} type="checkbox" />
-          <span>Acepto los términos y la política de privacidad de Tenda.</span>
+          <span>
+            Acepto los{' '}
+            <Link to="/terminos" target="_blank" rel="noreferrer">
+              términos y condiciones
+            </Link>{' '}
+            de Tenda.
+          </span>
         </label>
         {errors.acceptedTerms ? (
           <span className="field__error">{errors.acceptedTerms.message}</span>

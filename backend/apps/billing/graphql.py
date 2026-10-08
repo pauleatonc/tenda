@@ -111,6 +111,7 @@ class StartPlanCheckout(graphene.Mutation):  # type: ignore[misc]
     class Arguments:
         plan_code = graphene.String(required=True)
         payer_email = graphene.String()
+        accepted_terms = graphene.Boolean(required=True)
 
     Output = StartPlanCheckoutPayload
 
@@ -119,6 +120,7 @@ class StartPlanCheckout(graphene.Mutation):  # type: ignore[misc]
         _root: object,
         info: GraphQLResolveInfo,
         plan_code: str,
+        accepted_terms: bool,
         payer_email: str | None = None,
     ) -> PlanCheckout:
         try:
@@ -126,6 +128,7 @@ class StartPlanCheckout(graphene.Mutation):  # type: ignore[misc]
                 context=context_from_info(info),
                 plan_code=plan_code,
                 payer_email=payer_email or "",
+                accepted_terms=accepted_terms,
             )
         except DomainError as exc:
             raise graphql_error(info, exc) from exc
@@ -134,6 +137,7 @@ class StartPlanCheckout(graphene.Mutation):  # type: ignore[misc]
 class SelectSignupPlan(graphene.Mutation):  # type: ignore[misc]
     class Arguments:
         plan_code = graphene.String(required=True)
+        accepted_terms = graphene.Boolean(required=True)
 
     Output = SelectSignupPlanPayload
 
@@ -142,10 +146,15 @@ class SelectSignupPlan(graphene.Mutation):  # type: ignore[misc]
         _root: object,
         info: GraphQLResolveInfo,
         plan_code: str,
+        accepted_terms: bool,
     ) -> dict[str, Any]:
         try:
             context = context_from_info(info)
-            overview = select_signup_plan(context=context, plan_code=plan_code)
+            overview = select_signup_plan(
+                context=context,
+                plan_code=plan_code,
+                accepted_terms=accepted_terms,
+            )
             return {
                 "organisation_billing": _billing_payload(
                     overview,
@@ -154,7 +163,6 @@ class SelectSignupPlan(graphene.Mutation):  # type: ignore[misc]
             }
         except DomainError as exc:
             raise graphql_error(info, exc) from exc
-
 
 class CancelSubscription(graphene.Mutation):  # type: ignore[misc]
     Output = CancelSubscriptionPayload

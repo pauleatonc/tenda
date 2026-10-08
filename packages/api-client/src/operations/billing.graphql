@@ -23,16 +23,24 @@ query OrganisationBilling {
   }
 }
 
-mutation StartPlanCheckout($planCode: String!, $payerEmail: String) {
-  startPlanCheckout(planCode: $planCode, payerEmail: $payerEmail) {
+mutation StartPlanCheckout(
+  $planCode: String!
+  $payerEmail: String
+  $acceptedTerms: Boolean!
+) {
+  startPlanCheckout(
+    planCode: $planCode
+    payerEmail: $payerEmail
+    acceptedTerms: $acceptedTerms
+  ) {
     initPoint
     planCode
     preapprovalId
   }
 }
 
-mutation SelectSignupPlan($planCode: String!) {
-  selectSignupPlan(planCode: $planCode) {
+mutation SelectSignupPlan($planCode: String!, $acceptedTerms: Boolean!) {
+  selectSignupPlan(planCode: $planCode, acceptedTerms: $acceptedTerms) {
     organisationBilling {
       planCode
       planName

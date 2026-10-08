@@ -136,10 +136,14 @@ archivos privados de compradores.
 
 - CI verifica formato, tipos, pruebas, codegen, E2E/axe, dependencias, secretos
   y Compose.
-- Las imágenes GHCR se publican por SHA solo después de CI verde.
-- El despliegue manual protegido ejecuta backup, migración one-shot, readiness
-  y rollback de imágenes (`infra/scripts/deploy.sh`).
-- Backup/restore, WireGuard, Kuma, Netdata, Portainer y endurecimiento de
-  Django Admin: `docs/runbooks/operations.md`.
-- Dominios, R2, Brevo, Mercado Pago real y retención de Producción
-  no están aprobados por este repositorio: `docs/go-live.md`.
+- Tras CI verde, `Publish images` publica backend/backup en GHCR y el artifact
+  SPA `web-dist`; `Deploy` a `production` corre solo (también admite
+  `workflow_dispatch` para rollback).
+- En el VPS, nginx sirve estáticos desde `data/web-dist` y hace proxy a la API;
+  no hay contenedor `web` en prod. `infra/scripts/deploy.sh` hace backup,
+  migrate, readiness y rollback de imágenes + estáticos.
+- Primer VPS (firewall solo 80/SSH, memoria 8 GB, secrets GitHub):
+  `docs/runbooks/vps-bootstrap.md` y `.env.production.example`.
+- Backup/restore, WireGuard, Kuma, Netdata, Portainer y Admin:
+  `docs/runbooks/operations.md`.
+- R2, Brevo, Mercado Pago real y retención de Producción: `docs/go-live.md`.
