@@ -6,7 +6,7 @@ import pytest
 from django.core.management import call_command
 from django.utils import timezone
 
-from apps.organisations.models import Membership
+from apps.organisations.models import Membership, OrganisationBankAccount
 from apps.users.models import AuthRateLimitBucket, User
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -39,3 +39,4 @@ def test_prepare_e2e_journey_is_idempotent_and_verifies_owner() -> None:
     assert membership.role == Membership.Role.OWNER
     assert Membership.objects.filter(user=user).count() == 1
     assert AuthRateLimitBucket.objects.count() == 0
+    assert OrganisationBankAccount.objects.filter(organisation=membership.organisation).exists()

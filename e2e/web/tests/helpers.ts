@@ -38,7 +38,9 @@ export async function loginAsOwner(page: Page): Promise<void> {
 
 export async function createCatalogProduct(page: Page, name: string): Promise<void> {
   await page.getByRole('link', { name: 'Inventario', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Inventario', exact: true })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'Inventario', exact: true }),
+  ).toBeVisible()
   await page
     .getByRole('link', { name: /Agregar producto|Crear producto/ })
     .first()
@@ -50,7 +52,9 @@ export async function createCatalogProduct(page: Page, name: string): Promise<vo
   await page.getByLabel('Precio de compra').fill('2000')
   await page.getByLabel('Precio de venta').fill('5000')
   await page.getByRole('button', { name: 'Crear producto' }).click()
-  await expect(page.getByRole('heading', { name: 'Inventario', exact: true })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'Inventario', exact: true }),
+  ).toBeVisible()
   await expect(page.getByRole('link', { name })).toBeVisible({ timeout: 20_000 })
 }
 
@@ -61,16 +65,17 @@ export async function publishShippingSale(
   await page.evaluate(() => window.localStorage.removeItem('tenda.sales.new-draft.v1'))
   await page.getByRole('link', { name: 'Ventas', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Ventas', exact: true })).toBeVisible()
-  await page.getByRole('link', { name: 'Nueva venta' }).click()
+  await page.getByRole('link', { name: 'Venta de múltiples artículos' }).click()
   await expect(page.getByRole('heading', { name: 'Nueva venta' })).toBeVisible()
   await page.getByLabel('Buscar productos activos').fill(productName)
-  await page.getByRole('button', { name: 'Agregar línea' }).click()
+  await expect(page.getByText(productName, { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Agregar artículo' }).click()
   await page.getByRole('button', { name: 'Continuar' }).click()
   await expect(
     page.getByRole('heading', { name: 'Entrega y método de pago' }),
   ).toBeVisible()
-  await page.getByRole('button', { name: 'Revisar venta' }).click()
-  await page.getByRole('button', { name: 'Crear y obtener enlace' }).click()
+  await page.getByRole('button', { name: 'Continuar' }).click()
+  await page.getByRole('button', { name: 'Generar venta' }).click()
   await expect(page.getByRole('heading', { name: 'Tu enlace está listo' })).toBeVisible()
   const publicUrl = await page.locator('input[readonly]').inputValue()
   expect(publicUrl).toContain('/p/')
@@ -114,7 +119,9 @@ export async function approveProofAndRegisterDispatch(page: Page): Promise<void>
   await expect(page.getByRole('link', { name: '$5.000' }).first()).toBeVisible()
 
   await page.getByRole('link', { name: 'Despachos', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Despachos', exact: true })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'Despachos', exact: true }),
+  ).toBeVisible()
   await page.locator('.sales-table__number').first().click()
   await expect(page.getByRole('heading', { name: 'Pendiente' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Registrar despacho' })).toBeVisible()

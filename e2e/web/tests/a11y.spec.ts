@@ -32,7 +32,9 @@ test('axe WCAG en landing, login, inventario y el anuncio del agente', async ({
 
   await loginAsOwner(page)
   await page.getByRole('link', { name: 'Inventario', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Inventario', exact: true })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'Inventario', exact: true }),
+  ).toBeVisible()
   await page
     .getByRole('link', { name: /Agregar producto|Crear producto/ })
     .first()
