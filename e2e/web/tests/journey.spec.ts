@@ -30,7 +30,7 @@ test('login → inventario → venta → pago → balance → registro de despac
   await approveProofAndRegisterDispatch(page)
 
   await page.goto('/app/despachos')
-  await expect(page.getByRole('heading', { name: 'Despachos' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Despachos', exact: true })).toBeVisible()
   await expect(page.getByText('Chilexpress · CX-E2E-01')).toBeVisible()
   await expect(page.getByText('Vencimiento')).toHaveCount(0)
   await expect(page.getByText('Próxima acción')).toHaveCount(0)
