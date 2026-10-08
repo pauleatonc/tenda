@@ -113,7 +113,10 @@ export async function approveProofAndRegisterDispatch(page: Page): Promise<void>
   await page.goto('/app/ventas')
   await expect(page.getByRole('heading', { name: 'Ventas', exact: true })).toBeVisible()
   await page.locator('.sales-table__number').first().click()
-  await page.getByRole('button', { name: 'Aprobar comprobante' }).click()
+  await expect(page).toHaveURL(/\/app\/ventas\/[^/]+$/)
+  await expect(page.getByRole('button', { name: 'Validar', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Validar', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: 'Validar comprobante' })).toBeVisible()
   await page.getByRole('button', { name: 'Confirmar' }).click()
   await expect(page.getByRole('heading', { name: /Pagado|Vendido/ })).toBeVisible()
 
