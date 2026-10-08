@@ -1,6 +1,6 @@
-import { Image, type ImageStyle, type StyleProp } from 'expo-image'
+import { Image, type ImageStyle } from 'expo-image'
 import { useEffect, useState } from 'react'
-import { StyleSheet, View, type ViewStyle } from 'react-native'
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
 
 import { getStoredToken } from '../lib/auth-api'
 import { colors } from './auth-ui'

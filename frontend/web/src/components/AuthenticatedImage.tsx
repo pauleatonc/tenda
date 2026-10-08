@@ -49,7 +49,7 @@ async function acquireAuthenticatedBlob(
     inflight.set(absoluteUrl, pending)
   }
 
-  const objectUrl = await pending
+  await pending
   const entry = blobCache.get(absoluteUrl)
   if (!entry) {
     throw new Error('image cache missing')

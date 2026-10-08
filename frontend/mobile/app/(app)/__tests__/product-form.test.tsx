@@ -186,6 +186,7 @@ describe('Crear producto en mobile', () => {
       },
       shipments: {
         totalCount: 0,
+        availableFromStage: 'sales',
         nodes: [],
         pageInfo: { hasNextPage: false, endCursor: '' },
       },

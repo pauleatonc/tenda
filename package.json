@@ -16,7 +16,7 @@
     "lint": "pnpm run lint:frontend && pnpm run lint:backend",
     "lint:frontend": "pnpm -r --if-present lint",
     "lint:backend": "uv run --project backend ruff check backend",
-    "typecheck": "pnpm -r --if-present typecheck && uv --directory backend run mypy .",
+    "typecheck": "pnpm --filter @tenda/api-client --filter @tenda/analytics build && pnpm -r --if-present typecheck && uv --directory backend run mypy .",
     "test": "pnpm run test:frontend && uv run --project backend pytest -c backend/pyproject.toml backend",
     "test:frontend": "pnpm --filter @tenda/web --filter @tenda/mobile test",
     "test:e2e": "pnpm --filter @tenda/e2e-web test",

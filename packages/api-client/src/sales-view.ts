@@ -785,7 +785,7 @@ export function toBalanceFilter(
 }
 
 export function toBuyerDetailsInput(
-  input: SetBuyerDetailsRequest,
+  input: Omit<SetBuyerDetailsRequest, 'token'> | SetBuyerDetailsRequest,
 ): OperationBuyerDetailsInput {
   return {
     name: input.fullName,

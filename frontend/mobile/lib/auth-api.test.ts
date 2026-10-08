@@ -8,7 +8,7 @@ const mockFetch = jest.fn()
 
 beforeEach(() => {
   mockFetch.mockReset()
-  global.fetch = mockFetch as typeof fetch
+  globalThis.fetch = mockFetch as typeof fetch
   jest.mocked(Linking.createURL).mockReturnValue('tenda://auth/google')
   jest.mocked(SecureStore.setItemAsync).mockResolvedValue(undefined)
 })
@@ -95,7 +95,9 @@ test('mobileGoogleLogin surfaces a cancellation from the system browser', async 
       data: { authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth' },
     }),
   })
-  jest.mocked(WebBrowser.openAuthSessionAsync).mockResolvedValue({ type: 'cancel' })
+  jest.mocked(WebBrowser.openAuthSessionAsync).mockResolvedValue({
+    type: WebBrowser.WebBrowserResultType.CANCEL,
+  })
 
   await expect(mobileGoogleLogin()).rejects.toMatchObject({
     code: 'OIDC_CANCELLED',

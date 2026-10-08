@@ -185,12 +185,16 @@ describe('ProductFormPage', () => {
     mocked.uploadPrivateFile.mockResolvedValue('asset-1')
     mocked.attachProductMedia.mockResolvedValue({
       assetId: 'asset-1',
-      fileName: 'vela.png',
+      url: '/media/vela.png',
+      thumbnailUrl: '/media/vela-thumb.png',
+      mediumUrl: '/media/vela-medium.png',
+      largeUrl: '/media/vela-large.png',
       contentType: 'image/png',
-      byteSize: 3,
+      originalName: 'vela.png',
       isPrimary: true,
+      position: 0,
       createdAt: '2026-09-08T12:00:00Z',
-    } as Awaited<ReturnType<typeof api.attachProductMedia>>)
+    })
 
     renderWithRouter(
       <ProductFormPage mode="create" origin="manual" />,

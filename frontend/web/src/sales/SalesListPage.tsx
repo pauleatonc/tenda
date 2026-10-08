@@ -120,7 +120,8 @@ export function SalesListPage() {
   const dateFrom = params.get('desde') ?? ''
   const dateTo = params.get('hasta') ?? ''
   const productId = params.get('producto') ?? ''
-  const dateField = params.get('corte') === 'pago' ? 'paid_at' : 'created_at'
+  const dateField: 'paid_at' | 'created_at' =
+    params.get('corte') === 'pago' ? 'paid_at' : 'created_at'
   const cursor = params.get('cursor')
   const activeFilters = [
     search,
