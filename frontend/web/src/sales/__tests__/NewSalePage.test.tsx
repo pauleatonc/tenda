@@ -11,6 +11,7 @@ import { createEmptySaleDraft, loadSaleDraft, saveSaleDraft } from '../model'
 
 vi.mock('../../inventory/api', () => ({
   fetchProducts: vi.fn(),
+  invalidateInventoryCatalog: vi.fn(),
   inventoryKeys: {
     products: (value: Record<string, unknown>) => ['inventory', 'products', value],
   },
@@ -19,6 +20,7 @@ vi.mock('../../inventory/api', () => ({
 vi.mock('../api', () => ({
   createOrder: vi.fn(),
   fetchPaymentConnection: vi.fn(),
+  invalidateSalesLists: vi.fn(),
   publishOrderLink: vi.fn(),
   sendOfferLink: vi.fn(),
   salesKeys: {

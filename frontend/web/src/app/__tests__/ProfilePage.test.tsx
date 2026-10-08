@@ -157,7 +157,10 @@ describe('ProfilePage', () => {
 
   it('guarda los datos bancarios de la tienda', async () => {
     graphqlRequest.mockResolvedValue({
-      updateOrganisation: { organisation: { id: 'org-1' } },
+      replaceBankAccounts: {
+        organisation: { id: 'org-1' },
+        bankAccounts: [],
+      },
     })
     renderPage(viewer(true))
     await userEvent.selectOptions(screen.getByLabelText('Banco'), 'BancoEstado')
@@ -176,13 +179,18 @@ describe('ProfilePage', () => {
     expect(graphqlRequest).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({
-        input: expect.objectContaining({
-          bankName: 'BancoEstado',
-          bankAccountType: 'cuenta_corriente',
-          bankAccountNumber: '12345678',
-          bankHolderTaxId: '11.111.111-1',
-          bankConfirmationEmail: 'pagos@taller.cl',
-        }),
+        input: {
+          accounts: [
+            expect.objectContaining({
+              label: 'Cuenta 1',
+              bankName: 'BancoEstado',
+              bankAccountType: 'cuenta_corriente',
+              bankAccountNumber: '12345678',
+              bankHolderTaxId: '11.111.111-1',
+              bankConfirmationEmail: 'pagos@taller.cl',
+            }),
+          ],
+        },
       }),
     )
   })

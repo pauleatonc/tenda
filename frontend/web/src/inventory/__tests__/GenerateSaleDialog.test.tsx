@@ -11,6 +11,7 @@ import { GenerateSaleDialog } from '../GenerateSaleDialog'
 vi.mock('../../sales/api', () => ({
   createOrder: vi.fn(),
   fetchPaymentConnection: vi.fn(),
+  invalidateSalesLists: vi.fn(),
   publishOrderLink: vi.fn(),
   sendOfferLink: vi.fn(),
   salesKeys: {

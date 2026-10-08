@@ -126,7 +126,7 @@ describe('InventoryListPage', () => {
     expect(await screen.findByRole('link', { name: 'Velas de soya' })).toBeInTheDocument()
     expect(screen.getByText('Disponible 10')).toBeInTheDocument()
     expect(screen.getByText('Reservado 2')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Generar venta' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Venta Individual' })).toBeEnabled()
   })
 
   it('deshabilita generar venta sin stock, precio o catálogo activo', async () => {
@@ -151,7 +151,7 @@ describe('InventoryListPage', () => {
 
     renderPage(makeViewer(true))
     await screen.findByRole('link', { name: 'Sin stock' })
-    const buttons = screen.getAllByRole('button', { name: 'Generar venta' })
+    const buttons = screen.getAllByRole('button', { name: 'Venta Individual' })
     expect(buttons).toHaveLength(3)
     for (const button of buttons) {
       expect(button).toBeDisabled()
@@ -240,7 +240,9 @@ describe('InventoryListPage', () => {
 
     await userEvent.click(screen.getByText('Configuración del inventario'))
 
-    expect(screen.getByLabelText('Umbral general de stock bajo')).toBeInTheDocument()
+    expect(
+      screen.getByLabelText('Se genera alerta cuando el stock disponible es menor a:'),
+    ).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Columnas' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Agregar columna' })).toBeInTheDocument()
   })

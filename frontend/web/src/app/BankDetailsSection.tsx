@@ -409,8 +409,11 @@ export function BankDetailsSection({
                         ) : null}
                       </label>
                       <div className="field">
-                        <label>Correo electrónico de confirmación</label>
+                        <label htmlFor={`bank-account-${account.key}-email`}>
+                          Correo electrónico de confirmación
+                        </label>
                         <input
+                          id={`bank-account-${account.key}-email`}
                           type="email"
                           autoComplete="email"
                           value={account.email}
