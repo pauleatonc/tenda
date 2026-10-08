@@ -294,6 +294,7 @@ query SalesBalanceBreakdown(
       netSales
       knownCogs
       grossMargin
+      pendingAmount
       recognizedLines
       knownCostLines
       costIncomplete

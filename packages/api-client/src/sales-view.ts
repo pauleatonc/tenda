@@ -230,6 +230,7 @@ export type SalesBalance = {
   knownCostOfGoods: string
   grossMargin: string
   pendingAmount: string
+  validationAmount: string
   operationCount: number
   recognizedLineCount: number
   costedLineCount: number
@@ -287,6 +288,7 @@ export type SalesOrderFilter = {
   productIds?: string[] | null
   dateFrom?: string | null
   dateTo?: string | null
+  dateField?: 'created_at' | 'paid_at' | null
 }
 
 export type SalesBalanceFilter = {
@@ -296,7 +298,7 @@ export type SalesBalanceFilter = {
   productIds?: string[] | null
   paymentMethods?: string[] | null
   statuses?: string[] | null
-  groupBy?: string | null
+  groupBy?: 'period' | 'product' | 'payment_method' | 'status' | null
 }
 
 export type CreateOrderRequest = {
@@ -645,6 +647,7 @@ export function mapSalesBalance(
     knownCostOfGoods: balance.knownCogs,
     grossMargin: balance.grossMargin,
     pendingAmount: balance.pendingAmount,
+    validationAmount: balance.validationAmount,
     operationCount: balance.operations,
     recognizedLineCount: balance.recognizedLines,
     costedLineCount: balance.knownCostLines,
@@ -664,13 +667,34 @@ function coverage(known: number, recognized: number): string {
   return String(known / recognized)
 }
 
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  bank_transfer: 'Transferencia',
+  cash: 'Efectivo',
+  mercado_pago: 'Mercado Pago',
+}
+
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  reserved: 'Reservada',
+  purchase_in_progress: 'Compra en curso',
+  purchase_validation: 'Validación',
+  paid: 'Pagada',
+  refunded: 'Reembolsada',
+  cancelled: 'Cancelada',
+  expired: 'Expirada',
+  draft: 'Borrador',
+}
+
 function breakdownLabel(
   row: OperationSalesBalanceBreakdownQuery['salesBalanceBreakdown']['nodes'][number],
   groupBy: string,
 ): string {
-  if (groupBy === 'product') return row.productName
-  if (groupBy === 'payment_method') return row.paymentMethod
-  if (groupBy === 'status') return row.status
+  if (groupBy === 'product') return row.productName || 'Producto'
+  if (groupBy === 'payment_method') {
+    return (PAYMENT_METHOD_LABELS[row.paymentMethod] ?? row.paymentMethod) || 'Método'
+  }
+  if (groupBy === 'status') {
+    return (ORDER_STATUS_LABELS[row.status] ?? row.status) || 'Estado'
+  }
   return asString(row.period)
 }
 
@@ -679,20 +703,23 @@ export function mapBalanceBreakdownRow(
   groupBy = 'period',
 ): BalanceBreakdown {
   const period = asString(row.period)
+  const productId = row.productId || null
+  const paymentMethod = row.paymentMethod || null
+  const status = row.status || null
   return {
-    key: `${period}:${row.productId}:${row.paymentMethod}:${row.status}`,
+    key: `${groupBy}:${period}:${productId ?? ''}:${paymentMethod ?? ''}:${status ?? ''}`,
     label: breakdownLabel(row, groupBy),
-    periodStart: period || null,
-    periodEnd: period || null,
-    productId: row.productId,
-    paymentMethod: row.paymentMethod,
-    status: row.status,
+    periodStart: groupBy === 'period' ? period || null : null,
+    periodEnd: groupBy === 'period' ? period || null : null,
+    productId: groupBy === 'product' ? productId : null,
+    paymentMethod: groupBy === 'payment_method' ? paymentMethod : null,
+    status: groupBy === 'status' ? status : null,
     grossSales: row.confirmedGross,
     refunds: row.refunds,
     netSales: row.netSales,
     knownCostOfGoods: row.knownCogs,
     grossMargin: row.grossMargin,
-    pendingAmount: '0',
+    pendingAmount: row.pendingAmount,
     operationCount: row.quantity,
     costCoverage: coverage(row.knownCostLines, row.recognizedLines),
     marginComplete: !row.costIncomplete,
@@ -738,6 +765,7 @@ export function toOrderFilter(
     productId,
     dateFrom: filter.dateFrom ?? null,
     dateTo: filter.dateTo ?? null,
+    dateField: filter.dateField ?? null,
   }
 }
 
@@ -752,6 +780,7 @@ export function toBalanceFilter(
     productId,
     paymentMethods: filter.paymentMethods ?? null,
     statuses: normalizeStatuses(filter.statuses),
+    groupBy: filter.groupBy ?? null,
   }
 }
 

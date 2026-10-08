@@ -120,6 +120,7 @@ describe('balance comercial', () => {
       knownCostOfGoods: '42000',
       grossMargin: '48000',
       pendingAmount: '15000',
+      validationAmount: '5000',
       operationCount: 3,
       recognizedLineCount: 5,
       costedLineCount: 3,
@@ -135,15 +136,18 @@ describe('balance comercial', () => {
 
     renderPage(viewer(true))
 
-    expect(await screen.findByText('El margen está incompleto')).toBeInTheDocument()
-    expect(screen.getByText(/Cobertura de costo: 60%/)).toBeInTheDocument()
+    expect(await screen.findByText('Margen incompleto')).toBeInTheDocument()
+    expect(screen.getByText(/cobertura de costo 60%/i)).toBeInTheDocument()
     expect(
-      screen.getByText(/Los costos desconocidos no se interpretan como cero/),
+      screen.getByText(/los costos desconocidos no se interpretan como cero/i),
     ).toBeInTheDocument()
+    expect(screen.getByText('$90.000')).toBeInTheDocument()
     expect(screen.getByText('$48.000*')).toBeInTheDocument()
-    expect(screen.getByText('Inventario al costo')).toBeInTheDocument()
-    expect(screen.getByText('Inventario a precio de venta')).toBeInTheDocument()
-    expect(screen.getByText('Margen potencial del stock')).toBeInTheDocument()
+    expect(screen.getByText(/Por validar/)).toBeInTheDocument()
+    expect(screen.getByText(/Por cobrar/)).toBeInTheDocument()
+    expect(screen.getByText('Al costo')).toBeInTheDocument()
+    expect(screen.getByText('A precio de venta')).toBeInTheDocument()
+    expect(screen.getByText('Margen potencial')).toBeInTheDocument()
     expect(screen.getByText('$200.000')).toBeInTheDocument()
     expect(screen.getByText('$350.000')).toBeInTheDocument()
     expect(screen.getByText('$150.000')).toBeInTheDocument()

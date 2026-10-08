@@ -702,7 +702,7 @@ export default function SaleDetailScreen() {
 
         <SectionCard title="Pago">
           <DetailRow
-            label="Método"
+            label="Método de pago"
             value={paymentMethodLabels[data.paymentMethod] ?? data.paymentMethod}
           />
           <DetailRow label="Estado" value={payment?.status ?? 'Pendiente'} />

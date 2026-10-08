@@ -485,7 +485,7 @@ export function SaleDetailPage() {
           <h2>Pago</h2>
           <dl>
             <div>
-              <dt>Método</dt>
+              <dt>Método de pago</dt>
               <dd>{translated(paymentMethodLabels, detail.paymentMethod)}</dd>
             </div>
             <div>

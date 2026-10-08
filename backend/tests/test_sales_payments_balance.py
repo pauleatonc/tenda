@@ -49,11 +49,38 @@ from apps.sales.selectors import (
     sales_dashboard,
 )
 from apps.sales.webhooks import process_payment_webhook_event, retry_reconciliation
+from apps.billing.models import Plan
 from apps.users.models import User
 from tenda.crypto import decrypt_credential, encrypt_credential
 from tenda.errors import DomainError
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+_SEEDED_PLANS = (
+    ("free", "Gratis", 0, 5, False, 0, ""),
+    ("starter", "Starter", 4990, 15, True, 1, "seed-starter"),
+    ("growth", "Growth", 9990, 25, True, 2, "seed-growth"),
+    ("pro", "Pro", 14990, None, True, 3, "seed-pro"),
+)
+
+
+@pytest.fixture(autouse=True)
+def _reseed_billing_plans() -> None:
+    """Transaction tests flush tables; restore plans for product creation gates."""
+
+    for code, name, price, limit, ai, position, mp_id in _SEEDED_PLANS:
+        Plan.objects.update_or_create(
+            code=code,
+            defaults={
+                "name": name,
+                "price_clp": price,
+                "product_limit": limit,
+                "ai_assisted_enabled": ai,
+                "position": position,
+                "mp_preapproval_plan_id": mp_id,
+                "is_active": True,
+            },
+        )
 
 
 def identity(
@@ -169,10 +196,15 @@ def test_balance_uses_line_snapshots_refunds_and_financial_permission() -> None:
     )
 
     balance = sales_balance(context, filters=BalanceFilter())
-    page = sales_balance_breakdown(
+    by_product = sales_balance_breakdown(
         context,
-        filters=BalanceFilter(),
+        filters=BalanceFilter(group_by="product"),
         first=1,
+    )
+    by_period = sales_balance_breakdown(
+        context,
+        filters=BalanceFilter(group_by="period"),
+        first=10,
     )
 
     assert balance.confirmed_gross == Decimal("3000")
@@ -186,9 +218,12 @@ def test_balance_uses_line_snapshots_refunds_and_financial_permission() -> None:
     assert balance.known_cost_lines == 1
     assert balance.cost_coverage == Decimal("50")
     assert balance.cost_incomplete
-    assert page.total_count == 2
-    assert page.has_next_page
-    assert page.end_cursor
+    assert by_product.total_count == 3
+    assert by_product.has_next_page
+    assert by_product.end_cursor
+    assert by_period.total_count == 1
+    assert by_period.items[0].pending_amount == Decimal("300")
+    assert by_period.items[0].confirmed_gross == Decimal("3000")
     # Stock actual: solo la venta pendiente (1 ud. a costo 100 / venta 300).
     assert balance.inventory_at_cost == Decimal("100")
     assert balance.inventory_at_sale_price == Decimal("300")

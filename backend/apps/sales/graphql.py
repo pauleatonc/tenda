@@ -955,6 +955,7 @@ class SalesBalanceBreakdownNodeType(graphene.ObjectType):  # type: ignore[misc]
     net_sales = graphene.String(required=True)
     known_cogs = graphene.String(required=True)
     gross_margin = graphene.String(required=True)
+    pending_amount = graphene.String(required=True)
     recognized_lines = graphene.Int(required=True)
     known_cost_lines = graphene.Int(required=True)
     cost_incomplete = graphene.Boolean(required=True)
@@ -964,6 +965,8 @@ class SalesBalanceBreakdownNodeType(graphene.ObjectType):  # type: ignore[misc]
         root: BalanceBreakdownRow,
         _info: GraphQLResolveInfo,
     ) -> str:
+        if root.product_id.int == 0:
+            return ""
         return str(root.product_id)
 
     @staticmethod
@@ -992,6 +995,13 @@ class SalesBalanceBreakdownNodeType(graphene.ObjectType):  # type: ignore[misc]
     ) -> str:
         return str(root.gross_margin)
 
+    @staticmethod
+    def resolve_pending_amount(
+        root: BalanceBreakdownRow,
+        _info: GraphQLResolveInfo,
+    ) -> str:
+        return str(root.pending_amount)
+
 
 class SalesBalanceBreakdownConnectionType(graphene.ObjectType):  # type: ignore[misc]
     nodes = graphene.List(
@@ -1011,6 +1021,7 @@ class OrderFilterInput(graphene.InputObjectType):  # type: ignore[misc]
     product_id = graphene.ID()
     date_from = graphene.Date()
     date_to = graphene.Date()
+    date_field = graphene.String()
 
 
 class SalesBalanceFilterInput(graphene.InputObjectType):  # type: ignore[misc]
@@ -1021,6 +1032,7 @@ class SalesBalanceFilterInput(graphene.InputObjectType):  # type: ignore[misc]
     payment_methods = graphene.List(graphene.NonNull(graphene.String))
     status = graphene.String()
     statuses = graphene.List(graphene.NonNull(graphene.String))
+    group_by = graphene.String()
 
 
 def _order_list_filter(
@@ -1046,6 +1058,7 @@ def _order_list_filter(
         product_id=_uuid_or_not_found(product) if product else None,
         date_from=payload.get("date_from"),
         date_to=payload.get("date_to"),
+        date_field=str(payload.get("date_field") or "created_at"),
     )
 
 
@@ -1064,6 +1077,7 @@ def _balance_filter(value: dict[str, Any] | None) -> BalanceFilter:
         product_id=_uuid_or_not_found(product) if product else None,
         payment_methods=tuple(dict.fromkeys(str(item) for item in methods)),
         statuses=tuple(dict.fromkeys(str(item) for item in statuses)),
+        group_by=str(payload.get("group_by") or "period"),
     )
 
 

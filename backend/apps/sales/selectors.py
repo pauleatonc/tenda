@@ -54,6 +54,7 @@ class OrderListFilter:
     product_id: uuid.UUID | None = None
     date_from: date | None = None
     date_to: date | None = None
+    date_field: str = "created_at"
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,6 +64,12 @@ class BalanceFilter:
     product_id: uuid.UUID | None = None
     payment_methods: tuple[str, ...] = ()
     statuses: tuple[str, ...] = ()
+    group_by: str = "period"
+
+
+BALANCE_GROUP_BY = frozenset({"period", "product", "payment_method", "status"})
+ORDER_DATE_FIELDS = frozenset({"created_at", "paid_at"})
+_EMPTY_PRODUCT_ID = uuid.UUID(int=0)
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,6 +105,7 @@ class BalanceBreakdownRow:
     net_sales: Decimal
     known_cogs: Decimal
     gross_margin: Decimal
+    pending_amount: Decimal
     recognized_lines: int
     known_cost_lines: int
     cost_incomplete: bool
@@ -187,6 +195,13 @@ def paginated_orders(
         queryset = queryset.filter(payment_method__in=list_filter.payment_methods)
     if list_filter.product_id is not None:
         queryset = queryset.filter(items__product__public_id=list_filter.product_id).distinct()
+    date_field = list_filter.date_field or "created_at"
+    if date_field not in ORDER_DATE_FIELDS:
+        raise DomainError(
+            "VALIDATION_ERROR",
+            "Revisa los filtros.",
+            field_errors={"dateField": ["Usa created_at o paid_at."]},
+        )
     start, end = _date_bounds(
         context,
         BalanceFilter(
@@ -194,10 +209,17 @@ def paginated_orders(
             date_to=list_filter.date_to,
         ),
     )
-    if start is not None:
-        queryset = queryset.filter(created_at__gte=start)
-    if end is not None:
-        queryset = queryset.filter(created_at__lt=end)
+    if date_field == "paid_at":
+        queryset = queryset.filter(paid_at__isnull=False)
+        if start is not None:
+            queryset = queryset.filter(paid_at__gte=start)
+        if end is not None:
+            queryset = queryset.filter(paid_at__lt=end)
+    else:
+        if start is not None:
+            queryset = queryset.filter(created_at__gte=start)
+        if end is not None:
+            queryset = queryset.filter(created_at__lt=end)
     cleaned_search = (list_filter.search or search).strip()
     if cleaned_search:
         queryset = queryset.filter(
@@ -435,6 +457,12 @@ def _date_bounds(
 def _validate_balance_filters(filters: BalanceFilter) -> None:
     methods = {value for value, _label in Order.PaymentMethod.choices}
     statuses = {value for value, _label in Order.Status.choices}
+    if filters.group_by not in BALANCE_GROUP_BY:
+        raise DomainError(
+            "VALIDATION_ERROR",
+            "Revisa los filtros.",
+            field_errors={"groupBy": ["Elige un agrupador válido."]},
+        )
     if any(method not in methods for method in filters.payment_methods):
         raise DomainError(
             "VALIDATION_ERROR",
@@ -447,6 +475,24 @@ def _validate_balance_filters(filters: BalanceFilter) -> None:
             "Revisa los filtros.",
             field_errors={"statuses": ["Hay un estado inválido."]},
         )
+
+
+def _breakdown_key(
+    *,
+    group_by: str,
+    period: date,
+    product_id: uuid.UUID,
+    product_name: str,
+    payment_method: str,
+    status: str,
+) -> tuple[date, uuid.UUID, str, str, str]:
+    if group_by == "product":
+        return (date.min, product_id, product_name, "", "")
+    if group_by == "payment_method":
+        return (date.min, _EMPTY_PRODUCT_ID, "", payment_method, "")
+    if group_by == "status":
+        return (date.min, _EMPTY_PRODUCT_ID, "", "", status)
+    return (period, _EMPTY_PRODUCT_ID, "", "", "")
 
 
 def _recognized_orders(
@@ -647,6 +693,49 @@ def sales_balance(
     )
 
 
+def _pending_line_buckets(
+    context: TenantContext,
+    filters: BalanceFilter,
+) -> dict[tuple[date, uuid.UUID, str, str, str], Decimal]:
+    """Pending + validation amounts bucketed like recognized breakdown rows."""
+
+    zone = _zone(context)
+    start, end = _date_bounds(context, filters)
+    queryset = OrderItem.objects.filter(
+        order__organisation=context.organisation,
+        order__inventory=context.inventory,
+        order__status__in={
+            Order.Status.RESERVED,
+            Order.Status.PURCHASE_IN_PROGRESS,
+            Order.Status.PURCHASE_VALIDATION,
+        },
+    ).select_related("order", "product")
+    if start is not None:
+        queryset = queryset.filter(order__created_at__gte=start)
+    if end is not None:
+        queryset = queryset.filter(order__created_at__lt=end)
+    if filters.product_id is not None:
+        queryset = queryset.filter(product__public_id=filters.product_id)
+    if filters.payment_methods:
+        queryset = queryset.filter(order__payment_method__in=filters.payment_methods)
+    if filters.statuses:
+        queryset = queryset.filter(order__status__in=filters.statuses)
+
+    buckets: dict[tuple[date, uuid.UUID, str, str, str], Decimal] = {}
+    for item in queryset:
+        period = item.order.created_at.astimezone(zone).date()
+        key = _breakdown_key(
+            group_by=filters.group_by,
+            period=period,
+            product_id=item.product.public_id,
+            product_name=item.product_name,
+            payment_method=item.order.payment_method,
+            status=item.order.status,
+        )
+        buckets[key] = buckets.get(key, Decimal("0")) + Decimal(item.line_total)
+    return buckets
+
+
 def sales_balance_breakdown(
     context: TenantContext,
     *,
@@ -655,14 +744,16 @@ def sales_balance_breakdown(
     after: str | None = None,
 ) -> BalanceBreakdownPage:
     require_permission(context.membership, OrganisationPermission.VIEW_FINANCIALS)
+    _validate_balance_filters(filters)
     grouped: dict[tuple[date, uuid.UUID, str, str, str], dict[str, Decimal | int]] = {}
     for metric in _line_metrics(context, filters):
-        key = (
-            metric.period,
-            metric.item.product.public_id,
-            metric.item.product_name,
-            metric.payment_method,
-            metric.status,
+        key = _breakdown_key(
+            group_by=filters.group_by,
+            period=metric.period,
+            product_id=metric.item.product.public_id,
+            product_name=metric.item.product_name,
+            payment_method=metric.payment_method,
+            status=metric.status,
         )
         values = grouped.setdefault(
             key,
@@ -671,6 +762,7 @@ def sales_balance_breakdown(
                 "gross": Decimal("0"),
                 "refund": Decimal("0"),
                 "cost": Decimal("0"),
+                "pending": Decimal("0"),
                 "lines": 0,
                 "known": 0,
             },
@@ -684,17 +776,33 @@ def sales_balance_breakdown(
             values["cost"] = Decimal(values["cost"]) + (
                 Decimal(metric.item.unit_cost_snapshot) * metric.item.quantity
             )
+    for key, pending in _pending_line_buckets(context, filters).items():
+        values = grouped.setdefault(
+            key,
+            {
+                "quantity": 0,
+                "gross": Decimal("0"),
+                "refund": Decimal("0"),
+                "cost": Decimal("0"),
+                "pending": Decimal("0"),
+                "lines": 0,
+                "known": 0,
+            },
+        )
+        values["pending"] = Decimal(values["pending"]) + pending
+
     rows: list[BalanceBreakdownRow] = []
     for key, values in grouped.items():
         period, product_id, product_name, payment_method, status = key
         gross = Decimal(values["gross"])
         refunds = Decimal(values["refund"])
         cost = Decimal(values["cost"])
+        pending = Decimal(values["pending"])
         lines = int(values["lines"])
         known = int(values["known"])
         rows.append(
             BalanceBreakdownRow(
-                period=period,
+                period=period if period != date.min else (filters.date_from or date.min),
                 product_id=product_id,
                 product_name=product_name,
                 payment_method=payment_method,
@@ -705,20 +813,26 @@ def sales_balance_breakdown(
                 net_sales=gross - refunds,
                 known_cogs=cost,
                 gross_margin=gross - refunds - cost,
+                pending_amount=pending,
                 recognized_lines=lines,
                 known_cost_lines=known,
-                cost_incomplete=known < lines,
+                cost_incomplete=known < lines if lines else False,
             )
         )
-    rows.sort(
-        key=lambda row: (
-            -row.period.toordinal(),
-            row.product_name.casefold(),
-            str(row.product_id),
-            row.payment_method,
-            row.status,
+    if filters.group_by == "period":
+        rows.sort(key=lambda row: (-row.period.toordinal(),))
+    elif filters.group_by == "product":
+        rows.sort(
+            key=lambda row: (
+                -row.net_sales,
+                row.product_name.casefold(),
+                str(row.product_id),
+            )
         )
-    )
+    elif filters.group_by == "payment_method":
+        rows.sort(key=lambda row: (-row.net_sales, row.payment_method))
+    else:
+        rows.sort(key=lambda row: (-row.net_sales, row.status))
     size = clean_page_size(first)
     start = 0
     if after:

@@ -268,8 +268,14 @@ export function makeSalesFilterHref(
   params: Record<string, string | null | undefined>,
 ): string {
   const search = new URLSearchParams()
+  let skipPaidCut = false
   for (const [key, value] of Object.entries(params)) {
+    if (key === 'corte' && (value === null || value === '' || value === 'creacion')) {
+      skipPaidCut = true
+      continue
+    }
     if (value) search.set(key, value)
   }
+  if (!skipPaidCut && !search.has('corte')) search.set('corte', 'pago')
   return `/app/ventas${search.size ? `?${search.toString()}` : ''}`
 }

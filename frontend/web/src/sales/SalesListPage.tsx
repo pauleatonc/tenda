@@ -120,10 +120,17 @@ export function SalesListPage() {
   const dateFrom = params.get('desde') ?? ''
   const dateTo = params.get('hasta') ?? ''
   const productId = params.get('producto') ?? ''
+  const dateField = params.get('corte') === 'pago' ? 'paid_at' : 'created_at'
   const cursor = params.get('cursor')
-  const activeFilters = [search, status, method, dateFrom, dateTo, productId].filter(
-    Boolean,
-  ).length
+  const activeFilters = [
+    search,
+    status,
+    method,
+    dateFrom,
+    dateTo,
+    productId,
+    dateField === 'paid_at' ? 'pago' : '',
+  ].filter(Boolean).length
 
   function updateParam(name: string, value: string) {
     const next = new URLSearchParams(params)
@@ -141,6 +148,7 @@ export function SalesListPage() {
       productIds: productId ? [productId] : null,
       dateFrom: dateFrom || null,
       dateTo: dateTo || null,
+      dateField,
     },
     first: PAGE_SIZE,
     after: cursor,
@@ -213,7 +221,7 @@ export function SalesListPage() {
           </select>
         </label>
         <label>
-          <span>Método</span>
+          <span>Método de pago</span>
           <select
             value={method}
             onChange={(event) => updateParam('metodo', event.target.value)}
@@ -255,12 +263,26 @@ export function SalesListPage() {
         ) : null}
       </section>
 
-      {productId ? (
+      {productId || dateField === 'paid_at' ? (
         <div className="sales-notice" role="status">
-          <strong>Filtro de producto aplicado desde Balances</strong>
-          <span>La lista conserva el mismo alcance comercial del desglose.</span>
-          <button type="button" onClick={() => updateParam('producto', '')}>
-            Quitar filtro de producto
+          <strong>
+            {dateField === 'paid_at'
+              ? 'Filtro por fecha de confirmación del pago'
+              : 'Filtro de producto aplicado desde Balances'}
+          </strong>
+          <span>
+            {dateField === 'paid_at'
+              ? 'El rango usa paid_at, igual que el balance de ventas.'
+              : 'La lista conserva el mismo alcance comercial del desglose.'}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              if (productId) updateParam('producto', '')
+              if (dateField === 'paid_at') updateParam('corte', '')
+            }}
+          >
+            Quitar filtro de Balances
           </button>
         </div>
       ) : null}
@@ -319,7 +341,7 @@ export function SalesListPage() {
                 <th scope="col">Venta</th>
                 <th scope="col">Comprador</th>
                 <th scope="col">Total</th>
-                <th scope="col">Método</th>
+                <th scope="col">Método de pago</th>
                 <th scope="col">Estado</th>
                 <th scope="col">Fecha</th>
                 <th scope="col">Próxima acción</th>

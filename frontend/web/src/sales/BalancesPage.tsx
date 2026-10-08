@@ -1,10 +1,12 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { Link, useOutletContext, useSearchParams } from 'react-router-dom'
 
 import type { ViewerPayload } from '../auth/api'
 import { EmptyState, StatusChip } from '../components/ui'
 import { fetchProducts, inventoryKeys } from '../inventory/api'
 import { TendaApiError } from '../lib/http'
+import { BalanceMixChart, BalanceTrendChart } from './BalanceCharts'
 import {
   fetchSalesBalance,
   fetchSalesBalanceBreakdown,
@@ -19,6 +21,7 @@ import {
 } from './model'
 
 type RangePreset = 'today' | '7d' | 'month' | 'custom'
+type MixTab = 'product' | 'payment_method'
 
 function inputDate(date: Date, timezone: string): string {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -52,10 +55,23 @@ function formatCoverage(value: string): string {
   return `${Math.round((numeric <= 1 ? numeric * 100 : numeric) * 10) / 10}%`
 }
 
+function formatRangeLabel(dateFrom: string, dateTo: string): string {
+  if (!dateFrom || !dateTo) return ''
+  if (dateFrom === dateTo) return dateFrom
+  return `${dateFrom} → ${dateTo}`
+}
+
+function amount(value: string | undefined): number {
+  const numeric = Number(value ?? 0)
+  return Number.isFinite(numeric) ? numeric : 0
+}
+
 export function BalancesPage() {
   const viewer = useOutletContext<ViewerPayload>()
   const allowed = viewer.membership.permissions.viewFinancials
   const [params, setParams] = useSearchParams()
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [mixTab, setMixTab] = useState<MixTab>('product')
   const preset = (params.get('rango') as RangePreset | null) ?? 'month'
   const automaticRange = presetRange(
     preset === 'custom' ? 'month' : preset,
@@ -66,7 +82,11 @@ export function BalancesPage() {
   const productId = params.get('producto') ?? ''
   const method = params.get('metodo') ?? ''
   const status = params.get('estado') ?? ''
-  const groupBy = params.get('agrupar') ?? 'period'
+  const groupBy = (params.get('agrupar') ?? 'period') as
+    | 'period'
+    | 'product'
+    | 'payment_method'
+    | 'status'
   const cursor = params.get('cursor')
 
   function updateParams(values: Record<string, string | null>) {
@@ -93,25 +113,54 @@ export function BalancesPage() {
     enabled: allowed,
   })
 
-  const filter = {
+  const baseFilter = {
     dateFrom,
     dateTo,
     productIds: productId ? [productId] : null,
     paymentMethods: method ? [method] : null,
     statuses: status ? [status] : null,
-    groupBy,
   }
   const balance = useQuery({
-    queryKey: salesKeys.balance(filter),
-    queryFn: () => fetchSalesBalance(filter),
+    queryKey: salesKeys.balance({ ...baseFilter, groupBy }),
+    queryFn: () => fetchSalesBalance({ ...baseFilter, groupBy }),
     enabled: allowed,
   })
-  const breakdownVariables = { filter, first: 25, after: cursor }
+  const breakdownVariables = {
+    filter: { ...baseFilter, groupBy },
+    first: 25,
+    after: cursor,
+  }
   const breakdown = useQuery({
     queryKey: salesKeys.balanceBreakdown(breakdownVariables),
     queryFn: () => fetchSalesBalanceBreakdown(breakdownVariables),
     enabled: allowed,
     placeholderData: keepPreviousData,
+  })
+  const trend = useQuery({
+    queryKey: salesKeys.balanceBreakdown({
+      filter: { ...baseFilter, groupBy: 'period' },
+      first: 90,
+      after: null,
+    }),
+    queryFn: () =>
+      fetchSalesBalanceBreakdown({
+        filter: { ...baseFilter, groupBy: 'period' },
+        first: 90,
+      }),
+    enabled: allowed,
+  })
+  const mix = useQuery({
+    queryKey: salesKeys.balanceBreakdown({
+      filter: { ...baseFilter, groupBy: mixTab },
+      first: 10,
+      after: null,
+    }),
+    queryFn: () =>
+      fetchSalesBalanceBreakdown({
+        filter: { ...baseFilter, groupBy: mixTab },
+        first: 10,
+      }),
+    enabled: allowed,
   })
 
   if (!allowed) {
@@ -138,6 +187,8 @@ export function BalancesPage() {
     producto: productId || null,
     estado: status || null,
   }
+  const data = balance.data
+  const pendingTotal = amount(data?.pendingAmount) + amount(data?.validationAmount)
 
   return (
     <>
@@ -146,14 +197,14 @@ export function BalancesPage() {
           <p className="eyebrow">Solo uso comercial</p>
           <h1>Balance de ventas</h1>
           <p>
-            Lectura operativa de ingresos, reembolsos y costos conocidos. No es
-            contabilidad legal ni conciliación bancaria.
+            Cómo van tus ventas en el período: neto, margen y lo que aún debes
+            cobrar o validar.
           </p>
         </div>
-        {balance.data ? (
+        {data ? (
           <StatusChip
-            status={balance.data.marginComplete ? 'success' : 'warning'}
-            label={balance.data.marginComplete ? 'Costos completos' : 'Margen incompleto'}
+            status={data.marginComplete ? 'success' : 'warning'}
+            label={data.marginComplete ? 'Costos completos' : 'Margen incompleto'}
           />
         ) : null}
       </header>
@@ -189,99 +240,101 @@ export function BalancesPage() {
                 {label}
               </button>
             ))}
+            <button
+              className="filter-chip"
+              type="button"
+              aria-expanded={advancedOpen}
+              onClick={() => setAdvancedOpen((open) => !open)}
+            >
+              {advancedOpen ? 'Ocultar filtros' : 'Más filtros'}
+            </button>
           </div>
         </fieldset>
 
-        <label>
-          <span>Desde</span>
-          <input
-            type="date"
-            value={dateFrom}
-            max={dateTo}
-            disabled={preset !== 'custom'}
-            onChange={(event) => updateParams({ desde: event.target.value })}
-          />
-        </label>
-        <label>
-          <span>Hasta</span>
-          <input
-            type="date"
-            value={dateTo}
-            min={dateFrom}
-            disabled={preset !== 'custom'}
-            onChange={(event) => updateParams({ hasta: event.target.value })}
-          />
-        </label>
-        <label>
-          <span>Producto</span>
-          <select
-            value={productId}
-            onChange={(event) => updateParams({ producto: event.target.value })}
-          >
-            <option value="">Todos</option>
-            {products.data?.products.map((product) => (
-              <option key={product.id} value={product.id}>
-                {product.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Método de pago</span>
-          <select
-            value={method}
-            onChange={(event) => updateParams({ metodo: event.target.value })}
-          >
-            <option value="">Todos</option>
-            {Object.entries(paymentMethodLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Estado</span>
-          <select
-            value={status}
-            onChange={(event) => updateParams({ estado: event.target.value })}
-          >
-            <option value="">Todos</option>
-            {['purchase_validation', 'paid', 'sold', 'refunded'].map((value) => (
-              <option key={value} value={value}>
-                {orderStatusLabels[value]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Desglose</span>
-          <select
-            value={groupBy}
-            onChange={(event) => updateParams({ agrupar: event.target.value })}
-          >
-            <option value="period">Por período</option>
-            <option value="product">Por producto</option>
-            <option value="payment_method">Por método</option>
-            <option value="status">Por estado</option>
-          </select>
-        </label>
+        {preset === 'custom' || advancedOpen ? (
+          <div className="balance-filters__advanced">
+            <label>
+              <span>Desde</span>
+              <input
+                type="date"
+                value={dateFrom}
+                max={dateTo}
+                disabled={preset !== 'custom'}
+                onChange={(event) => updateParams({ desde: event.target.value })}
+              />
+            </label>
+            <label>
+              <span>Hasta</span>
+              <input
+                type="date"
+                value={dateTo}
+                min={dateFrom}
+                disabled={preset !== 'custom'}
+                onChange={(event) => updateParams({ hasta: event.target.value })}
+              />
+            </label>
+            <label>
+              <span>Producto</span>
+              <select
+                value={productId}
+                onChange={(event) => updateParams({ producto: event.target.value })}
+              >
+                <option value="">Todos</option>
+                {products.data?.products.map((product) => (
+                  <option key={product.id} value={product.id}>
+                    {product.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Método de pago</span>
+              <select
+                value={method}
+                onChange={(event) => updateParams({ metodo: event.target.value })}
+              >
+                <option value="">Todos</option>
+                {Object.entries(paymentMethodLabels).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Estado</span>
+              <select
+                value={status}
+                onChange={(event) => updateParams({ estado: event.target.value })}
+              >
+                <option value="">Todos</option>
+                {['purchase_validation', 'paid', 'sold', 'refunded'].map((value) => (
+                  <option key={value} value={value}>
+                    {orderStatusLabels[value]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Desglose</span>
+              <select
+                value={groupBy}
+                onChange={(event) => updateParams({ agrupar: event.target.value })}
+              >
+                <option value="period">Por período</option>
+                <option value="product">Por producto</option>
+                <option value="payment_method">Por método</option>
+                <option value="status">Por estado</option>
+              </select>
+            </label>
+          </div>
+        ) : null}
       </section>
 
       {balance.isPending ? (
-        <div className="balance-metrics-stack" aria-busy="true">
-          <section className="balance-metrics balance-metrics--loading">
-            <span className="sr-only">Calculando balance…</span>
-            {Array.from({ length: 3 }).map((_, index) => (
-              <div key={`inventory-${index}`} />
-            ))}
-          </section>
-          <section className="balance-metrics balance-metrics--loading">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={`sales-${index}`} />
-            ))}
-          </section>
-        </div>
+        <section className="balance-hero balance-hero--loading" aria-busy="true">
+          <span className="sr-only">Calculando balance…</span>
+        </section>
       ) : null}
 
       {balance.isError ? (
@@ -302,96 +355,154 @@ export function BalancesPage() {
         </div>
       ) : null}
 
-      {balance.data?.isPartial ? (
-        <div className="sales-notice sales-notice--warning" role="alert">
-          <strong>Balance parcial</strong>
-          <span>
-            {balance.data.warnings.join(' ') ||
-              'Hay operaciones que requieren conciliación; las cifras disponibles siguen visibles.'}
-          </span>
-        </div>
-      ) : null}
-
-      {balance.data && !balance.data.marginComplete ? (
-        <div className="sales-notice sales-notice--warning" role="alert">
-          <strong>El margen está incompleto</strong>
-          <span>
-            Cobertura de costo: {formatCoverage(balance.data.costCoverage)} (
-            {balance.data.costedLineCount} de {balance.data.recognizedLineCount} líneas).
-            Los costos desconocidos no se interpretan como cero.
-          </span>
-        </div>
-      ) : null}
-
-      {balance.data && balance.data.inventoryValuationComplete === false ? (
-        <div className="sales-notice sales-notice--warning" role="status">
-          <strong>La valoración del inventario está incompleta</strong>
-          <span>
-            Hay unidades sin precio de compra o de venta. El margen potencial solo
-            considera productos con ambos precios.
-          </span>
-        </div>
-      ) : null}
-
-      {balance.data ? (
-        <div className="balance-metrics-stack">
-          <section className="balance-metrics" aria-label="Valoración del inventario">
-            <Link to="/app/inventario">
-              <span>Inventario al costo</span>
-              <strong>
-                {balance.data.inventoryValuationComplete === false
-                  ? `${formatClp(balance.data.inventoryAtCost)}*`
-                  : formatClp(balance.data.inventoryAtCost)}
-              </strong>
-            </Link>
-            <Link to="/app/inventario">
-              <span>Inventario a precio de venta</span>
-              <strong>
-                {balance.data.inventoryValuationComplete === false
-                  ? `${formatClp(balance.data.inventoryAtSalePrice)}*`
-                  : formatClp(balance.data.inventoryAtSalePrice)}
-              </strong>
-            </Link>
-            <Link to="/app/inventario">
-              <span>Margen potencial del stock</span>
-              <strong>
-                {balance.data.inventoryValuationComplete === false
-                  ? `${formatClp(balance.data.inventoryPotentialMargin)}*`
-                  : formatClp(balance.data.inventoryPotentialMargin)}
-              </strong>
-            </Link>
-          </section>
-          <section className="balance-metrics" aria-label="Métricas comerciales">
+      {data ? (
+        <section className="balance-hero" aria-label="Resumen del período">
+          <div className="balance-hero__main">
+            <p className="balance-hero__eyebrow">Ventas netas · {formatRangeLabel(dateFrom, dateTo)}</p>
+            <p className="balance-hero__value">
+              <Link to={makeSalesFilterHref({ ...salesHrefBase, estado: 'paid' })}>
+                {formatClp(data.netSales)}
+              </Link>
+            </p>
+            <p className="balance-hero__meta">
+              {data.operationCount} operaciones confirmadas
+              {!data.marginComplete
+                ? ` · cobertura de costo ${formatCoverage(data.costCoverage)}`
+                : ''}
+            </p>
+          </div>
+          <div className="balance-hero__support" aria-label="Detalle del neto">
             <Link to={makeSalesFilterHref({ ...salesHrefBase, estado: 'paid' })}>
-              <span>Ventas brutas confirmadas</span>
-              <strong>{formatClp(balance.data.grossSales)}</strong>
+              <span>Bruto</span>
+              <strong>{formatClp(data.grossSales)}</strong>
+            </Link>
+            <Link to={makeSalesFilterHref({ ...salesHrefBase, estado: 'refunded' })}>
+              <span>Reembolsos</span>
+              <strong>{formatClp(data.refunds)}</strong>
             </Link>
             <Link to={makeSalesFilterHref(salesHrefBase)}>
-              <span>Costo conocido</span>
-              <strong>{formatClp(balance.data.knownCostOfGoods)}</strong>
-            </Link>
-            <Link to={makeSalesFilterHref(salesHrefBase)}>
-              <span>Margen bruto</span>
+              <span>Margen{data.marginComplete ? '' : '*'}</span>
               <strong>
-                {balance.data.marginComplete
-                  ? formatClp(balance.data.grossMargin)
-                  : `${formatClp(balance.data.grossMargin)}*`}
+                {data.marginComplete
+                  ? formatClp(data.grossMargin)
+                  : `${formatClp(data.grossMargin)}*`}
               </strong>
             </Link>
-            <Link
-              to={makeSalesFilterHref({
-                ...salesHrefBase,
-                estado: 'purchase_validation',
-              })}
-            >
-              <span>Por cobrar / validar</span>
-              <strong>{formatClp(balance.data.pendingAmount)}</strong>
-            </Link>
-          </section>
-        </div>
+          </div>
+          {pendingTotal > 0 ? (
+            <div className="balance-hero__actions">
+              {amount(data.validationAmount) > 0 ? (
+                <Link
+                  className="balance-action-pill"
+                  to={makeSalesFilterHref({
+                    ...salesHrefBase,
+                    estado: 'purchase_validation',
+                    corte: null,
+                  })}
+                >
+                  Por validar · {formatClp(data.validationAmount)}
+                </Link>
+              ) : null}
+              {amount(data.pendingAmount) > 0 ? (
+                <Link
+                  className="balance-action-pill"
+                  to={makeSalesFilterHref({
+                    ...salesHrefBase,
+                    estado: 'purchase_in_progress',
+                    corte: null,
+                  })}
+                >
+                  Por cobrar · {formatClp(data.pendingAmount)}
+                </Link>
+              ) : null}
+            </div>
+          ) : null}
+          {!data.marginComplete ? (
+            <p className="balance-hero__note" role="status">
+              Margen incompleto: los costos desconocidos no se interpretan como cero (
+              {data.costedLineCount} de {data.recognizedLineCount} líneas).
+            </p>
+          ) : null}
+        </section>
       ) : null}
 
-      {balance.data && balance.data.operationCount === 0 ? (
+      {data ? (
+        <section className="balance-charts" aria-label="Gráficos del período">
+          <BalanceTrendChart rows={trend.data?.nodes ?? []} loading={trend.isPending} />
+          <div className="balance-charts__mix">
+            <div className="chip-row" role="tablist" aria-label="Composición">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mixTab === 'product'}
+                className={`filter-chip ${mixTab === 'product' ? 'filter-chip--active' : ''}`}
+                onClick={() => setMixTab('product')}
+              >
+                Producto
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mixTab === 'payment_method'}
+                className={`filter-chip ${mixTab === 'payment_method' ? 'filter-chip--active' : ''}`}
+                onClick={() => setMixTab('payment_method')}
+              >
+                Método de pago
+              </button>
+            </div>
+            <BalanceMixChart
+              rows={mix.data?.nodes ?? []}
+              loading={mix.isPending}
+              title={
+                mixTab === 'product' ? 'Top productos (neto)' : 'Mix por método (neto)'
+              }
+            />
+          </div>
+        </section>
+      ) : null}
+
+      {data ? (
+        <section className="balance-inventory" aria-label="Stock actual">
+          <div className="balance-inventory__intro">
+            <h2>Stock actual</h2>
+            <p>No corresponde al período filtrado; es la valoración del inventario hoy.</p>
+          </div>
+          <div className="balance-metrics">
+            <Link to="/app/inventario">
+              <span>Al costo</span>
+              <strong>
+                {data.inventoryValuationComplete === false
+                  ? `${formatClp(data.inventoryAtCost)}*`
+                  : formatClp(data.inventoryAtCost)}
+              </strong>
+            </Link>
+            <Link to="/app/inventario">
+              <span>A precio de venta</span>
+              <strong>
+                {data.inventoryValuationComplete === false
+                  ? `${formatClp(data.inventoryAtSalePrice)}*`
+                  : formatClp(data.inventoryAtSalePrice)}
+              </strong>
+            </Link>
+            <Link to="/app/inventario">
+              <span>Margen potencial</span>
+              <strong>
+                {data.inventoryValuationComplete === false
+                  ? `${formatClp(data.inventoryPotentialMargin)}*`
+                  : formatClp(data.inventoryPotentialMargin)}
+              </strong>
+            </Link>
+          </div>
+          {data.inventoryValuationComplete === false ? (
+            <p className="balance-inventory__note" role="status">
+              Hay unidades sin precio de compra o de venta; el margen potencial solo
+              considera productos con ambos precios.
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      {data && data.operationCount === 0 ? (
         <EmptyState
           title="Sin operaciones confirmadas"
           description="No hay pagos confirmados que reconocer como ingreso en este rango."
@@ -406,7 +517,7 @@ export function BalancesPage() {
         />
       ) : null}
 
-      {breakdown.isError && balance.data ? (
+      {breakdown.isError && data ? (
         <div className="sales-notice sales-notice--warning" role="alert">
           <strong>Resumen disponible, desglose temporalmente incompleto</strong>
           <span>
@@ -422,7 +533,7 @@ export function BalancesPage() {
         </div>
       ) : null}
 
-      {breakdown.isPending && balance.data?.operationCount ? (
+      {breakdown.isPending && data?.operationCount ? (
         <div className="table-skeleton" aria-busy="true">
           <span className="sr-only">Cargando desglose…</span>
           {Array.from({ length: 4 }).map((_, index) => (
@@ -442,10 +553,9 @@ export function BalancesPage() {
                   <th scope="col">Bruto</th>
                   <th scope="col">Reembolsos</th>
                   <th scope="col">Neto</th>
-                  <th scope="col">Costo conocido</th>
                   <th scope="col">Margen</th>
                   <th scope="col">Pendiente</th>
-                  <th scope="col">Artículos vendidos</th>
+                  <th scope="col">Unidades</th>
                 </tr>
               </thead>
               <tbody>
@@ -473,9 +583,6 @@ export function BalancesPage() {
                       </td>
                       <td>
                         <Link to={href}>{formatClp(row.netSales)}</Link>
-                      </td>
-                      <td>
-                        <Link to={href}>{formatClp(row.knownCostOfGoods)}</Link>
                       </td>
                       <td>
                         <Link to={href}>{formatClp(row.grossMargin)}</Link>
@@ -512,12 +619,11 @@ export function BalancesPage() {
         </div>
       ) : null}
 
-      {balance.data ? (
+      {data ? (
         <footer className="balance-disclaimer">
-          Corte según zona horaria <strong>{balance.data.timezone}</strong>. El
-          inventario al costo, a precio de venta y el margen potencial reflejan el
-          stock actual (no el período). No incluye caja, impuestos, DTE, facturación
-          ni conciliación bancaria.
+          Corte según zona horaria <strong>{data.timezone}</strong>. El stock al costo,
+          a precio de venta y el margen potencial reflejan el inventario actual. No
+          incluye caja, impuestos, DTE, facturación ni conciliación bancaria.
         </footer>
       ) : null}
     </>

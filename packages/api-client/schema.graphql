@@ -288,6 +288,7 @@ input OrderFilterInput {
   productId: ID
   dateFrom: Date
   dateTo: Date
+  dateField: String
 }
 
 """
@@ -406,6 +407,7 @@ input SalesBalanceFilterInput {
   paymentMethods: [String!]
   status: String
   statuses: [String!]
+  groupBy: String
 }
 
 type SalesBalanceBreakdownConnectionType {
@@ -426,6 +428,7 @@ type SalesBalanceBreakdownNodeType {
   netSales: String!
   knownCogs: String!
   grossMargin: String!
+  pendingAmount: String!
   recognizedLines: Int!
   knownCostLines: Int!
   costIncomplete: Boolean!

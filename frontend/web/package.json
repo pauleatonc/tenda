@@ -23,6 +23,7 @@
     "react-dom": "19.2.3",
     "react-hook-form": "7.86.0",
     "react-router-dom": "7.18.2",
+    "recharts": "2.15.4",
     "zod": "4.4.3"
   },
   "devDependencies": {

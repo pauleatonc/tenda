@@ -274,7 +274,13 @@ export default function BalancesScreen() {
 
             <View style={styles.metrics}>
               <SalesMetric
-                label="Ventas brutas confirmadas"
+                label="Ventas netas"
+                value={formatClp(data.netSales)}
+                detail={`${data.operationCount} operaciones confirmadas`}
+                onPress={openOrders}
+              />
+              <SalesMetric
+                label="Bruto"
                 value={formatClp(data.grossSales)}
                 onPress={openOrders}
               />
@@ -284,30 +290,23 @@ export default function BalancesScreen() {
                 onPress={openOrders}
               />
               <SalesMetric
-                label="Ventas netas"
-                value={formatClp(data.netSales)}
-                onPress={openOrders}
-              />
-              <SalesMetric
-                label="Costo de venta conocido"
-                value={formatClp(data.knownCostOfGoods)}
-                detail={`Cobertura ${formatCoverage(data.costCoverage)}`}
-                onPress={openOrders}
-              />
-              <SalesMetric
                 label="Margen bruto"
                 value={formatClp(data.grossMargin)}
-                detail={data.marginComplete ? 'Cobertura completa' : 'Margen incompleto'}
+                detail={
+                  data.marginComplete
+                    ? 'Cobertura completa'
+                    : `Incompleto · ${formatCoverage(data.costCoverage)}`
+                }
                 onPress={openOrders}
               />
               <SalesMetric
-                label="Por cobrar o validar"
+                label="Por validar"
+                value={formatClp(data.validationAmount)}
+                onPress={openOrders}
+              />
+              <SalesMetric
+                label="Por cobrar"
                 value={formatClp(data.pendingAmount)}
-                onPress={openOrders}
-              />
-              <SalesMetric
-                label="Artículos vendidos"
-                value={String(data.operationCount)}
                 onPress={openOrders}
               />
             </View>
