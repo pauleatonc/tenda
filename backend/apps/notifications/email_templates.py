@@ -354,7 +354,7 @@ def render_email(template: str, parameters: dict[str, Any]) -> RenderedEmail:
         "payment_proof_received": "Recibimos tu comprobante",
         "payment_proof_rejected": "No pudimos validar el comprobante",
     }.get(template, "Novedad de tu pedido")
-    text_lines: list[str] = []
+    text_lines = []
     html_body = ""
     if order_number:
         text_lines.append(f"Pedido {order_number}")

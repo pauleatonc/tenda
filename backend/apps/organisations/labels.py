@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from .models import Membership
 
-ROLE_LABELS = {
+ROLE_LABELS: dict[str, str] = {
     Membership.Role.OWNER: "titular",
     Membership.Role.OPERATOR: "equipo",
     Membership.Role.SUPPORT_ADMIN: "soporte",

@@ -1,10 +1,12 @@
 from django.contrib import admin
 
+from tenda.admin import MaintainerModelAdmin
+
 from .models import BillingWebhookEvent, OrganisationSubscription, Plan
 
 
 @admin.register(Plan)
-class PlanAdmin(admin.ModelAdmin):
+class PlanAdmin(MaintainerModelAdmin):
     list_display = (
         "code",
         "name",
@@ -20,7 +22,7 @@ class PlanAdmin(admin.ModelAdmin):
 
 
 @admin.register(OrganisationSubscription)
-class OrganisationSubscriptionAdmin(admin.ModelAdmin):
+class OrganisationSubscriptionAdmin(MaintainerModelAdmin):
     list_display = (
         "organisation",
         "plan",
@@ -40,7 +42,7 @@ class OrganisationSubscriptionAdmin(admin.ModelAdmin):
 
 
 @admin.register(BillingWebhookEvent)
-class BillingWebhookEventAdmin(admin.ModelAdmin):
+class BillingWebhookEventAdmin(MaintainerModelAdmin):
     list_display = (
         "event_type",
         "provider_event_id",

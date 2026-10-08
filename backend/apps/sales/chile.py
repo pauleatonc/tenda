@@ -8,14 +8,14 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 _CATALOG_PATH = Path(__file__).resolve().parent / "data" / "chile_regiones_comunas.json"
 
 
 @lru_cache(maxsize=1)
 def chile_catalog() -> dict[str, Any]:
-    return json.loads(_CATALOG_PATH.read_text(encoding="utf-8"))
+    return cast(dict[str, Any], json.loads(_CATALOG_PATH.read_text(encoding="utf-8")))
 
 
 @lru_cache(maxsize=1)

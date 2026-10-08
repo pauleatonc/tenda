@@ -23,7 +23,7 @@ from apps.users.api import endpoint, success
 from apps.users.middleware import get_correlation_id
 from tenda.errors import DomainError
 
-from .models import PaymentWebhookEvent
+from .models import Order, PaymentWebhookEvent
 from .order_services import public_order_for_token
 from .payments import get_payment_provider
 from .services import complete_seller_payment_connection
@@ -279,7 +279,7 @@ def complete_public_receipt(request: HttpRequest, token: str) -> HttpResponse:
     )
 
 
-def _public_order_asset(order: object, asset_id: uuid.UUID) -> MediaAsset | None:
+def _public_order_asset(order: Order, asset_id: uuid.UUID) -> MediaAsset | None:
     attachment = (
         ProductMediaAttachment.objects.filter(
             product__order_items__order=order,

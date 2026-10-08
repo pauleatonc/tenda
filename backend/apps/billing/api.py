@@ -107,7 +107,5 @@ def mercado_pago_billing_webhook(request: HttpRequest) -> HttpResponse:
         }
     )
     if should_enqueue:
-        transaction.on_commit(
-            lambda: process_billing_webhook.delay(event.pk)  # type: ignore[attr-defined]
-        )
+        transaction.on_commit(lambda: process_billing_webhook.delay(event.pk))
     return success({"accepted": True, "eventId": str(event.public_id)})

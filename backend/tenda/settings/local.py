@@ -1,5 +1,6 @@
 """Local settings with safe defaults for a checkout."""
 
+import os
 import sys
 
 from .base import *

@@ -21,15 +21,15 @@ def render_image_variants(content: bytes) -> dict[str, bytes]:
     """Fit the source into each configured longest-edge box. Never upscale."""
 
     try:
-        image = Image.open(BytesIO(content))
-        image.load()
+        opened = Image.open(BytesIO(content))
+        opened.load()
     except (UnidentifiedImageError, OSError, ValueError) as exc:
         raise DomainError(
             "INVALID_IMAGE",
             "El archivo no es una imagen válida.",
         ) from exc
-    image = ImageOps.exif_transpose(image)
-    image = _display_mode(image)
+    transposed = ImageOps.exif_transpose(opened)
+    image: Image.Image = _display_mode(transposed if transposed is not None else opened)
     names = tuple(getattr(settings, "IMAGE_VARIANT_NAMES", ("thumbnail", "medium", "large")))
     edges = dict(getattr(settings, "IMAGE_VARIANT_MAX_EDGE", {}))
     quality = int(getattr(settings, "IMAGE_VARIANT_QUALITY", 82))

@@ -1,5 +1,7 @@
 """Shared development settings."""
 
+import os
+
 from .base import *
 
 DEBUG = env_bool("DJANGO_DEBUG", True)

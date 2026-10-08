@@ -372,13 +372,14 @@ def normalise_import_row(
     if not raw_status:
         catalog_status = Product.CatalogStatus.ACTIVE
     else:
-        catalog_status = CATALOG_STATUS_ALIASES.get(raw_status.casefold())
-        if catalog_status is None:
+        resolved_status = CATALOG_STATUS_ALIASES.get(raw_status.casefold())
+        if resolved_status is None:
             raise DomainError(
                 "VALIDATION_ERROR",
                 "Revisa los datos ingresados.",
                 field_errors={"catalogStatus": ["Usa Activo o Inactivo."]},
             )
+        catalog_status = resolved_status
     initial_raw = _row_value(row, mapping, "initialQuantity")
     if initial_raw in (None, ""):
         initial_quantity = 0

@@ -32,7 +32,7 @@ from apps.inventory.services import (
 from apps.media_assets.models import MediaAsset
 from apps.notifications.outbox import enqueue_outbox_event
 from apps.organisations.bank import format_rut, is_valid_rut
-from apps.organisations.models import Membership
+from apps.organisations.models import Membership, Organisation
 from apps.organisations.selectors import TenantContext
 from apps.sales.chile import chile_communes_by_region, is_valid_chile_location
 from apps.shipping.models import LabelDocument
@@ -196,7 +196,7 @@ def _new_public_token() -> str:
     return secrets.token_urlsafe(32)
 
 
-def _reservation_ttl(*, organisation=None) -> timedelta:
+def _reservation_ttl(*, organisation: Organisation | None = None) -> timedelta:
     hours = parameter_value(
         "sales.reservation_ttl_hours",
         organisation=organisation,
@@ -830,6 +830,7 @@ def _create_order(
             "Revisa los datos ingresados.",
             field_errors={"paymentMethod": ["Selecciona un medio de pago válido."]},
         )
+    deposit_snapshot: dict[str, str] | None
     if payment_method == Order.PaymentMethod.BANK_TRANSFER:
         from apps.organisations.bank import (
             public_bank_details,

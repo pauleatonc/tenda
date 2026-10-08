@@ -17,6 +17,7 @@ from apps.organisations.permissions import (
     require_permission,
 )
 from apps.organisations.selectors import TenantContext
+from apps.shipping.models import Shipment
 from tenda.errors import DomainError, ResourceNotFound
 from tenda.pagination import Page, clean_page_size, decode_cursor, encode_cursor, paginate
 
@@ -342,21 +343,21 @@ def paginated_reconciliation_issues(
     )
 
 
-def _order_shipment(order: Order):
+def _order_shipment(order: Order) -> Shipment | None:
     try:
         return order.shipment
     except ObjectDoesNotExist:
         return None
 
 
-def _shipment_has_label(shipment) -> bool:
+def _shipment_has_label(shipment: Shipment) -> bool:
     prefetched = getattr(shipment, "_prefetched_objects_cache", {}).get("labels")
     if prefetched is not None:
         return bool(prefetched)
-    return shipment.labels.exists()
+    return bool(shipment.labels.exists())
 
 
-def _shipment_can_generate_label(shipment) -> bool:
+def _shipment_can_generate_label(shipment: Shipment) -> bool:
     from apps.shipping.selectors import shipment_can_generate_label
 
     return shipment_can_generate_label(shipment)

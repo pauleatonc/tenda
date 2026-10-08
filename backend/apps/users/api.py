@@ -176,7 +176,7 @@ def _asset_url(organisation_id: int, asset_id: object) -> str | None:
     if not asset_id:
         return None
     asset = MediaAsset.objects.filter(
-        public_id=asset_id,
+        public_id=str(asset_id),
         organisation_id=organisation_id,
         status=MediaAsset.Status.READY,
     ).first()
