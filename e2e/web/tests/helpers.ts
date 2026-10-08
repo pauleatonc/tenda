@@ -30,7 +30,7 @@ export async function loginAsOwner(page: Page): Promise<void> {
   await page.goto('/login')
   await page.getByLabel('Correo').fill(E2E_EMAIL)
   await page.getByLabel('Contraseña').fill(E2E_PASSWORD)
-  await page.getByRole('button', { name: 'Iniciar sesión' }).click()
+  await page.getByRole('button', { name: 'Iniciar sesión', exact: true }).click()
   await expect(page.getByRole('heading', { name: /Hola,/ })).toBeVisible({
     timeout: 20_000,
   })
