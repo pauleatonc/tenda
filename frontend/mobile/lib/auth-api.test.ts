@@ -96,8 +96,8 @@ test('mobileGoogleLogin surfaces a cancellation from the system browser', async 
     }),
   })
   jest.mocked(WebBrowser.openAuthSessionAsync).mockResolvedValue({
-    type: WebBrowser.WebBrowserResultType.CANCEL,
-  })
+    type: 'cancel',
+  } as Awaited<ReturnType<typeof WebBrowser.openAuthSessionAsync>>)
 
   await expect(mobileGoogleLogin()).rejects.toMatchObject({
     code: 'OIDC_CANCELLED',
