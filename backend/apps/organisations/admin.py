@@ -6,7 +6,7 @@ from django.contrib import admin
 
 from tenda.admin import MaintainerModelAdmin
 
-from .models import Membership, Organisation
+from .models import Membership, Organisation, OrganisationBankAccount
 
 
 class MembershipInline(admin.TabularInline):  # type: ignore[type-arg]
@@ -58,3 +58,25 @@ class MembershipAdmin(MaintainerModelAdmin):
     list_filter = ("role", "is_active", "view_financials")
     search_fields = ("public_id", "user__email", "organisation__name")
     autocomplete_fields = ("user", "organisation")
+
+
+@admin.register(OrganisationBankAccount)
+class OrganisationBankAccountAdmin(MaintainerModelAdmin):
+    list_display = (
+        "organisation",
+        "label",
+        "bank_name",
+        "bank_account_type",
+        "position",
+        "updated_at",
+    )
+    list_filter = ("bank_account_type",)
+    search_fields = (
+        "public_id",
+        "organisation__name",
+        "bank_name",
+        "bank_account_number",
+        "bank_holder_tax_id",
+    )
+    autocomplete_fields = ("organisation",)
+    readonly_fields = ("public_id", "created_at", "updated_at")

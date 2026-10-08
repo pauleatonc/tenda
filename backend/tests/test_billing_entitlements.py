@@ -18,7 +18,7 @@ from apps.billing.provider import (
 )
 from apps.billing.services import start_plan_checkout, sync_subscription_from_provider
 from apps.inventory.models import Product
-from apps.inventory.services import create_product
+from apps.inventory.services import archive_product, create_product
 from apps.organisations.models import Membership
 from apps.organisations.selectors import TenantContext, resolve_tenant_context
 from apps.organisations.services import create_organisation_for_owner
@@ -26,33 +26,6 @@ from apps.users.models import User
 from tenda.errors import DomainError
 
 pytestmark = pytest.mark.django_db(transaction=True)
-
-_SEEDED_PLANS = (
-    ("free", "Gratis", 0, 5, False, 0, ""),
-    ("starter", "Starter", 4990, 15, True, 1, "seed-starter"),
-    ("growth", "Growth", 9990, 25, True, 2, "seed-growth"),
-    ("pro", "Pro", 14990, None, True, 3, "seed-pro"),
-)
-
-
-@pytest.fixture(autouse=True)
-def _reseed_billing_plans() -> None:
-    """Transaction tests flush tables; restore the plan catalog before each case."""
-
-    for code, name, price, limit, ai, position, mp_id in _SEEDED_PLANS:
-        Plan.objects.update_or_create(
-            code=code,
-            defaults={
-                "name": name,
-                "price_clp": price,
-                "product_limit": limit,
-                "ai_assisted_enabled": ai,
-                "position": position,
-                "mp_preapproval_plan_id": mp_id,
-                "is_active": True,
-            },
-        )
-
 
 def identity(email: str) -> tuple[User, TenantContext]:
     user = User.objects.create_user(
@@ -117,8 +90,7 @@ def test_archiving_frees_slot_on_free_plan() -> None:
     ]
     with pytest.raises(DomainError):
         create_product(context=context, name="Extra")
-    products[0].catalog_status = Product.CatalogStatus.ARCHIVED
-    products[0].save(update_fields=("catalog_status", "updated_at"))
+    archive_product(context=context, product_id=products[0].public_id)
     assert_can_create_product(context.organisation)
     create_product(context=context, name="Extra")
 
