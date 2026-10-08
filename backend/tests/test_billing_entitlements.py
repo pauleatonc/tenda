@@ -17,7 +17,6 @@ from apps.billing.provider import (
     reset_fake_billing_provider,
 )
 from apps.billing.services import start_plan_checkout, sync_subscription_from_provider
-from apps.inventory.models import Product
 from apps.inventory.services import archive_product, create_product
 from apps.organisations.models import Membership
 from apps.organisations.selectors import TenantContext, resolve_tenant_context
