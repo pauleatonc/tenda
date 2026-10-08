@@ -86,22 +86,25 @@ export async function completeBankTransferPurchase(
   page: Page,
   publicOrderUrl: string,
 ): Promise<void> {
+  // Bank-transfer offers collect delivery + proof on the public order page itself.
   await page.goto(publicOrderUrl)
-  await page.getByRole('link', { name: 'Comprar' }).click()
-  await page.getByLabel('Nombre').fill('Camila Soto')
-  await page.getByLabel('Email').fill('camila.e2e@example.test')
-  await page.getByLabel('Teléfono').fill('+56911111111')
-  await page.getByLabel('Destinatario').fill('Camila Soto')
+  await expect(
+    page.getByRole('heading', { name: 'Paga por transferencia' }),
+  ).toBeVisible()
+  await page.getByLabel('Quién recibe').fill('Camila Soto')
+  await page.getByLabel('RUT de quien recibe').fill('111111111')
+  await page.getByLabel('Teléfono de contacto').fill('+56911111111')
   await page.getByLabel('Dirección').fill('Los Aromos 123')
   await page.getByLabel('Región').selectOption('Región Metropolitana de Santiago')
   await page.getByLabel('Comuna').selectOption('Ñuñoa')
-  await page.getByRole('button', { name: 'Continuar al pago' }).click()
-  await page.getByRole('button', { name: 'Revisar compra' }).click()
-  await page.getByRole('button', { name: 'Confirmar datos' }).click()
-  await expect(page.getByRole('heading', { name: 'Envía tu comprobante' })).toBeVisible()
-  await page
-    .getByLabel('Selecciona una foto o PDF del comprobante')
-    .setInputFiles({ name: 'comprobante.png', mimeType: 'image/png', buffer: pngPixel })
+  await page.getByRole('button', { name: 'Guardar datos de despacho' }).click()
+  const proofInput = page.getByLabel('Selecciona una foto o PDF del comprobante')
+  await expect(proofInput).toBeEnabled()
+  await proofInput.setInputFiles({
+    name: 'comprobante.png',
+    mimeType: 'image/png',
+    buffer: pngPixel,
+  })
   await page.getByRole('button', { name: 'Enviar comprobante' }).click()
   await expect(page.getByRole('heading', { name: 'Comprobante enviado' })).toBeVisible()
 }
