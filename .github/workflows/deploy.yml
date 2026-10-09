@@ -105,6 +105,7 @@ jobs:
           IMAGE_SHA: ${{ steps.release.outputs.image_sha }}
         run: |
           pnpm install --frozen-lockfile
+          pnpm --filter @tenda/api-client --filter @tenda/analytics build
           pnpm --filter @tenda/web build
           mkdir -p .web-dist-artifact
           tar -C frontend/web/dist -czf ".web-dist-artifact/web-dist-${IMAGE_SHA}.tar.gz" .
