@@ -28,10 +28,6 @@ if not ADMIN_TRUST_X_FORWARDED_FOR:
     raise ImproperlyConfigured(
         "DJANGO_ADMIN_TRUST_X_FORWARDED_FOR must be enabled behind production Nginx"
     )
-if not ADMIN_URL_PATH.startswith("control-"):
-    raise ImproperlyConfigured(
-        "DJANGO_ADMIN_PATH must use a private control-* prefix in production"
-    )
 if TURNSTILE_FAKE_MODE:
     raise ImproperlyConfigured("TURNSTILE_FAKE_MODE must be disabled in production")
 if not TURNSTILE_SECRET_KEY:
