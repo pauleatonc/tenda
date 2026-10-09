@@ -1,6 +1,6 @@
 # Build a Trivy-clean rclone: release tag (so module version is >= 1.75.1)
 # plus current Go toolchain and patched transitive deps.
-FROM golang:1.27.2-bookworm AS rclone
+FROM public.ecr.aws/docker/library/golang:1.27.2-bookworm AS rclone
 WORKDIR /src
 RUN git clone --depth 1 --branch v1.75.1 https://github.com/rclone/rclone.git . \
     && go get golang.org/x/net@v0.60.0 \
@@ -8,7 +8,7 @@ RUN git clone --depth 1 --branch v1.75.1 https://github.com/rclone/rclone.git . 
     && go mod tidy \
     && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /rclone .
 
-FROM postgres:17.11-bookworm
+FROM public.ecr.aws/docker/library/postgres:17.11-bookworm
 
 RUN apt-get update \
     && apt-get upgrade --yes \
