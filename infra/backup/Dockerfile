@@ -1,9 +1,12 @@
-# Build rclone with a current Go toolchain so Trivy does not fail on stdlib /
-# x/net CVEs already fixed upstream of the last rclone release image.
+# Build a Trivy-clean rclone: release tag (so module version is >= 1.75.1)
+# plus current Go toolchain and patched transitive deps.
 FROM golang:1.27.2-bookworm AS rclone
-ARG RCLONE_REF=4f19e9cd6f442282d7fa8d5fdbd28ebb68be1131
-RUN CGO_ENABLED=0 go install -trimpath -ldflags="-s -w" \
-    "github.com/rclone/rclone@${RCLONE_REF}"
+WORKDIR /src
+RUN git clone --depth 1 --branch v1.75.1 https://github.com/rclone/rclone.git . \
+    && go get golang.org/x/net@v0.60.0 \
+    && go get google.golang.org/grpc@v1.85.0-dev.0.20260825072537-93e31b48545e \
+    && go mod tidy \
+    && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /rclone .
 
 FROM postgres:17.11-bookworm
 
@@ -13,7 +16,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && rm -f /usr/local/bin/gosu
 
-COPY --from=rclone /go/bin/rclone /usr/local/bin/rclone
+COPY --from=rclone /rclone /usr/local/bin/rclone
 COPY infra/scripts/backup-postgres.sh /usr/local/bin/backup-postgres
 COPY infra/scripts/restore-postgres.sh /usr/local/bin/restore-postgres
 
