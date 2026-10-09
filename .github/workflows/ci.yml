@@ -15,7 +15,8 @@ jobs:
 
     services:
       postgres:
-        image: postgres:17.5-bookworm
+        # Public ECR mirror avoids Docker Hub anonymous pull rate limits on GHA.
+        image: public.ecr.aws/docker/library/postgres:17.5-bookworm
         env:
           POSTGRES_DB: tenda_test
           POSTGRES_USER: tenda
@@ -28,7 +29,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
       redis:
-        image: redis:7.4.5-alpine
+        image: public.ecr.aws/docker/library/redis:7.4.5-alpine
         ports:
           - 6379:6379
         options: >-
@@ -137,11 +138,13 @@ jobs:
 
       - name: Validate operational scripts
         run: |
-          docker run --rm -v "${PWD}:/mnt:ro" koalaman/shellcheck:v0.11.0 \
-            /mnt/infra/scripts/backup-postgres.sh \
-            /mnt/infra/scripts/restore-postgres.sh \
-            /mnt/infra/scripts/deploy.sh \
-            /mnt/infra/scripts/bootstrap-vps.sh
+          sudo apt-get update
+          sudo apt-get install --yes shellcheck
+          shellcheck \
+            infra/scripts/backup-postgres.sh \
+            infra/scripts/restore-postgres.sh \
+            infra/scripts/deploy.sh \
+            infra/scripts/bootstrap-vps.sh
 
   e2e:
     runs-on: ubuntu-24.04
@@ -149,7 +152,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:17.5-bookworm
+        image: public.ecr.aws/docker/library/postgres:17.5-bookworm
         env:
           POSTGRES_DB: tenda_test
           POSTGRES_USER: tenda
@@ -162,7 +165,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
       redis:
-        image: redis:7.4.5-alpine
+        image: public.ecr.aws/docker/library/redis:7.4.5-alpine
         ports:
           - 6379:6379
         options: >-
