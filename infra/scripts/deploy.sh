@@ -103,13 +103,21 @@ fi
   backend celery_worker celery_beat nginx
 
 ready=false
+ready_curl=(curl --fail --silent --show-error --max-time 5)
+# Origin only listens on :80; probes often use http://127.0.0.1/... and need a
+# public Host plus https proto so Django ALLOWED_HOSTS / SSL redirect stay happy.
+web_origin="${WEB_ORIGIN:-}"
+if [[ -z "${web_origin}" && -f "${root}/.env" ]]; then
+  web_origin="$(awk -F= '/^WEB_ORIGIN=/{print substr($0, index($0,$2)); exit}' "${root}/.env")"
+fi
+if [[ -n "${web_origin}" ]]; then
+  ready_host="${web_origin#*://}"
+  ready_host="${ready_host%%/*}"
+  ready_curl+=(-H "Host: ${ready_host}")
+fi
+ready_curl+=(-H "X-Forwarded-Proto: https")
 for _attempt in $(seq 1 "${TENDA_READY_ATTEMPTS:-30}"); do
-  if curl \
-    --fail \
-    --silent \
-    --show-error \
-    --max-time 5 \
-    "${TENDA_READY_URL}" >/dev/null; then
+  if "${ready_curl[@]}" "${TENDA_READY_URL}" >/dev/null; then
     ready=true
     break
   fi

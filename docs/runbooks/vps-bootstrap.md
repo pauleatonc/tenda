@@ -48,7 +48,7 @@ Luego:
    | secret     | `DEPLOY_HOST`             | IP o hostname del VPS                 |
    | secret     | `DEPLOY_USER`             | `deploy`                              |
    | secret     | `DEPLOY_PATH`             | `/opt/tenda/app`                      |
-   | var        | `TENDA_READY_URL`         | `https://tenda-app.com/health/ready/` |
+   | var        | `TENDA_READY_URL`         | `http://127.0.0.1/health/ready/` (origin is :80; TLS is at Cloudflare) |
    | var (repo) | `VITE_TURNSTILE_SITE_KEY` | site key pública                      |
    | var (repo) | `VITE_GA_MEASUREMENT_ID`  | opcional                              |
 
