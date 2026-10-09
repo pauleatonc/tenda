@@ -1,11 +1,12 @@
-FROM rclone/rclone:1.75.0 AS rclone
+FROM rclone/rclone:1.75.1 AS rclone
 
-FROM postgres:17.5-bookworm
+FROM postgres:17.11-bookworm
 
 RUN apt-get update \
     && apt-get upgrade --yes \
     && apt-get install --yes --no-install-recommends age ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -f /usr/local/bin/gosu
 
 COPY --from=rclone /usr/local/bin/rclone /usr/local/bin/rclone
 COPY infra/scripts/backup-postgres.sh /usr/local/bin/backup-postgres
