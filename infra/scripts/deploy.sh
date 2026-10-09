@@ -5,6 +5,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 compose=(
   docker compose
   --project-name tenda-prod
+  --env-file "${root}/.env"
   --file "${root}/infra/compose.prod.yaml"
 )
 state_dir="${TENDA_DEPLOY_STATE_DIR:-/var/lib/tenda-deploy}"
