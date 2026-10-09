@@ -1,4 +1,6 @@
-FROM rclone/rclone:1.75.1 AS rclone
+# Pin past v1.75.1: official release still ships google.golang.org/grpc
+# v1.84.0-dev…b6eac429d7b6 (CVE-2026-84445). This commit has the fixed grpc.
+FROM rclone/rclone:sha-91ab88a AS rclone
 
 FROM postgres:17.11-bookworm
 
