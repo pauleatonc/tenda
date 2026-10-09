@@ -1,20 +1,25 @@
 FROM ghcr.io/astral-sh/uv:0.11.29 AS uv
 
-FROM python:3.12.3-slim-bookworm AS runtime
+FROM python:3.12.12-slim-bookworm AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_LINK_MODE=copy \
     PATH="/app/.venv/bin:${PATH}"
 
-RUN groupadd --system tenda \
+RUN apt-get update \
+    && apt-get upgrade --yes \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir --upgrade "setuptools>=78.1.1" "wheel>=0.46.2" \
+    && groupadd --system tenda \
     && useradd --system --gid tenda --create-home tenda
 
 WORKDIR /app
 
 COPY --from=uv /uv /uvx /bin/
 COPY backend/pyproject.toml backend/uv.lock ./
-RUN uv sync --frozen --no-dev --no-install-project
+RUN uv sync --frozen --no-dev --no-install-project \
+    && rm -rf /root/.cache/uv
 
 COPY backend/ ./
 RUN mkdir -p /app/staticfiles \

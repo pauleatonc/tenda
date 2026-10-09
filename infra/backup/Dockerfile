@@ -3,6 +3,7 @@ FROM rclone/rclone:1.75.0 AS rclone
 FROM postgres:17.5-bookworm
 
 RUN apt-get update \
+    && apt-get upgrade --yes \
     && apt-get install --yes --no-install-recommends age ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
