@@ -185,8 +185,9 @@ services:
     pull_policy: always
     read_only: true
     tmpfs:
-      - /work
-      - /tmp
+      # Container runs as postgres (uid/gid 999); bare tmpfs is root-owned.
+      - /work:uid=999,gid=999,mode=0700
+      - /tmp:uid=999,gid=999,mode=1777
     restart: 'no'
     profiles: [operations]
     networks:
