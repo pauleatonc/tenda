@@ -144,7 +144,9 @@ jobs:
             infra/scripts/backup-postgres.sh \
             infra/scripts/restore-postgres.sh \
             infra/scripts/deploy.sh \
-            infra/scripts/bootstrap-vps.sh
+            infra/scripts/bootstrap-vps.sh \
+            infra/scripts/ensure-tls-certs.sh \
+            infra/scripts/issue-letsencrypt.sh
 
   e2e:
     runs-on: ubuntu-24.04

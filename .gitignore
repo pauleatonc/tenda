@@ -28,6 +28,8 @@ frontend/mobile/.expo/
 !.env.production.example
 data/web-dist/*
 !data/web-dist/.gitkeep
+data/letsencrypt/
+data/certbot-www/
 *.pem
 *.key
 

@@ -5,10 +5,11 @@ IP: los secrets viven en el Environment `production` de GitHub.
 
 ## Qué queda expuesto a Internet
 
-| Puerto   | Quién              | Notas                                                           |
-| -------- | ------------------ | --------------------------------------------------------------- |
-| `22/tcp` | Operador           | Idealmente restringido a tu IP (`OPERATOR_SSH_CIDR`)            |
-| `80/tcp` | Cloudflare → nginx | TLS termina en Cloudflare (SSL Full). No abrir `443` en origen. |
+| Puerto    | Quién    | Notas                                                |
+| --------- | -------- | ---------------------------------------------------- |
+| `22/tcp`  | Operador | Idealmente restringido a tu IP (`OPERATOR_SSH_CIDR`) |
+| `80/tcp`  | Público   | ACME (Let's Encrypt) + redirect a HTTPS              |
+| `443/tcp` | Público  | TLS en origen (nginx + Let's Encrypt)                |
 
 Postgres (`5432`), Redis (`6379`), backend (`8000`) y Celery **no** publican
 puertos. Solo viven en la red Docker `private`.
@@ -20,7 +21,7 @@ ss -tlnp
 docker compose -f infra/compose.prod.yaml ps
 ```
 
-Solo deben escucharse `:22` y `:80` en interfaces públicas.
+Solo deben escucharse `:22`, `:80` y `:443` en interfaces públicas.
 
 ## Script
 
@@ -48,25 +49,34 @@ Luego:
    | secret     | `DEPLOY_HOST`             | IP o hostname del VPS                                                  |
    | secret     | `DEPLOY_USER`             | `deploy`                                                               |
    | secret     | `DEPLOY_PATH`             | `/opt/tenda/app`                                                       |
-   | var        | `TENDA_READY_URL`         | `http://127.0.0.1/health/ready/` (origin is :80; TLS is at Cloudflare) |
+   | var        | `TENDA_READY_URL`         | `http://127.0.0.1/health/ready/` (probe local por :80; HTTPS es público) |
    | var (repo) | `VITE_TURNSTILE_SITE_KEY` | site key pública                                                       |
    | var (repo) | `VITE_GA_MEASUREMENT_ID`  | opcional                                                               |
 
-5. DNS: A/AAAA `tenda-app.com` (y opcional `www`) → IP del VPS; proxy Cloudflare
-   ON; modo SSL **Full**. Redirect `www` → apex en Cloudflare si aplica.
-6. Primer deploy: Actions → **Deploy** → `workflow_dispatch` con el SHA de un
+5. DNS: A/AAAA `tenda-app.com` (y opcional `www`) → IP del VPS (GoDaddy u otro).
+6. En `.env`: `TLS_DOMAIN`, `TLS_SERVER_NAMES`, `TLS_CERTBOT_EMAIL`.
+7. Primer deploy: Actions → **Deploy** → `workflow_dispatch` con el SHA de un
    **Publish images** exitoso, o push a `main` (CI → images → deploy automático).
-
-## Firewall y Cloudflare
-
-`bootstrap-vps.sh` deja ufw con deny incoming, allow `22` y `80`. Para acotar
-HTTP a [IPs de Cloudflare](https://www.cloudflare.com/ips/):
+8. En el VPS, emitir el certificado real:
 
 ```bash
-# Ejemplo IPv4 (repetir por cada rango de la lista oficial)
-ufw allow from 173.245.48.0/20 to any port 80 proto tcp comment 'cf'
-ufw delete allow 80/tcp
+cd /home/tenda/app   # o tu DEPLOY_PATH
+sudo ufw allow 443/tcp
+./infra/scripts/issue-letsencrypt.sh
+curl -fsS https://tenda-app.com/health/ready/
 ```
+
+Renovación (cron mensual, como `tenda`):
+
+```bash
+mkdir -p /home/tenda/logs
+crontab -e
+# 15 4 1 * * cd /home/tenda/app && ./infra/scripts/issue-letsencrypt.sh >>/home/tenda/logs/tls-renew.log 2>&1
+```
+
+## Firewall
+
+`bootstrap-vps.sh` deja ufw con deny incoming, allow `22`, `80` y `443`.
 
 Admin Django: `DJANGO_ADMIN_ALLOWED_NETWORKS` solo WireGuard/IP admin, nunca
 `0.0.0.0/0`.

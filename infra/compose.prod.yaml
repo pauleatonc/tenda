@@ -204,15 +204,23 @@ services:
     profiles: [restore]
 
   nginx:
-    image: nginx:1.27.5-alpine
+    image: public.ecr.aws/docker/library/nginx:1.27.5-alpine
     depends_on:
       backend:
         condition: service_healthy
+    environment:
+      TLS_DOMAIN: ${TLS_DOMAIN:?TLS_DOMAIN is required}
+      TLS_SERVER_NAMES: ${TLS_SERVER_NAMES:-}
+    entrypoint: ['/entrypoint.sh']
     ports:
       - '${TENDA_HTTP_PORT:-80}:80'
+      - '${TENDA_HTTPS_PORT:-443}:443'
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/nginx.conf.template:/etc/nginx/nginx.conf.template:ro
+      - ./nginx/entrypoint.sh:/entrypoint.sh:ro
       - ${TENDA_WEB_DIST_PATH:-../data/web-dist}:/var/www/tenda:ro
+      - ${TENDA_CERTBOT_WWW_PATH:-../data/certbot-www}:/var/www/certbot:ro
+      - ${TENDA_LETSENCRYPT_PATH:-../data/letsencrypt}:/etc/letsencrypt:ro
     deploy:
       resources:
         limits:
@@ -222,10 +230,20 @@ services:
     tmpfs:
       - /var/cache/nginx
       - /var/run
+      - /tmp
     restart: unless-stopped
     networks:
       - public
       - private
+
+  certbot:
+    image: docker.io/certbot/certbot:v4.0.0
+    volumes:
+      - ${TENDA_CERTBOT_WWW_PATH:-../data/certbot-www}:/var/www/certbot
+      - ${TENDA_LETSENCRYPT_PATH:-../data/letsencrypt}:/etc/letsencrypt
+    profiles: [tls]
+    networks:
+      - public
 
 networks:
   public:
