@@ -1,0 +1,34 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "node": "22.16.0",
+      "pnpm": "10.34.5",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://tenda-app.com",
+        "EXPO_PUBLIC_WEB_ORIGIN": "https://tenda-app.com"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "node": "22.16.0",
+      "pnpm": "10.34.5",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://tenda-app.com",
+        "EXPO_PUBLIC_WEB_ORIGIN": "https://tenda-app.com"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

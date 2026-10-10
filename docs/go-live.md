@@ -98,5 +98,5 @@ En el host, `infra/scripts/deploy.sh` es la única vía. No usar `latest` ni
 
 El smoke Maestro (`frontend/mobile/.maestro/smoke.yaml`) se corre en un
 emulador o dispositivo con el owner de `prepare_e2e_journey`. No publica la
-app. La prioridad Android/iOS, cuentas de store y deep links siguen en la
-matriz.
+app. Preview APK interno (EAS): `docs/runbooks/mobile-preview.md`. La
+prioridad Android/iOS en stores, cuentas y deep links siguen en la matriz.
