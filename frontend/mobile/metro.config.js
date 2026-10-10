@@ -11,9 +11,7 @@ const workspacePackages = [
 const config = getDefaultConfig(projectRoot)
 
 // Keep Expo defaults and add the monorepo root for workspace packages.
-config.watchFolders = [
-  ...new Set([...(config.watchFolders ?? []), workspaceRoot]),
-]
+config.watchFolders = [...new Set([...(config.watchFolders ?? []), workspaceRoot])]
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(workspaceRoot, 'node_modules'),
@@ -28,16 +26,8 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     (pkgRoot) =>
       origin.startsWith(pkgRoot) && origin.includes(`${path.sep}src${path.sep}`),
   )
-  if (
-    fromWorkspaceSrc &&
-    moduleName.startsWith('.') &&
-    moduleName.endsWith('.js')
-  ) {
-    return context.resolveRequest(
-      context,
-      moduleName.replace(/\.js$/, '.ts'),
-      platform,
-    )
+  if (fromWorkspaceSrc && moduleName.startsWith('.') && moduleName.endsWith('.js')) {
+    return context.resolveRequest(context, moduleName.replace(/\.js$/, '.ts'), platform)
   }
   return context.resolveRequest(context, moduleName, platform)
 }

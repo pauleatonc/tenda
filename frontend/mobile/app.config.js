@@ -14,9 +14,7 @@ const EAS_PROJECT_ID =
 function resolveExisting(...candidates) {
   for (const candidate of candidates) {
     if (!candidate) continue
-    const abs = path.isAbsolute(candidate)
-      ? candidate
-      : path.join(__dirname, candidate)
+    const abs = path.isAbsolute(candidate) ? candidate : path.join(__dirname, candidate)
     if (fs.existsSync(abs)) return abs
   }
   return null
@@ -53,9 +51,7 @@ module.exports = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: 'cl.tenda.app',
-    ...(googleServicesPlist
-      ? { googleServicesFile: googleServicesPlist }
-      : {}),
+    ...(googleServicesPlist ? { googleServicesFile: googleServicesPlist } : {}),
   },
   android: {
     package: 'cl.tenda.app',
@@ -67,9 +63,7 @@ module.exports = {
       monochromeImage: './assets/android-icon-monochrome.png',
       backgroundColor: '#ffffff',
     },
-    ...(googleServicesJson
-      ? { googleServicesFile: googleServicesJson }
-      : {}),
+    ...(googleServicesJson ? { googleServicesFile: googleServicesJson } : {}),
   },
   web: {
     bundler: 'metro',

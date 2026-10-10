@@ -8,7 +8,7 @@ IP: los secrets viven en el Environment `production` de GitHub.
 | Puerto    | Quién    | Notas                                                |
 | --------- | -------- | ---------------------------------------------------- |
 | `22/tcp`  | Operador | Idealmente restringido a tu IP (`OPERATOR_SSH_CIDR`) |
-| `80/tcp`  | Público   | ACME (Let's Encrypt) + redirect a HTTPS              |
+| `80/tcp`  | Público  | ACME (Let's Encrypt) + redirect a HTTPS              |
 | `443/tcp` | Público  | TLS en origen (nginx + Let's Encrypt)                |
 
 Postgres (`5432`), Redis (`6379`), backend (`8000`) y Celery **no** publican
@@ -42,16 +42,16 @@ Luego:
 3. Crear `data/web-dist` (el script ya lo hace) y `secrets/backup-age.key` si aplica.
 4. En GitHub → Settings → Environments → **production**:
 
-   | Tipo       | Nombre                    | Valor                                                                  |
-   | ---------- | ------------------------- | ---------------------------------------------------------------------- |
-   | secret     | `DEPLOY_SSH_PRIVATE_KEY`  | clave ed25519 del deploy                                               |
-   | secret     | `DEPLOY_KNOWN_HOSTS`      | salida de `ssh-keyscan`                                                |
-   | secret     | `DEPLOY_HOST`             | IP o hostname del VPS                                                  |
-   | secret     | `DEPLOY_USER`             | `deploy`                                                               |
-   | secret     | `DEPLOY_PATH`             | `/opt/tenda/app`                                                       |
+   | Tipo       | Nombre                    | Valor                                                                    |
+   | ---------- | ------------------------- | ------------------------------------------------------------------------ |
+   | secret     | `DEPLOY_SSH_PRIVATE_KEY`  | clave ed25519 del deploy                                                 |
+   | secret     | `DEPLOY_KNOWN_HOSTS`      | salida de `ssh-keyscan`                                                  |
+   | secret     | `DEPLOY_HOST`             | IP o hostname del VPS                                                    |
+   | secret     | `DEPLOY_USER`             | `deploy`                                                                 |
+   | secret     | `DEPLOY_PATH`             | `/opt/tenda/app`                                                         |
    | var        | `TENDA_READY_URL`         | `http://127.0.0.1/health/ready/` (probe local por :80; HTTPS es público) |
-   | var (repo) | `VITE_TURNSTILE_SITE_KEY` | site key pública                                                       |
-   | var (repo) | `VITE_GA_MEASUREMENT_ID`  | opcional                                                               |
+   | var (repo) | `VITE_TURNSTILE_SITE_KEY` | site key pública                                                         |
+   | var (repo) | `VITE_GA_MEASUREMENT_ID`  | opcional                                                                 |
 
 5. DNS: A/AAAA `tenda-app.com` (y opcional `www`) → IP del VPS (GoDaddy u otro).
 6. En `.env`: `TLS_DOMAIN`, `TLS_SERVER_NAMES`, `TLS_CERTBOT_EMAIL`.
