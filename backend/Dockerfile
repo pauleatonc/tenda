@@ -23,6 +23,8 @@ RUN uv sync --frozen --no-dev --no-install-project \
 
 COPY backend/ ./
 RUN mkdir -p /app/staticfiles \
+    && DJANGO_SETTINGS_MODULE=tenda.settings.local \
+       uv run --no-sync python manage.py collectstatic --noinput \
     && chown -R tenda:tenda /app
 
 USER tenda
