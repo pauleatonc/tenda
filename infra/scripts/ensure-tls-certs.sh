@@ -10,8 +10,14 @@ if [[ -f "${env_file}" ]]; then
   while IFS= read -r line; do
     case "${line}" in
       TLS_DOMAIN=*) TLS_DOMAIN="${line#TLS_DOMAIN=}" ;;
+<<<<<<< HEAD
     esac
   done < <(grep -E '^TLS_DOMAIN=' "${env_file}" || true)
+=======
+      TLS_SERVER_NAMES=*) TLS_SERVER_NAMES="${line#TLS_SERVER_NAMES=}" ;;
+    esac
+  done < <(grep -E '^(TLS_DOMAIN|TLS_SERVER_NAMES)=' "${env_file}" || true)
+>>>>>>> ec30f2d7877f7955d206329717aa469362061305
 fi
 
 domain="${TLS_DOMAIN:?Set TLS_DOMAIN in .env (e.g. tenda-app.com)}"
