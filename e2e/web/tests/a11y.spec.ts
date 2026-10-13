@@ -49,9 +49,7 @@ test('axe WCAG en landing, login, inventario y el anuncio del agente', async ({
   await expect(
     page.getByRole('link', { name: 'Perfil y negocio', exact: true }),
   ).toBeVisible()
-  await expect(
-    page.getByRole('link', { name: /^Plan y facturación/ }),
-  ).toBeVisible()
+  await expect(page.getByRole('link', { name: /^Plan y facturación/ })).toBeVisible()
   await expect(page.getByText('Próximamente')).toBeVisible()
   await expectNoSeriousAxeViolations(page)
 })
