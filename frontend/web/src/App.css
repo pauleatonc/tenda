@@ -815,6 +815,8 @@
 
 .checkbox-field {
   align-items: start;
+  margin-top: 20px;
+  margin-bottom: 20px;
   color: var(--ink-soft);
   cursor: pointer;
   display: grid;
