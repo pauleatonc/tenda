@@ -1,19 +1,25 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { applyConsent, getStoredConsent, isAnalyticsConfigured } from './client'
 
 export function AnalyticsConsentBanner() {
-  const [visible, setVisible] = useState(() => {
-    if (!isAnalyticsConfigured()) return false
-    return getStoredConsent() === null
-  })
+  const [visible, setVisible] = useState(false)
 
-  if (!visible) return null
+  useEffect(() => {
+    if (!isAnalyticsConfigured()) return
+    if (getStoredConsent() !== null) return
+    setVisible(true)
+  }, [])
 
-  return (
+  if (!visible || typeof document === 'undefined') return null
+
+  return createPortal(
     <div
       className="analytics-consent"
       role="dialog"
-      aria-label="Preferencias de analítica"
+      aria-modal="false"
+      aria-label="Preferencias de analítica de Tenda"
+      data-tenda-analytics-consent="1"
     >
       <p>
         Usamos Google Analytics para entender cómo se usa Tenda y mejorar el producto. No
@@ -23,24 +29,27 @@ export function AnalyticsConsentBanner() {
         <button
           type="button"
           className="button button--ghost"
+          data-tenda-analytics-choice="deny"
           onClick={() => {
             applyConsent({ analytics: false, adStorage: false })
             setVisible(false)
           }}
         >
-          Rechazar
+          Continuar sin analítica
         </button>
         <button
           type="button"
           className="button button--primary"
+          data-tenda-analytics-choice="allow"
           onClick={() => {
             applyConsent({ analytics: true, adStorage: false })
             setVisible(false)
           }}
         >
-          Aceptar
+          Permitir analítica
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

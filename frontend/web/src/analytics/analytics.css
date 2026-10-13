@@ -4,7 +4,7 @@
   border: 1px solid var(--line, #d9d4c8);
   border-radius: 16px;
   bottom: 16px;
-  box-shadow: 0 12px 32px rgb(23 40 34 / 12%);
+  box-shadow: 0 12px 32px rgb(23 40 34 / 18%);
   display: grid;
   gap: 14px;
   left: 16px;
@@ -12,7 +12,8 @@
   padding: 16px 18px;
   position: fixed;
   right: 16px;
-  z-index: 1200;
+  /* Above app chrome, modals-lite, and common cookie auto-dismiss overlays. */
+  z-index: 2147483000;
 }
 
 .analytics-consent p {
