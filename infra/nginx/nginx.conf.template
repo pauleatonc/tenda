@@ -67,12 +67,7 @@ http {
         add_header Content-Security-Policy "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' https://fonts.googleapis.com; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://challenges.cloudflare.com https://*.sentry.io; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'" always;
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
-<<<<<<< HEAD
-        # Proxy Django (trailing slash optional so /admin is not swallowed by the SPA).
-        location ~ ^/(api|graphql|health|admin|control-[A-Za-z0-9_-]+)(/|$) {
-=======
         location ~ ^/(api|graphql|health|admin|control-[A-Za-z0-9_-]+)/ {
->>>>>>> ec30f2d7877f7955d206329717aa469362061305
             set $backend_upstream backend:8000;
             proxy_set_header Host $host;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
