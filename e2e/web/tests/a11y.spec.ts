@@ -44,8 +44,14 @@ test('axe WCAG en landing, login, inventario y el anuncio del agente', async ({
   await expectNoSeriousAxeViolations(page)
 
   await page.getByRole('link', { name: 'Más', exact: true }).click()
-  await expect(page.getByRole('link', { name: /Perfil y negocio/ })).toBeVisible()
-  await expect(page.getByRole('link', { name: /Plan y facturación/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Más', exact: true })).toBeVisible()
+  // Sidebar also has aria-label "Perfil y negocio"; the Más list link includes the email.
+  await expect(
+    page.getByRole('link', { name: 'Perfil y negocio', exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole('link', { name: /^Plan y facturación/ }),
+  ).toBeVisible()
   await expect(page.getByText('Próximamente')).toBeVisible()
   await expectNoSeriousAxeViolations(page)
 })
