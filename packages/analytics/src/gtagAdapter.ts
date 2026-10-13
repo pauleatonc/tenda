@@ -88,8 +88,15 @@ export function initGtag(measurementId: string): void {
   if (document.getElementById('tenda-ga4')) return
 
   window.dataLayer = window.dataLayer ?? []
-  window.gtag = function gtag(...args: unknown[]) {
-    window.dataLayer?.push(args)
+  // gtag.js drains dataLayer entries as Arguments objects (official snippet).
+  // Pushing a rest-parameter Array is ignored, so config/consent never apply.
+  window.gtag = function gtag(
+    _command: string,
+    _targetOrAction?: string | Date | Record<string, unknown>,
+    _params?: Record<string, unknown>,
+  ) {
+    // eslint-disable-next-line prefer-rest-params
+    window.dataLayer?.push(arguments)
   }
 
   window.gtag('consent', 'default', {

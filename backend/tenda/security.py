@@ -14,7 +14,11 @@ class SecurityHeadersMiddleware:
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
         response = self.get_response(request)
-        script_sources = ["'self'", "https://challenges.cloudflare.com"]
+        script_sources = [
+            "'self'",
+            "https://challenges.cloudflare.com",
+            "https://www.googletagmanager.com",
+        ]
         style_sources = ["'self'"]
         if settings.DEBUG and request.path == "/graphql/":
             script_sources.extend(["'unsafe-inline'", "'unsafe-eval'", "https://cdn.jsdelivr.net"])
@@ -26,9 +30,11 @@ class SecurityHeadersMiddleware:
                     "default-src 'self'",
                     f"script-src {' '.join(script_sources)}",
                     f"style-src {' '.join(style_sources)}",
-                    "img-src 'self' data: blob:",
+                    "img-src 'self' data: blob: https://*.google-analytics.com https://*.googletagmanager.com",
                     "font-src 'self' data:",
-                    "connect-src 'self' https://api.brevo.com https://api.mercadopago.com",
+                    "connect-src 'self' https://api.brevo.com https://api.mercadopago.com"
+                    " https://*.google-analytics.com https://*.analytics.google.com"
+                    " https://*.googletagmanager.com",
                     "frame-src https://challenges.cloudflare.com",
                     "object-src 'none'",
                     "base-uri 'self'",
