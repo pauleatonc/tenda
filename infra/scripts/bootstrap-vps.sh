@@ -55,9 +55,8 @@ else
   ufw allow OpenSSH
   log "WARN: OPERATOR_SSH_CIDR unset; SSH open to world (key-only still required)."
 fi
-ufw allow 80/tcp comment 'http-cloudflare-origin'
-# Prefer tightening 80 to Cloudflare IPs after DNS is live:
-#   https://www.cloudflare.com/ips/
+ufw allow 80/tcp comment 'http-acme-and-redirect'
+ufw allow 443/tcp comment 'https-origin'
 ufw --force enable
 ufw status verbose
 
@@ -67,7 +66,7 @@ log "Next:"
 log "  1. sudo -u ${DEPLOY_USER} -H docker login ghcr.io"
 log "  2. cp ${DEPLOY_PATH}/.env.production.example ${DEPLOY_PATH}/.env  # fill secrets"
 log "  3. Configure GitHub Environment 'production' secrets/vars (DEPLOY_*, TENDA_READY_URL)"
-log "  4. DNS A/AAAA tenda-app.com → this host; Cloudflare proxy ON; SSL Full"
-log "  5. Trigger Deploy workflow_dispatch or push to main"
-log "Verify public listeners: ss -tlnp | grep -E ':22|:80'"
+log "  4. DNS A/AAAA tenda-app.com → this host"
+log "  5. Trigger Deploy, then run ${DEPLOY_PATH}/infra/scripts/issue-letsencrypt.sh"
+log "Verify public listeners: ss -tlnp | grep -E ':22|:80|:443'"
 log "Memory budget (8 GB): see docs/runbooks/vps-bootstrap.md"

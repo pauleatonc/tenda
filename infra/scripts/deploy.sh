@@ -88,6 +88,8 @@ export TENDA_BACKEND_IMAGE="${new_backend}"
 export TENDA_BACKUP_IMAGE="${new_backup}"
 export TENDA_WEB_DIST_PATH="${web_dist_dir}"
 
+"${root}/infra/scripts/ensure-tls-certs.sh"
+
 "${compose[@]}" config --quiet
 "${compose[@]}" pull backend celery_worker celery_beat backup
 
