@@ -15,8 +15,8 @@ jobs:
 
     services:
       postgres:
-        # Public ECR mirror avoids Docker Hub anonymous pull rate limits on GHA.
-        image: public.ecr.aws/docker/library/postgres:17.5-bookworm
+        # GCR library mirror: Hub and public.ecr.aws both rate-limit GHA runners.
+        image: mirror.gcr.io/library/postgres:17.5-bookworm
         env:
           POSTGRES_DB: tenda_test
           POSTGRES_USER: tenda
@@ -29,7 +29,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
       redis:
-        image: public.ecr.aws/docker/library/redis:7.4.5-alpine
+        image: mirror.gcr.io/library/redis:7.4.5-alpine
         ports:
           - 6379:6379
         options: >-
@@ -154,7 +154,7 @@ jobs:
 
     services:
       postgres:
-        image: public.ecr.aws/docker/library/postgres:17.5-bookworm
+        image: mirror.gcr.io/library/postgres:17.5-bookworm
         env:
           POSTGRES_DB: tenda_test
           POSTGRES_USER: tenda
@@ -167,7 +167,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
       redis:
-        image: public.ecr.aws/docker/library/redis:7.4.5-alpine
+        image: mirror.gcr.io/library/redis:7.4.5-alpine
         ports:
           - 6379:6379
         options: >-
