@@ -1,6 +1,7 @@
 FROM ghcr.io/astral-sh/uv:0.11.29 AS uv
 
-FROM public.ecr.aws/docker/library/python:3.12.12-slim-bookworm AS runtime
+# GCR library mirror avoids Hub / public.ecr.aws rate limits on GHA.
+FROM mirror.gcr.io/library/python:3.12.12-slim-bookworm AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
