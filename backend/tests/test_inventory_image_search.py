@@ -13,7 +13,9 @@ from apps.billing.models import OrganisationSubscription, Plan
 from apps.inventory.custom_fields import validate_extra_attributes
 from apps.inventory.image_search import (
     FakeImageSearchProvider,
+    GeminiImageSearchProvider,
     NvidiaImageSearchProvider,
+    OpenAIImageSearchProvider,
     ProductImageCandidate,
     _best_image_from_html,
     _localize_search_queries,
@@ -464,6 +466,373 @@ def test_nvidia_without_key_is_a_configuration_error(monkeypatch: pytest.MonkeyP
             idempotency_key="suggest-nvidia",
         )
     assert missing.value.code == "PRODUCT_IMAGE_SEARCH_NOT_CONFIGURED"
+
+
+def test_openai_without_key_is_a_configuration_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_object_storage.clear()
+    _user, context = identity("owner-openai@example.com", paid=True)
+    asset = uploaded_product_image(context)
+    monkeypatch.setattr("django.conf.settings.PRODUCT_IMAGE_SEARCH_PROVIDER", "openai")
+    monkeypatch.setattr("django.conf.settings.OPENAI_API_KEY", "")
+    with pytest.raises(DomainError) as missing:
+        suggest_products_from_image(
+            context=context,
+            asset_id=asset.public_id,
+            idempotency_key="suggest-openai",
+        )
+    assert missing.value.code == "PRODUCT_IMAGE_SEARCH_NOT_CONFIGURED"
+
+
+def test_openai_suggest_uses_chat_completions_http(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _user, context = identity("owner-openai-http@example.com")
+    calls: list[dict[str, object]] = []
+
+    class FakeResponse:
+        def __init__(self, payload: dict[str, object]) -> None:
+            self._payload = payload
+            self.status_code = 200
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return self._payload
+
+    def fake_post(url: str, **kwargs: object) -> FakeResponse:
+        body = kwargs.get("json")
+        assert isinstance(body, dict)
+        calls.append({"url": url, "json": body, "headers": kwargs.get("headers")})
+        messages = body["messages"]
+        assert isinstance(messages, list)
+        first_content = messages[0]["content"]  # type: ignore[index]
+        if isinstance(first_content, list):
+            text = '{"summary":"vela de soja","queries":["vela soja aromatica"]}'
+        else:
+            text = json.dumps(
+                {
+                    "candidates": [
+                        {
+                            "name": "Vela soja lavanda",
+                            "salePrice": 7990,
+                            "purchasePrice": None,
+                            "extraAttributes": {},
+                            "sourceUrl": "https://www.falabella.com/vela",
+                            "imageUrl": "https://cdn.falabella.com/vela.jpg",
+                            "confidence": 0.9,
+                        },
+                        {
+                            "name": "Vela aromática 200g",
+                            "salePrice": 5990,
+                            "purchasePrice": None,
+                            "extraAttributes": {},
+                            "sourceUrl": "https://www.paris.cl/vela",
+                            "imageUrl": "",
+                            "confidence": 0.7,
+                        },
+                        {
+                            "name": "Set velas soja",
+                            "salePrice": 12990,
+                            "purchasePrice": None,
+                            "extraAttributes": {},
+                            "sourceUrl": "https://www.mercadolibre.cl/set-velas",
+                            "imageUrl": "https://http2.mlstatic.com/set.jpg",
+                            "confidence": 0.6,
+                        },
+                    ]
+                }
+            )
+        return FakeResponse(
+            {
+                "choices": [
+                    {"message": {"content": text}, "finish_reason": "stop"},
+                ]
+            }
+        )
+
+    monkeypatch.setattr("django.conf.settings.OPENAI_API_KEY", "test-openai-key")
+    monkeypatch.setattr("django.conf.settings.OPENAI_MODEL", "gpt-4o-mini")
+    monkeypatch.setattr("apps.inventory.image_search.httpx.post", fake_post)
+    monkeypatch.setattr(
+        "apps.inventory.image_search.search_web",
+        lambda _queries: [
+            {
+                "title": "Vela soja lavanda",
+                "url": "https://www.falabella.com/vela",
+                "snippet": "Vela",
+                "image": "https://cdn.falabella.com/vela.jpg",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "apps.inventory.image_search.page_image_url",
+        lambda url, query="": url if url.endswith(".jpg") else "",
+    )
+
+    suggested = OpenAIImageSearchProvider().suggest(
+        image_bytes=rgb_image_bytes(),
+        content_type="image/png",
+        schema=list(active_custom_fields(context)),
+    )
+
+    assert len(calls) == 2
+    assert calls[0]["url"] == "https://api.openai.com/v1/chat/completions"
+    assert calls[0]["headers"]["Authorization"] == "Bearer test-openai-key"  # type: ignore[index]
+    assert calls[0]["json"]["model"] == "gpt-4o-mini"  # type: ignore[index]
+    assert calls[0]["json"]["response_format"] == {"type": "json_object"}  # type: ignore[index]
+    assert [item.name for item in suggested] == [
+        "Vela soja lavanda",
+        "Vela aromática 200g",
+        "Set velas soja",
+    ]
+    assert suggested[0].sale_price == 7990
+
+
+def test_openai_extract_timeout_falls_back_to_search_hits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _user, context = identity("owner-openai-fallback@example.com")
+
+    def chat(
+        self,
+        api_key: str,
+        messages: list[dict[str, object]],
+        *,
+        timeout: float,
+        step: str,
+    ) -> str:
+        if step == "describe":
+            return '{"summary":"bolso denim","queries":["bolso denim"]}'
+        raise DomainError(
+            "PRODUCT_IMAGE_SEARCH_FAILED",
+            "timeout",
+            status=503,
+            retryable=True,
+        )
+
+    monkeypatch.setattr("django.conf.settings.OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(OpenAIImageSearchProvider, "_chat", chat)
+    monkeypatch.setattr(
+        "apps.inventory.image_search.search_web",
+        lambda _queries: [
+            {
+                "title": "Bolso denim ML",
+                "url": "https://www.mercadolibre.cl/bolso",
+                "snippet": "Bolso de mezclilla",
+                "image": "https://http2.mlstatic.com/bolso.jpg",
+            },
+            {
+                "title": "Tote azul Falabella",
+                "url": "https://www.falabella.com/tote",
+                "snippet": "Tote",
+                "image": "",
+            },
+            {
+                "title": "Mochila denim Paris",
+                "url": "https://www.paris.cl/mochila",
+                "snippet": "Mochila",
+                "image": "https://cdn.paris.cl/mochila.jpg",
+            },
+        ],
+    )
+    monkeypatch.setattr(
+        "apps.inventory.image_search.page_image_url",
+        lambda url, query="": url if url.endswith(".jpg") else "",
+    )
+    suggested = OpenAIImageSearchProvider().suggest(
+        image_bytes=rgb_image_bytes(),
+        content_type="image/png",
+        schema=list(active_custom_fields(context)),
+    )
+    assert [item.name for item in suggested] == [
+        "Bolso denim ML",
+        "Tote azul Falabella",
+        "Mochila denim Paris",
+    ]
+
+
+def test_gemini_without_key_is_a_configuration_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_object_storage.clear()
+    _user, context = identity("owner-gemini@example.com", paid=True)
+    asset = uploaded_product_image(context)
+    monkeypatch.setattr("django.conf.settings.PRODUCT_IMAGE_SEARCH_PROVIDER", "gemini")
+    monkeypatch.setattr("django.conf.settings.GEMINI_API_KEY", "")
+    with pytest.raises(DomainError) as missing:
+        suggest_products_from_image(
+            context=context,
+            asset_id=asset.public_id,
+            idempotency_key="suggest-gemini",
+        )
+    assert missing.value.code == "PRODUCT_IMAGE_SEARCH_NOT_CONFIGURED"
+
+
+def test_gemini_suggest_uses_generate_content_http(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _user, context = identity("owner-gemini-http@example.com")
+    calls: list[dict[str, object]] = []
+
+    class FakeResponse:
+        def __init__(self, payload: dict[str, object]) -> None:
+            self._payload = payload
+            self.status_code = 200
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, object]:
+            return self._payload
+
+    def fake_post(url: str, **kwargs: object) -> FakeResponse:
+        body = kwargs.get("json")
+        assert isinstance(body, dict)
+        calls.append({"url": url, "json": body, "headers": kwargs.get("headers")})
+        parts = body["contents"][0]["parts"]  # type: ignore[index]
+        if any(isinstance(part, dict) and "inlineData" in part for part in parts):
+            text = '{"summary":"vela de soja","queries":["vela soja aromatica"]}'
+        else:
+            text = json.dumps(
+                {
+                    "candidates": [
+                        {
+                            "name": "Vela soja lavanda",
+                            "salePrice": 7990,
+                            "purchasePrice": None,
+                            "extraAttributes": {},
+                            "sourceUrl": "https://www.falabella.com/vela",
+                            "imageUrl": "https://cdn.falabella.com/vela.jpg",
+                            "confidence": 0.9,
+                        },
+                        {
+                            "name": "Vela aromática 200g",
+                            "salePrice": 5990,
+                            "purchasePrice": None,
+                            "extraAttributes": {},
+                            "sourceUrl": "https://www.paris.cl/vela",
+                            "imageUrl": "",
+                            "confidence": 0.7,
+                        },
+                        {
+                            "name": "Set velas soja",
+                            "salePrice": 12990,
+                            "purchasePrice": None,
+                            "extraAttributes": {},
+                            "sourceUrl": "https://www.mercadolibre.cl/set-velas",
+                            "imageUrl": "https://http2.mlstatic.com/set.jpg",
+                            "confidence": 0.6,
+                        },
+                    ]
+                }
+            )
+        return FakeResponse(
+            {
+                "candidates": [
+                    {"content": {"parts": [{"text": text}]}},
+                ]
+            }
+        )
+
+    monkeypatch.setattr("django.conf.settings.GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setattr("django.conf.settings.GEMINI_MODEL", "gemini-2.5-flash-lite")
+    monkeypatch.setattr("apps.inventory.image_search.httpx.post", fake_post)
+    monkeypatch.setattr(
+        "apps.inventory.image_search.search_web",
+        lambda _queries: [
+            {
+                "title": "Vela soja lavanda",
+                "url": "https://www.falabella.com/vela",
+                "snippet": "Vela",
+                "image": "https://cdn.falabella.com/vela.jpg",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        "apps.inventory.image_search.page_image_url",
+        lambda url, query="": url if url.endswith(".jpg") else "",
+    )
+
+    suggested = GeminiImageSearchProvider().suggest(
+        image_bytes=rgb_image_bytes(),
+        content_type="image/png",
+        schema=list(active_custom_fields(context)),
+    )
+
+    assert len(calls) == 2
+    assert "gemini-2.5-flash-lite:generateContent" in str(calls[0]["url"])
+    assert calls[0]["headers"]["x-goog-api-key"] == "test-gemini-key"  # type: ignore[index]
+    assert calls[0]["json"]["generationConfig"]["responseMimeType"] == "application/json"  # type: ignore[index]
+    assert any("inlineData" in part for part in calls[0]["json"]["contents"][0]["parts"])  # type: ignore[index]
+    assert [item.name for item in suggested] == [
+        "Vela soja lavanda",
+        "Vela aromática 200g",
+        "Set velas soja",
+    ]
+    assert suggested[0].sale_price == 7990
+    assert suggested[0].image_url == "https://cdn.falabella.com/vela.jpg"
+
+
+def test_gemini_extract_timeout_falls_back_to_search_hits(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _user, context = identity("owner-gemini-fallback@example.com")
+
+    def generate(
+        self,
+        api_key: str,
+        parts: list[dict[str, object]],
+        *,
+        timeout: float,
+        step: str,
+    ) -> str:
+        if step == "describe":
+            return '{"summary":"bolso denim","queries":["bolso denim"]}'
+        raise DomainError(
+            "PRODUCT_IMAGE_SEARCH_FAILED",
+            "timeout",
+            status=503,
+            retryable=True,
+        )
+
+    monkeypatch.setattr("django.conf.settings.GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr(GeminiImageSearchProvider, "_generate", generate)
+    monkeypatch.setattr(
+        "apps.inventory.image_search.search_web",
+        lambda _queries: [
+            {
+                "title": "Bolso denim ML",
+                "url": "https://www.mercadolibre.cl/bolso",
+                "snippet": "Bolso de mezclilla",
+                "image": "https://http2.mlstatic.com/bolso.jpg",
+            },
+            {
+                "title": "Tote azul Falabella",
+                "url": "https://www.falabella.com/tote",
+                "snippet": "Tote",
+                "image": "",
+            },
+            {
+                "title": "Mochila denim Paris",
+                "url": "https://www.paris.cl/mochila",
+                "snippet": "Mochila",
+                "image": "https://cdn.paris.cl/mochila.jpg",
+            },
+        ],
+    )
+    monkeypatch.setattr(
+        "apps.inventory.image_search.page_image_url",
+        lambda url, query="": url if url.endswith(".jpg") else "",
+    )
+    suggested = GeminiImageSearchProvider().suggest(
+        image_bytes=rgb_image_bytes(),
+        content_type="image/png",
+        schema=list(active_custom_fields(context)),
+    )
+    assert [item.name for item in suggested] == [
+        "Bolso denim ML",
+        "Tote azul Falabella",
+        "Mochila denim Paris",
+    ]
 
 
 def test_graphql_suggests_candidates_from_a_ready_photo() -> None:

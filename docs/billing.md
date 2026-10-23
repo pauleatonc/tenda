@@ -60,3 +60,16 @@ El webhook de ventas (`/api/v1/webhooks/mercado-pago`) no procesa suscripciones 
 - Mobile: Más → Plan y facturación (`/mas/plan`)
 - Registro (web/mobile): el usuario elige plan; `planCode` se envía a `/api/v1/auth/register` y queda como intención `OrganisationSubscription` pending. Tras verificar el correo, si el plan no es free se abre el checkout MP.
 - Chooser de alta de producto oculta/bloquea asistida en Free y avisa al chocar el cupo.
+
+## Creación asistida (foto → candidatos)
+
+Pipeline en `apps.inventory.image_search`: visión → búsqueda web → extracción JSON.
+
+| Variable | Notas |
+| -------- | ----- |
+| `PRODUCT_IMAGE_SEARCH_PROVIDER` | `fake` (default) \| `openai` \| `gemini` \| `nvidia` |
+| `OPENAI_API_KEY` / `OPENAI_MODEL` | Recomendado si ya tenés cuenta OpenAI: `gpt-4o-mini` |
+| `GEMINI_API_KEY` / `GEMINI_MODEL` | Alternativa barata: `gemini-2.5-flash-lite` |
+| `BRAVE_SEARCH_API_KEY` | Opcional; si falta, DuckDuckGo HTML |
+
+En producción (OpenAI): `PRODUCT_IMAGE_SEARCH_PROVIDER=openai` + `OPENAI_API_KEY` en el `.env` del VPS; recrear backend.

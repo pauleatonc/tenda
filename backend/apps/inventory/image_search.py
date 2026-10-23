@@ -2,7 +2,7 @@
 
 The seller still creates the product. This module only proposes 3–5 candidates
 mapped to the active schema of that store. The fake provider is deterministic
-for tests; NVIDIA is a VLM plus a separate web search step.
+for tests; openai/gemini/nvidia run a VLM describe step plus web search and text extract.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ import json
 import logging
 import re
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
@@ -46,6 +46,10 @@ EXTRACT_TIMEOUT_SECONDS = 45.0
 PAGE_IMAGE_TIMEOUT_SECONDS = 6.0
 MAX_PAGE_BYTES = 2_100_000
 NVIDIA_CHAT_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
+OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
+GEMINI_GENERATE_URL = (
+    "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+)
 BROWSER_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -766,6 +770,130 @@ def _extract_json(text: str) -> Any:
         return None
 
 
+def _suggest_with_vision_and_search(
+    *,
+    describe: Callable[[bytes, str], dict[str, Any]],
+    extract_candidates: Callable[
+        [Mapping[str, Any], Sequence[Mapping[str, str]], Sequence[CustomFieldDefinition]],
+        list[Any],
+    ],
+    image_bytes: bytes,
+    content_type: str,
+    schema: Sequence[CustomFieldDefinition],
+) -> list[ProductImageCandidate]:
+    description = describe(image_bytes, content_type or "image/jpeg")
+    queries = description.get("queries") or []
+    if isinstance(queries, str):
+        queries = [queries]
+    if not queries and description.get("summary"):
+        queries = [str(description["summary"])]
+    queries = _localize_search_queries(queries)
+    logger.info(
+        "image_search described queries=%s",
+        len(queries),
+        extra={"step": "describe", "hits": len(queries)},
+    )
+    hits = search_web(queries)
+    logger.info(
+        "image_search web_hits=%s",
+        len(hits),
+        extra={"step": "web_search", "hits": len(hits)},
+    )
+    extracted = extract_candidates(description, hits, schema)
+    candidates = [
+        built
+        for item in extracted
+        if isinstance(item, Mapping)
+        for built in [_candidate_from_raw(item, schema)]
+        if built is not None
+    ]
+    logger.info(
+        "image_search extracted raw=%s mapped=%s",
+        len(extracted),
+        len(candidates),
+        extra={"step": "extract", "candidates": len(candidates), "hits": len(extracted)},
+    )
+    if not candidates:
+        candidates = _candidates_from_hits(hits, schema)
+        logger.info(
+            "image_search extract_fallback mapped=%s",
+            len(candidates),
+            extra={
+                "step": "extract_fallback",
+                "candidates": len(candidates),
+                "hits": len(hits),
+            },
+        )
+    if not candidates:
+        raise DomainError(
+            "PRODUCT_IMAGE_SEARCH_EMPTY",
+            "No encontramos productos similares. Completa la ficha a mano.",
+            status=422,
+        )
+    return attach_candidate_images(candidates[:MAX_CANDIDATES], hits)
+
+
+def _describe_prompt() -> str:
+    return (
+        "Describe el producto de la foto para buscarlo en internet. "
+        "Responde SOLO JSON: "
+        '{"summary":"...", "queries":["query en español","query en inglés"]} '
+        "Máximo 3 queries cortas, concretas (tipo de producto, marca si se ve, material)."
+    )
+
+
+def _extract_prompt(
+    description: Mapping[str, Any],
+    hits: Sequence[Mapping[str, str]],
+    schema: Sequence[CustomFieldDefinition],
+) -> str:
+    results = (
+        "\n".join(
+            f"- {item.get('title', '')} | {item.get('url', '')} | {item.get('snippet', '')}"
+            for item in list(hits)[:MAX_CANDIDATES]
+        )
+        or "(sin resultados de búsqueda)"
+    )
+    return (
+        "A partir de la descripción de una foto y resultados de internet, "
+        "propón entre 3 y 5 productos candidatos para un inventario chileno.\n"
+        "Responde SOLO JSON: "
+        '{"candidates":[{"name":"","salePrice":null,"purchasePrice":null,'
+        '"extraAttributes":{},"sourceUrl":"","imageUrl":"","confidence":0.0}]}\n'
+        "salePrice y purchasePrice son enteros CLP o null. No inventes precios sin evidencia.\n"
+        "sourceUrl e imageUrl salen de los resultados. No copies la foto del vendedor.\n"
+        f"{_schema_prompt(schema)}\n\n"
+        f"Descripción: {json.dumps(description, ensure_ascii=False)}\n"
+        f"Resultados:\n{results}"
+    )
+
+
+def _parse_description_content(content: str) -> dict[str, Any]:
+    parsed = _extract_json(content)
+    if isinstance(parsed, Mapping):
+        return dict(parsed)
+    logger.warning(
+        "image_search describe_unparsed preview=%s",
+        content.strip()[:160],
+        extra={"step": "describe", "error": "unparsed_json"},
+    )
+    return {"summary": content.strip()[:400], "queries": [content.strip()[:80]]}
+
+
+def _parse_extract_content(content: str) -> list[Any]:
+    parsed = _extract_json(content)
+    if isinstance(parsed, Mapping) and isinstance(parsed.get("candidates"), list):
+        return list(parsed["candidates"])
+    if isinstance(parsed, list):
+        return parsed
+    logger.warning(
+        "image_search extract_unparsed preview=%s",
+        content.strip()[:160],
+        extra={"step": "extract", "error": "unparsed_json", "candidates": 0},
+    )
+    return []
+
+
 class NvidiaImageSearchProvider:
     def suggest(
         self,
@@ -781,56 +909,15 @@ class NvidiaImageSearchProvider:
                 "La búsqueda por imagen no está configurada.",
                 status=503,
             )
-        description = self._describe(image_bytes, content_type or "image/jpeg", api_key)
-        queries = description.get("queries") or []
-        if isinstance(queries, str):
-            queries = [queries]
-        if not queries and description.get("summary"):
-            queries = [str(description["summary"])]
-        queries = _localize_search_queries(queries)
-        logger.info(
-            "image_search described queries=%s",
-            len(queries),
-            extra={"step": "describe", "hits": len(queries)},
+        return _suggest_with_vision_and_search(
+            describe=lambda data, mime: self._describe(data, mime, api_key),
+            extract_candidates=lambda description, hits, fields: self._extract_candidates(
+                description, hits, fields, api_key
+            ),
+            image_bytes=image_bytes,
+            content_type=content_type,
+            schema=schema,
         )
-        hits = search_web(queries)
-        logger.info(
-            "image_search web_hits=%s",
-            len(hits),
-            extra={"step": "web_search", "hits": len(hits)},
-        )
-        extracted = self._extract_candidates(description, hits, schema, api_key)
-        candidates = [
-            built
-            for item in extracted
-            if isinstance(item, Mapping)
-            for built in [_candidate_from_raw(item, schema)]
-            if built is not None
-        ]
-        logger.info(
-            "image_search extracted raw=%s mapped=%s",
-            len(extracted),
-            len(candidates),
-            extra={"step": "extract", "candidates": len(candidates), "hits": len(extracted)},
-        )
-        if not candidates:
-            candidates = _candidates_from_hits(hits, schema)
-            logger.info(
-                "image_search extract_fallback mapped=%s",
-                len(candidates),
-                extra={
-                    "step": "extract_fallback",
-                    "candidates": len(candidates),
-                    "hits": len(hits),
-                },
-            )
-        if not candidates:
-            raise DomainError(
-                "PRODUCT_IMAGE_SEARCH_EMPTY",
-                "No encontramos productos similares. Completa la ficha a mano.",
-                status=422,
-            )
-        return attach_candidate_images(candidates[:MAX_CANDIDATES], hits)
 
     def _chat(
         self,
@@ -894,19 +981,13 @@ class NvidiaImageSearchProvider:
 
     def _describe(self, image_bytes: bytes, content_type: str, api_key: str) -> dict[str, Any]:
         encoded = base64.b64encode(image_bytes).decode("ascii")
-        prompt = (
-            "Describe el producto de la foto para buscarlo en internet. "
-            "Responde SOLO JSON: "
-            '{"summary":"...", "queries":["query en español","query en inglés"]} '
-            "Máximo 3 queries cortas, concretas (tipo de producto, marca si se ve, material)."
-        )
         content = self._chat(
             api_key,
             [
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": prompt},
+                        {"type": "text", "text": _describe_prompt()},
                         {
                             "type": "image_url",
                             "image_url": {"url": f"data:{content_type};base64,{encoded}"},
@@ -917,15 +998,7 @@ class NvidiaImageSearchProvider:
             timeout=VISION_TIMEOUT_SECONDS,
             step="describe",
         )
-        parsed = _extract_json(content)
-        if isinstance(parsed, Mapping):
-            return dict(parsed)
-        logger.warning(
-            "image_search describe_unparsed preview=%s",
-            content.strip()[:160],
-            extra={"step": "describe", "error": "unparsed_json"},
-        )
-        return {"summary": content.strip()[:400], "queries": [content.strip()[:80]]}
+        return _parse_description_content(content)
 
     def _extract_candidates(
         self,
@@ -934,45 +1007,266 @@ class NvidiaImageSearchProvider:
         schema: Sequence[CustomFieldDefinition],
         api_key: str,
     ) -> list[Any]:
-        results = (
-            "\n".join(
-                f"- {item.get('title', '')} | {item.get('url', '')} | {item.get('snippet', '')}"
-                for item in list(hits)[:MAX_CANDIDATES]
-            )
-            or "(sin resultados de búsqueda)"
-        )
-        prompt = (
-            "A partir de la descripción de una foto y resultados de internet, "
-            "propón entre 3 y 5 productos candidatos para un inventario chileno.\n"
-            "Responde SOLO JSON: "
-            '{"candidates":[{"name":"","salePrice":null,"purchasePrice":null,'
-            '"extraAttributes":{},"sourceUrl":"","imageUrl":"","confidence":0.0}]}\n'
-            "salePrice y purchasePrice son enteros CLP o null. No inventes precios sin evidencia.\n"
-            "sourceUrl e imageUrl salen de los resultados. No copies la foto del vendedor.\n"
-            f"{_schema_prompt(schema)}\n\n"
-            f"Descripción: {json.dumps(description, ensure_ascii=False)}\n"
-            f"Resultados:\n{results}"
-        )
         try:
             content = self._chat(
                 api_key,
-                [{"role": "user", "content": prompt}],
+                [{"role": "user", "content": _extract_prompt(description, hits, schema)}],
                 timeout=EXTRACT_TIMEOUT_SECONDS,
                 step="extract",
             )
         except DomainError:
             return []
-        parsed = _extract_json(content)
-        if isinstance(parsed, Mapping) and isinstance(parsed.get("candidates"), list):
-            return list(parsed["candidates"])
-        if isinstance(parsed, list):
-            return parsed
-        logger.warning(
-            "image_search extract_unparsed preview=%s",
-            content.strip()[:160],
-            extra={"step": "extract", "error": "unparsed_json", "candidates": 0},
+        return _parse_extract_content(content)
+
+
+class OpenAIImageSearchProvider:
+    """gpt-4o-mini (default): vision + JSON without the cost of gpt-4o."""
+
+    def suggest(
+        self,
+        *,
+        image_bytes: bytes,
+        content_type: str,
+        schema: Sequence[CustomFieldDefinition],
+    ) -> list[ProductImageCandidate]:
+        api_key = str(getattr(settings, "OPENAI_API_KEY", "") or "").strip()
+        if not api_key:
+            raise DomainError(
+                "PRODUCT_IMAGE_SEARCH_NOT_CONFIGURED",
+                "La búsqueda por imagen no está configurada.",
+                status=503,
+            )
+        return _suggest_with_vision_and_search(
+            describe=lambda data, mime: self._describe(data, mime, api_key),
+            extract_candidates=lambda description, hits, fields: self._extract_candidates(
+                description, hits, fields, api_key
+            ),
+            image_bytes=image_bytes,
+            content_type=content_type,
+            schema=schema,
         )
-        return []
+
+    def _chat(
+        self,
+        api_key: str,
+        messages: list[dict[str, Any]],
+        *,
+        timeout: float,
+        step: str,
+    ) -> str:
+        model = str(getattr(settings, "OPENAI_MODEL", "") or "gpt-4o-mini")
+        try:
+            response = httpx.post(
+                OPENAI_CHAT_URL,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": model,
+                    "messages": messages,
+                    "temperature": 0.2,
+                    "max_tokens": 900,
+                    "response_format": {"type": "json_object"},
+                },
+                timeout=timeout,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            choices = payload.get("choices") if isinstance(payload, Mapping) else None
+            if not isinstance(choices, list) or not choices:
+                raise ValueError(f"openai_empty_choices keys={list(payload)}")
+            message = choices[0].get("message") if isinstance(choices[0], Mapping) else None
+            if not isinstance(message, Mapping):
+                raise ValueError("openai_missing_message")
+            content = message.get("content")
+            if not content:
+                raise ValueError(f"openai_empty_content finish={choices[0].get('finish_reason')}")
+            return str(content)
+        except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
+            status_code = getattr(getattr(exc, "response", None), "status_code", None)
+            logger.warning(
+                "openai_vision_failed step=%s error=%s:%s status=%s",
+                step,
+                type(exc).__name__,
+                exc,
+                status_code,
+                extra={
+                    "step": step,
+                    "error": f"{type(exc).__name__}: {exc}",
+                    "statusCode": status_code,
+                },
+            )
+            raise DomainError(
+                "PRODUCT_IMAGE_SEARCH_FAILED",
+                "No pudimos analizar la foto. Completa la ficha a mano.",
+                status=503,
+                retryable=True,
+            ) from exc
+
+    def _describe(self, image_bytes: bytes, content_type: str, api_key: str) -> dict[str, Any]:
+        encoded = base64.b64encode(image_bytes).decode("ascii")
+        content = self._chat(
+            api_key,
+            [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": _describe_prompt()},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{content_type};base64,{encoded}"},
+                        },
+                    ],
+                }
+            ],
+            timeout=VISION_TIMEOUT_SECONDS,
+            step="describe",
+        )
+        return _parse_description_content(content)
+
+    def _extract_candidates(
+        self,
+        description: Mapping[str, Any],
+        hits: Sequence[Mapping[str, str]],
+        schema: Sequence[CustomFieldDefinition],
+        api_key: str,
+    ) -> list[Any]:
+        try:
+            content = self._chat(
+                api_key,
+                [{"role": "user", "content": _extract_prompt(description, hits, schema)}],
+                timeout=EXTRACT_TIMEOUT_SECONDS,
+                step="extract",
+            )
+        except DomainError:
+            return []
+        return _parse_extract_content(content)
+
+
+class GeminiImageSearchProvider:
+    def suggest(
+        self,
+        *,
+        image_bytes: bytes,
+        content_type: str,
+        schema: Sequence[CustomFieldDefinition],
+    ) -> list[ProductImageCandidate]:
+        api_key = str(getattr(settings, "GEMINI_API_KEY", "") or "").strip()
+        if not api_key:
+            raise DomainError(
+                "PRODUCT_IMAGE_SEARCH_NOT_CONFIGURED",
+                "La búsqueda por imagen no está configurada.",
+                status=503,
+            )
+        return _suggest_with_vision_and_search(
+            describe=lambda data, mime: self._describe(data, mime, api_key),
+            extract_candidates=lambda description, hits, fields: self._extract_candidates(
+                description, hits, fields, api_key
+            ),
+            image_bytes=image_bytes,
+            content_type=content_type,
+            schema=schema,
+        )
+
+    def _generate(
+        self,
+        api_key: str,
+        parts: list[dict[str, Any]],
+        *,
+        timeout: float,
+        step: str,
+    ) -> str:
+        model = str(getattr(settings, "GEMINI_MODEL", "") or "gemini-2.5-flash-lite")
+        url = GEMINI_GENERATE_URL.format(model=model)
+        try:
+            response = httpx.post(
+                url,
+                headers={
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": api_key,
+                },
+                json={
+                    "contents": [{"role": "user", "parts": parts}],
+                    "generationConfig": {
+                        "temperature": 0.2,
+                        "maxOutputTokens": 900,
+                        "responseMimeType": "application/json",
+                    },
+                },
+                timeout=timeout,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            candidates = payload.get("candidates") if isinstance(payload, Mapping) else None
+            if not isinstance(candidates, list) or not candidates:
+                raise ValueError(f"gemini_empty_candidates keys={list(payload)}")
+            content = candidates[0].get("content") if isinstance(candidates[0], Mapping) else None
+            if not isinstance(content, Mapping):
+                raise ValueError("gemini_missing_content")
+            response_parts = content.get("parts")
+            if not isinstance(response_parts, list) or not response_parts:
+                raise ValueError("gemini_empty_parts")
+            texts = [
+                str(part.get("text") or "")
+                for part in response_parts
+                if isinstance(part, Mapping) and part.get("text")
+            ]
+            joined = "\n".join(texts).strip()
+            if not joined:
+                raise ValueError("gemini_empty_text")
+            return joined
+        except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
+            status_code = getattr(getattr(exc, "response", None), "status_code", None)
+            logger.warning(
+                "gemini_vision_failed step=%s error=%s:%s status=%s",
+                step,
+                type(exc).__name__,
+                exc,
+                status_code,
+                extra={
+                    "step": step,
+                    "error": f"{type(exc).__name__}: {exc}",
+                    "statusCode": status_code,
+                },
+            )
+            raise DomainError(
+                "PRODUCT_IMAGE_SEARCH_FAILED",
+                "No pudimos analizar la foto. Completa la ficha a mano.",
+                status=503,
+                retryable=True,
+            ) from exc
+
+    def _describe(self, image_bytes: bytes, content_type: str, api_key: str) -> dict[str, Any]:
+        encoded = base64.b64encode(image_bytes).decode("ascii")
+        content = self._generate(
+            api_key,
+            [
+                {"text": _describe_prompt()},
+                {"inlineData": {"mimeType": content_type, "data": encoded}},
+            ],
+            timeout=VISION_TIMEOUT_SECONDS,
+            step="describe",
+        )
+        return _parse_description_content(content)
+
+    def _extract_candidates(
+        self,
+        description: Mapping[str, Any],
+        hits: Sequence[Mapping[str, str]],
+        schema: Sequence[CustomFieldDefinition],
+        api_key: str,
+    ) -> list[Any]:
+        try:
+            content = self._generate(
+                api_key,
+                [{"text": _extract_prompt(description, hits, schema)}],
+                timeout=EXTRACT_TIMEOUT_SECONDS,
+                step="extract",
+            )
+        except DomainError:
+            return []
+        return _parse_extract_content(content)
 
 
 fake_image_search_provider = FakeImageSearchProvider()
@@ -984,6 +1278,10 @@ def get_image_search_provider() -> ProductImageSearchProvider:
         return fake_image_search_provider
     if name == "nvidia":
         return NvidiaImageSearchProvider()
+    if name == "gemini":
+        return GeminiImageSearchProvider()
+    if name == "openai":
+        return OpenAIImageSearchProvider()
     raise DomainError(
         "PRODUCT_IMAGE_SEARCH_NOT_CONFIGURED",
         "El proveedor de búsqueda por imagen no es válido.",
