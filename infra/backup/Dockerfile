@@ -1,7 +1,7 @@
 # Build a Trivy-clean rclone: release tag (so module version is >= 1.75.1)
 # plus current Go toolchain and patched transitive deps.
 # GCR library mirror avoids Hub / public.ecr.aws rate limits on GHA.
-FROM mirror.gcr.io/library/golang:1.27.2-bookworm AS rclone
+FROM mirror.gcr.io/library/golang:1.27.3-bookworm AS rclone
 WORKDIR /src
 RUN git clone --depth 1 --branch v1.75.1 https://github.com/rclone/rclone.git . \
     && go get golang.org/x/net@v0.60.0 \
