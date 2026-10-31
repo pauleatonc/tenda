@@ -30,11 +30,12 @@ class SecurityHeadersMiddleware:
                     "default-src 'self'",
                     f"script-src {' '.join(script_sources)}",
                     f"style-src {' '.join(style_sources)}",
-                    "img-src 'self' data: blob: https://*.google-analytics.com https://*.googletagmanager.com",
+                    "img-src 'self' data: blob: https://*.google-analytics.com"
+                    " https://*.googletagmanager.com https://*.r2.cloudflarestorage.com",
                     "font-src 'self' data:",
                     "connect-src 'self' https://api.brevo.com https://api.mercadopago.com"
                     " https://*.google-analytics.com https://*.analytics.google.com"
-                    " https://*.googletagmanager.com",
+                    " https://*.googletagmanager.com https://*.r2.cloudflarestorage.com",
                     "frame-src https://challenges.cloudflare.com",
                     "object-src 'none'",
                     "base-uri 'self'",
