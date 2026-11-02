@@ -1,6 +1,6 @@
 """Suggest catalogue drafts from a product photo.
 
-The seller still creates the product. This module only proposes 3–5 candidates
+The seller still creates the product. This module only proposes 1–5 candidates
 mapped to the active schema of that store. The fake provider is deterministic
 for tests; openai/gemini/nvidia run a VLM describe step plus web search and text extract.
 """
@@ -36,8 +36,10 @@ from .selectors import active_custom_fields
 
 logger = logging.getLogger(__name__)
 
-MIN_CANDIDATES = 3
+MIN_CANDIDATES = 1
 MAX_CANDIDATES = 5
+MAX_SEARCH_HITS = 8
+MAX_HITS_PER_HOST = 3
 MAX_NAME_LENGTH = 160
 SEARCH_TIMEOUT_SECONDS = 8.0
 VISION_TIMEOUT_SECONDS = 18.0
@@ -341,29 +343,15 @@ def _inspect_url_for_image(url: str) -> str:
         return ""
 
 
-def _falabella_search_url(query: str) -> str:
-    name = " ".join(query.split())[:80]
-    if not name:
-        return ""
-    return f"https://www.falabella.com/falabella-cl/search?Ntt={quote_plus(name)}"
-
-
 def page_image_url(url: str, query: str = "") -> str:
     """Return a product photo URL, never a store logo or product HTML page."""
 
     image = _inspect_url_for_image(url)
     if image:
         return image
-    tried = {_url_key(url)}
     extra = _retailer_search_url(url, query)
-    if extra and _url_key(extra) not in tried:
-        tried.add(_url_key(extra))
-        image = _inspect_url_for_image(extra)
-        if image:
-            return image
-    fallback = _falabella_search_url(query)
-    if fallback and _url_key(fallback) not in tried:
-        return _inspect_url_for_image(fallback)
+    if extra and _url_key(extra) != _url_key(url):
+        return _inspect_url_for_image(extra)
     return ""
 
 
@@ -640,19 +628,91 @@ def _unwrap_ddg_url(href: str) -> str:
 
 
 def _localize_search_queries(queries: Sequence[Any]) -> list[str]:
-    """Prefer Chilean retailers we can scrape for a real product photo."""
+    """Keep up to two distinct product queries. Chile is set on the search engine."""
 
-    cleaned = [str(item).strip() for item in queries if str(item).strip()]
-    if not cleaned:
-        return []
-    primary = cleaned[0]
-    if "falabella" in primary.lower():
-        return cleaned[:2]
-    scoped = [f"{primary} falabella chile"]
-    secondary = cleaned[1] if len(cleaned) > 1 else primary
-    if secondary.lower() != scoped[0].lower():
-        scoped.append(secondary)
-    return scoped[:2]
+    cleaned: list[str] = []
+    seen: set[str] = set()
+    for item in queries:
+        text = " ".join(str(item).split())
+        key = text.casefold()
+        if not text or key in seen:
+            continue
+        seen.add(key)
+        cleaned.append(text)
+        if len(cleaned) == 2:
+            break
+    return cleaned
+
+
+_PREFERRED_RETAILER_HOSTS = (
+    "falabella.com",
+    "paris.cl",
+    "ripley.cl",
+    "mercadolibre.cl",
+    "sodimac.cl",
+    "easy.cl",
+    "lider.cl",
+)
+
+
+def _hit_domain(url: str) -> str:
+    host = (urlparse(url).hostname or "").lower()
+    if host.startswith("www."):
+        host = host[4:]
+    for name in _PREFERRED_RETAILER_HOSTS:
+        if host == name or host.endswith(f".{name}"):
+            return name
+    return host
+
+
+def _is_listing_url(url: str) -> bool:
+    parsed = urlparse(url)
+    path = parsed.path.lower()
+    query = parsed.query.lower()
+    return "/search" in path or "/categoria" in path or "ntt=" in query
+
+
+def _hit_rank_score(url: str) -> int:
+    score = 2 if _hit_domain(url) in _PREFERRED_RETAILER_HOSTS else 0
+    if _is_listing_url(url):
+        score -= 3
+    return score
+
+
+def _rank_search_hits(hits: Sequence[Mapping[str, str]]) -> list[dict[str, str]]:
+    """Dedupe, keep three hits per domain, and prefer scrapable Chilean retailers."""
+
+    unique: list[tuple[int, dict[str, str]]] = []
+    seen: set[str] = set()
+    for index, item in enumerate(hits):
+        url = str(item.get("url") or "").strip()
+        key = _url_key(url) if url.startswith(("http://", "https://")) else ""
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        unique.append(
+            (
+                index,
+                {
+                    "title": str(item.get("title") or ""),
+                    "url": url,
+                    "snippet": str(item.get("snippet") or ""),
+                    "image": str(item.get("image") or ""),
+                },
+            )
+        )
+    unique.sort(key=lambda pair: (-_hit_rank_score(pair[1]["url"]), pair[0]))
+    ranked: list[dict[str, str]] = []
+    per_domain: dict[str, int] = {}
+    for _index, item in unique:
+        domain = _hit_domain(item["url"]) or _url_key(item["url"])
+        if per_domain.get(domain, 0) >= MAX_HITS_PER_HOST:
+            continue
+        per_domain[domain] = per_domain.get(domain, 0) + 1
+        ranked.append(item)
+        if len(ranked) >= MAX_SEARCH_HITS:
+            break
+    return ranked
 
 
 def search_web(queries: Sequence[str]) -> list[dict[str, str]]:
@@ -663,8 +723,10 @@ def search_web(queries: Sequence[str]) -> list[dict[str, str]]:
         return []
     brave_key = str(getattr(settings, "BRAVE_SEARCH_API_KEY", "") or "").strip()
     if brave_key:
-        return _search_brave(cleaned, brave_key)
-    return _search_duckduckgo(cleaned)
+        hits = _search_brave(cleaned, brave_key)
+    else:
+        hits = _search_duckduckgo(cleaned)
+    return _rank_search_hits(hits)
 
 
 def _search_brave(queries: Sequence[str], api_key: str) -> list[dict[str, str]]:
@@ -704,11 +766,9 @@ def _search_brave(queries: Sequence[str], api_key: str) -> list[dict[str, str]]:
                             "image": image,
                         }
                     )
-                if len(hits) >= 8:
-                    break
     except (httpx.HTTPError, ValueError, TypeError) as exc:
         logger.warning("brave_search_failed", extra={"error": str(exc)})
-    return hits[:8]
+    return hits
 
 
 def _search_duckduckgo(queries: Sequence[str]) -> list[dict[str, str]]:
@@ -747,11 +807,9 @@ def _search_duckduckgo(queries: Sequence[str]) -> list[dict[str, str]]:
                             "image": "",
                         }
                     )
-                if len(hits) >= 8:
-                    break
     except (httpx.HTTPError, ValueError, TypeError) as exc:
         logger.warning("duckduckgo_search_failed", extra={"error": str(exc)})
-    return hits[:8]
+    return hits
 
 
 def _extract_json(text: str) -> Any:
@@ -835,10 +893,14 @@ def _suggest_with_vision_and_search(
 
 def _describe_prompt() -> str:
     return (
-        "Describe el producto de la foto para buscarlo en internet. "
+        "Identifica el producto de la foto para buscarlo en tiendas de Chile. "
         "Responde SOLO JSON: "
-        '{"summary":"...", "queries":["query en español","query en inglés"]} '
-        "Máximo 3 queries cortas, concretas (tipo de producto, marca si se ve, material)."
+        '{"summary":"...","brand":"","visibleText":"",'
+        '"queries":["consulta específica en español","consulta genérica en español"]} '
+        "brand y visibleText vacíos si no se leen. "
+        "queries: máximo 2, sin nombre de tienda. "
+        "La primera incluye marca o texto visible si existen; "
+        "la segunda es tipo de producto, color y material."
     )
 
 
@@ -850,13 +912,16 @@ def _extract_prompt(
     results = (
         "\n".join(
             f"- {item.get('title', '')} | {item.get('url', '')} | {item.get('snippet', '')}"
-            for item in list(hits)[:MAX_CANDIDATES]
+            for item in list(hits)[:MAX_SEARCH_HITS]
         )
         or "(sin resultados de búsqueda)"
     )
     return (
         "A partir de la descripción de una foto y resultados de internet, "
-        "propón entre 3 y 5 productos candidatos para un inventario chileno.\n"
+        "elige de 1 a 5 productos que coincidan para un inventario chileno.\n"
+        "Cada candidato debe corresponder a un resultado. "
+        "Si un resultado es otra categoría u otro producto, omítelo. "
+        'Si ninguno coincide, responde {"candidates":[]}.\n'
         "Responde SOLO JSON: "
         '{"candidates":[{"name":"","salePrice":null,"purchasePrice":null,'
         '"extraAttributes":{},"sourceUrl":"","imageUrl":"","confidence":0.0}]}\n'

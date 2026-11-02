@@ -18,7 +18,9 @@ from apps.inventory.image_search import (
     OpenAIImageSearchProvider,
     ProductImageCandidate,
     _best_image_from_html,
+    _extract_prompt,
     _localize_search_queries,
+    _rank_search_hits,
     attach_candidate_images,
     map_candidate_attributes,
     page_image_url,
@@ -366,7 +368,7 @@ def test_page_html_rejects_amazon_store_mark() -> None:
     assert _best_image_from_html(html) == ""
 
 
-def test_page_image_uses_falabella_when_foreign_store_blocks(
+def test_page_image_skips_falabella_for_foreign_store(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def inspect(url: str) -> str:
@@ -375,17 +377,134 @@ def test_page_image_uses_falabella_when_foreign_store_blocks(
         return ""
 
     monkeypatch.setattr("apps.inventory.image_search._inspect_url_for_image", inspect)
-    assert (
-        page_image_url("https://www.etsy.com/es/market/denim_tote_bag", "Denim tote bag")
-        == "https://media.falabella.com/falabellaCL/9_01/public"
-    )
+    assert page_image_url("https://www.etsy.com/es/market/denim_tote_bag", "Denim tote bag") == ""
 
 
-def test_localize_search_queries_prefers_falabella() -> None:
+def test_localize_search_queries_keeps_two_distinct_phrases() -> None:
     assert _localize_search_queries(["denim tote bag", "bolso denim"]) == [
-        "denim tote bag falabella chile",
+        "denim tote bag",
         "bolso denim",
     ]
+    assert _localize_search_queries(
+        ["  Bolso   denim ", "bolso denim", "tote azul", "tercero"]
+    ) == ["Bolso denim", "tote azul"]
+
+
+def test_rank_search_hits_dedupes_and_caps_per_domain() -> None:
+    hits = [
+        {
+            "title": "primero",
+            "url": "https://www.falabella.com/producto/0",
+            "snippet": "a",
+            "image": "",
+        },
+        {
+            "title": "duplicado",
+            "url": "https://www.falabella.com/producto/0/",
+            "snippet": "b",
+            "image": "",
+        },
+    ]
+    hits.extend(
+        {
+            "title": str(index),
+            "url": f"https://www.falabella.com/producto/{index}",
+            "snippet": "",
+            "image": "",
+        }
+        for index in range(1, 5)
+    )
+    hits.append(
+        {
+            "title": "paris",
+            "url": "https://www.paris.cl/producto/1",
+            "snippet": "",
+            "image": "",
+        }
+    )
+    ranked = _rank_search_hits(hits)
+    assert [item["title"] for item in ranked if "falabella.com" in item["url"]] == [
+        "primero",
+        "1",
+        "2",
+    ]
+    assert any(item["title"] == "paris" for item in ranked)
+
+
+def test_rank_search_hits_prefers_known_store_over_blog() -> None:
+    ranked = _rank_search_hits(
+        [
+            {
+                "title": "blog",
+                "url": "https://blog.example.com/bolso",
+                "snippet": "",
+                "image": "",
+            },
+            {
+                "title": "ficha",
+                "url": "https://www.paris.cl/bolso-denim",
+                "snippet": "",
+                "image": "",
+            },
+        ]
+    )
+    assert ranked[0]["title"] == "ficha"
+
+
+def test_rank_search_hits_puts_search_urls_below_product_pages() -> None:
+    ranked = _rank_search_hits(
+        [
+            {
+                "title": "busqueda",
+                "url": "https://www.falabella.com/falabella-cl/search?Ntt=bolso",
+                "snippet": "",
+                "image": "",
+            },
+            {
+                "title": "ficha",
+                "url": "https://tienda.example.com/producto/bolso",
+                "snippet": "",
+                "image": "",
+            },
+        ]
+    )
+    assert [item["title"] for item in ranked] == ["ficha", "busqueda"]
+
+
+def test_rank_search_hits_keeps_original_order_on_ties() -> None:
+    ranked = _rank_search_hits(
+        [
+            {
+                "title": "primero",
+                "url": "https://www.lider.cl/producto/a",
+                "snippet": "",
+                "image": "",
+            },
+            {
+                "title": "home",
+                "url": "https://www.falabella.com/falabella-cl",
+                "snippet": "",
+                "image": "",
+            },
+        ]
+    )
+    assert [item["title"] for item in ranked] == ["primero", "home"]
+
+
+def test_extract_prompt_lists_eight_hits_and_allows_fewer_than_three() -> None:
+    hits = [
+        {
+            "title": f"p{index}",
+            "url": f"https://tienda.example.com/p/{index}",
+            "snippet": f"s{index}",
+        }
+        for index in range(8)
+    ]
+    prompt = _extract_prompt({"summary": "bolso"}, hits, [])
+    assert "entre 3 y 5" not in prompt
+    assert "de 1 a 5" in prompt
+    for item in hits:
+        assert item["url"] in prompt
 
 
 def test_nvidia_extract_timeout_falls_back_to_search_hits(
