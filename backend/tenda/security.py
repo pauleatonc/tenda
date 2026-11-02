@@ -30,8 +30,8 @@ class SecurityHeadersMiddleware:
                     "default-src 'self'",
                     f"script-src {' '.join(script_sources)}",
                     f"style-src {' '.join(style_sources)}",
-                    "img-src 'self' data: blob: https://*.google-analytics.com"
-                    " https://*.googletagmanager.com https://*.r2.cloudflarestorage.com",
+                    # Candidate photos come from arbitrary retailer CDNs.
+                    "img-src 'self' data: blob: https:",
                     "font-src 'self' data:",
                     "connect-src 'self' https://api.brevo.com https://api.mercadopago.com"
                     " https://*.google-analytics.com https://*.analytics.google.com"
