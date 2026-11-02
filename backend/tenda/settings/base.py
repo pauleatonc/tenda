@@ -106,7 +106,7 @@ else:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
+            "NAME": Path(os.getenv("DJANGO_SQLITE_PATH", str(BASE_DIR / "db.sqlite3"))),
         }
     }
 
@@ -293,6 +293,10 @@ R2_ENDPOINT_URL = os.getenv("R2_ENDPOINT_URL", "")
 R2_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID", "")
 R2_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY", "")
 R2_BUCKET_NAME = os.getenv("R2_BUCKET_NAME", os.getenv("R2_BUCKET", ""))
+# Assisted image-search uploads (24h lifecycle). Same account keys; optional
+# jurisdiction endpoint (e.g. *.us.r2.cloudflarestorage.com).
+R2_TEMPORARY_BUCKET_NAME = os.getenv("R2_TEMPORARY_BUCKET_NAME", "")
+R2_TEMPORARY_ENDPOINT_URL = os.getenv("R2_TEMPORARY_ENDPOINT_URL", "")
 _r2_prefix = os.getenv("R2_PREFIX", "").strip().strip("/")
 _r2_env_prefixes = {
     "local": "local",

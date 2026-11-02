@@ -24,6 +24,7 @@ jest.mock('../../../lib/mobile-upload', () => ({
   pickProductImage: jest.fn(),
   takeProductImage: jest.fn(),
   uploadProductImage: jest.fn(),
+  uploadImageSearchPhoto: jest.fn(),
 }))
 
 jest.mock('../../../lib/billing-api', () => ({
@@ -248,7 +249,7 @@ describe('Crear producto en mobile', () => {
     expect(screen.getByText(/Sube o toma una foto para continuar/)).toBeOnTheScreen()
     expect(screen.queryByLabelText('Nombre')).toBeNull()
     expect(screen.getByRole('button', { name: 'Tomar foto' })).toBeOnTheScreen()
-    expect(mockedUpload.uploadProductImage).not.toHaveBeenCalled()
+    expect(mockedUpload.uploadImageSearchPhoto).not.toHaveBeenCalled()
     expect(mocked.suggestProductsFromImage).not.toHaveBeenCalled()
   })
 
@@ -260,7 +261,7 @@ describe('Crear producto en mobile', () => {
       contentType: 'image/png',
       size: 12,
     })
-    mockedUpload.uploadProductImage.mockResolvedValue('asset-1')
+    mockedUpload.uploadImageSearchPhoto.mockResolvedValue('asset-1')
     mocked.suggestProductsFromImage.mockResolvedValue({
       replayed: false,
       candidates: [
@@ -298,7 +299,7 @@ describe('Crear producto en mobile', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'Elegir de la galería' }))
 
     expect(await screen.findByText('Vela de soya aroma lavanda')).toBeOnTheScreen()
-    expect(mockedUpload.uploadProductImage).toHaveBeenCalled()
+    expect(mockedUpload.uploadImageSearchPhoto).toHaveBeenCalled()
     expect(mocked.suggestProductsFromImage).toHaveBeenCalledWith(
       expect.objectContaining({ assetId: 'asset-1' }),
     )

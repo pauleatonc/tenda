@@ -25,9 +25,14 @@ MEDIA_PURPOSES = frozenset(
     }
 )
 
+# Ephemeral AI search uploads (not display variants; separate R2 bucket).
+TEMPORARY_STORAGE_PURPOSES = frozenset({MediaAsset.Purpose.IMAGE_SEARCH})
+
 
 def storage_kind(purpose: str) -> str:
-    return "media" if purpose in MEDIA_PURPOSES else "documents"
+    if purpose in MEDIA_PURPOSES or purpose in TEMPORARY_STORAGE_PURPOSES:
+        return "media"
+    return "documents"
 
 
 def build_object_key(

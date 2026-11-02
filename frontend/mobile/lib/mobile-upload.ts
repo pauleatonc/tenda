@@ -73,9 +73,16 @@ export async function uploadProductImage(
   return uploadPrivateImage(image, 'product_image', onProgress)
 }
 
+export async function uploadImageSearchPhoto(
+  image: PickedImage,
+  onProgress?: (percentage: number) => void,
+): Promise<string> {
+  return uploadPrivateImage(image, 'image_search', onProgress)
+}
+
 export async function uploadPrivateImage(
   image: PickedImage,
-  purpose: 'product_image' | 'profile_photo' | 'organisation_logo',
+  purpose: 'product_image' | 'image_search' | 'profile_photo' | 'organisation_logo',
   onProgress?: (percentage: number) => void,
 ): Promise<string> {
   const prepared = await authenticatedRequest<{

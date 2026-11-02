@@ -335,7 +335,12 @@ export async function reorderCustomFields(fieldIds: string[]) {
 
 export async function uploadPrivateFile(
   file: File,
-  purpose: 'product_image' | 'import_file' | 'profile_photo' | 'organisation_logo',
+  purpose:
+    | 'product_image'
+    | 'image_search'
+    | 'import_file'
+    | 'profile_photo'
+    | 'organisation_logo',
   onProgress?: (percentage: number) => void,
 ): Promise<string> {
   const prepared = await request<{

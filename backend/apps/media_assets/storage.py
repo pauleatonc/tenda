@@ -12,7 +12,7 @@ from urllib.parse import quote
 import boto3
 from django.conf import settings
 
-from apps.media_assets.keys import r2_object_key
+from apps.media_assets.keys import TEMPORARY_STORAGE_PURPOSES, r2_object_key
 from tenda.errors import DomainError
 
 IN_PROCESS_STORAGE_PROVIDERS = frozenset({"fake", "local"})
@@ -214,29 +214,60 @@ class LocalFileObjectStorage:
 
 
 class R2ObjectStorage:
-    def __init__(self) -> None:
-        endpoint = str(getattr(settings, "R2_ENDPOINT_URL", ""))
+    def __init__(
+        self,
+        *,
+        bucket: str | None = None,
+        endpoint: str | None = None,
+        apply_env_prefix: bool = True,
+    ) -> None:
+        resolved_endpoint = str(
+            endpoint if endpoint is not None else getattr(settings, "R2_ENDPOINT_URL", "")
+        ).strip()
         access_key = str(getattr(settings, "R2_ACCESS_KEY_ID", ""))
         secret_key = str(getattr(settings, "R2_SECRET_ACCESS_KEY", ""))
-        bucket = str(getattr(settings, "R2_BUCKET_NAME", ""))
-        if not all((endpoint, access_key, secret_key, bucket)):
+        resolved_bucket = str(
+            bucket if bucket is not None else getattr(settings, "R2_BUCKET_NAME", "")
+        ).strip()
+        if not all((resolved_endpoint, access_key, secret_key, resolved_bucket)):
             raise DomainError(
                 "STORAGE_NOT_CONFIGURED",
                 "El almacenamiento privado no está configurado.",
                 status=503,
                 retryable=True,
             )
-        self.bucket = bucket
+        self.bucket = resolved_bucket
+        self._apply_env_prefix = apply_env_prefix
         self.client = boto3.client(
             "s3",
-            endpoint_url=endpoint,
+            endpoint_url=resolved_endpoint,
             aws_access_key_id=access_key,
             aws_secret_access_key=secret_key,
             region_name="auto",
         )
 
+    @classmethod
+    def temporary(cls) -> R2ObjectStorage:
+        """Bucket with short lifecycle for assisted image-search uploads."""
+        bucket = str(getattr(settings, "R2_TEMPORARY_BUCKET_NAME", "") or "").strip()
+        endpoint = str(getattr(settings, "R2_TEMPORARY_ENDPOINT_URL", "") or "").strip()
+        if not bucket:
+            raise DomainError(
+                "STORAGE_NOT_CONFIGURED",
+                "El bucket temporal de búsqueda por imagen no está configurado.",
+                status=503,
+                retryable=True,
+            )
+        return cls(
+            bucket=bucket,
+            endpoint=endpoint or None,
+            apply_env_prefix=False,
+        )
+
     def _key(self, key: str) -> str:
-        return r2_object_key(key)
+        if self._apply_env_prefix:
+            return r2_object_key(key)
+        return key.lstrip("/")
 
     def presign_upload(
         self,
@@ -320,13 +351,15 @@ class R2ObjectStorage:
 fake_object_storage = FakeObjectStorage()
 
 
-def get_object_storage() -> ObjectStorage:
+def get_object_storage(*, purpose: str | None = None) -> ObjectStorage:
     provider = str(getattr(settings, "OBJECT_STORAGE_PROVIDER", "fake"))
     if provider == "fake":
         return fake_object_storage
     if provider == "local":
         return LocalFileObjectStorage()
     if provider == "r2":
+        if purpose in TEMPORARY_STORAGE_PURPOSES:
+            return R2ObjectStorage.temporary()
         return R2ObjectStorage()
     raise DomainError(
         "STORAGE_NOT_CONFIGURED",

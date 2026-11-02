@@ -73,3 +73,7 @@ Pipeline en `apps.inventory.image_search`: visión → búsqueda web → extracc
 | `BRAVE_SEARCH_API_KEY`            | Opcional; si falta, DuckDuckGo HTML                  |
 
 En producción (OpenAI): `PRODUCT_IMAGE_SEARCH_PROVIDER=openai` + `OPENAI_API_KEY` en el `.env` del VPS; recrear backend.
+
+Las fotos de búsqueda asistida usan purpose `image_search` y el bucket temporal
+(`R2_TEMPORARY_BUCKET_NAME` / `R2_TEMPORARY_ENDPOINT_URL`, lifecycle 24h). Al
+guardar el producto se re-sube como `product_image` al bucket permanente.

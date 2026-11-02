@@ -1340,11 +1340,12 @@ def suggest_products_from_image(
     except (TypeError, ValueError) as exc:
         raise DomainError("NOT_FOUND", "No encontramos el recurso solicitado.", status=404) from exc
 
-    asset = ready_asset(
-        context=context,
-        public_id=public_id,
-        purpose=MediaAsset.Purpose.PRODUCT_IMAGE,
-    )
+    asset = ready_asset(context=context, public_id=public_id)
+    if asset.purpose not in {
+        MediaAsset.Purpose.IMAGE_SEARCH,
+        MediaAsset.Purpose.PRODUCT_IMAGE,
+    }:
+        raise DomainError("NOT_FOUND", "No encontramos el recurso solicitado.", status=404)
     provider = get_image_search_provider()
 
     def command() -> tuple[dict[str, Any], int]:

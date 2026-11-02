@@ -27,6 +27,10 @@ _PURPOSE_RULES: dict[str, tuple[set[str], int]] = {
         {"image/jpeg", "image/png", "image/webp"},
         10 * 1024 * 1024,
     ),
+    MediaAsset.Purpose.IMAGE_SEARCH: (
+        {"image/jpeg", "image/png", "image/webp"},
+        10 * 1024 * 1024,
+    ),
     MediaAsset.Purpose.PROFILE_PHOTO: (
         {"image/jpeg", "image/png", "image/webp"},
         10 * 1024 * 1024,
@@ -102,7 +106,7 @@ def prepare_upload(
         content_type=content_type,
         expected_size=size,
     )
-    upload = get_object_storage().presign_upload(
+    upload = get_object_storage(purpose=purpose).presign_upload(
         key=object_key,
         content_type=content_type,
         size=size,
@@ -129,7 +133,8 @@ def complete_upload(*, context: TenantContext, public_id: uuid.UUID) -> MediaAss
             return asset
         else:
             original_key = asset.object_key
-            stored = get_object_storage().head(key=original_key)
+            storage = get_object_storage(purpose=asset.purpose)
+            stored = storage.head(key=original_key)
             try:
                 if stored.size != asset.expected_size or stored.content_type != asset.content_type:
                     raise DomainError(
@@ -154,7 +159,7 @@ def complete_upload(*, context: TenantContext, public_id: uuid.UUID) -> MediaAss
                     )
                 )
             except DomainError as exc:
-                get_object_storage().delete(key=original_key)
+                storage.delete(key=original_key)
                 asset.status = MediaAsset.Status.REJECTED
                 asset.actual_size = stored.size
                 asset.save(update_fields=("status", "actual_size", "updated_at"))
@@ -199,7 +204,7 @@ def accept_fake_upload(
             "UPLOAD_MISMATCH",
             "El archivo recibido no coincide con la carga solicitada.",
         )
-    get_object_storage().write_bytes(
+    get_object_storage(purpose=asset.purpose).write_bytes(
         key=asset.object_key,
         content=content,
         content_type=content_type,
@@ -271,7 +276,7 @@ def private_download_url(
         if not url:
             raise DomainError("NOT_FOUND", "No encontramos el recurso solicitado.", status=404)
         return url
-    return get_object_storage().presign_download(
+    return get_object_storage(purpose=asset.purpose).presign_download(
         key=_object_key_for_variant(asset, variant),
         expires_in_seconds=300,
     )
@@ -318,7 +323,9 @@ def read_ready_asset(
     variant: str | None = None,
 ) -> tuple[MediaAsset, bytes]:
     asset = ready_asset(context=context, public_id=public_id)
-    content = get_object_storage().read_bytes(key=_object_key_for_variant(asset, variant))
+    content = get_object_storage(purpose=asset.purpose).read_bytes(
+        key=_object_key_for_variant(asset, variant)
+    )
     return asset, content
 
 
@@ -330,8 +337,8 @@ def stored_object_keys(asset: MediaAsset) -> list[str]:
     return keys
 
 
-def delete_stored_objects(keys: list[str]) -> None:
-    storage = get_object_storage()
+def delete_stored_objects(keys: list[str], *, purpose: str | None = None) -> None:
+    storage = get_object_storage(purpose=purpose)
     for key in keys:
         storage.delete(key=key)
 
@@ -351,7 +358,7 @@ def _object_key_for_variant(asset: MediaAsset, variant: str | None) -> str:
 
 
 def _replace_original_with_variants(asset: MediaAsset) -> None:
-    storage = get_object_storage()
+    storage = get_object_storage(purpose=asset.purpose)
     original_key = asset.object_key
     rendered = render_image_variants(storage.read_bytes(key=original_key))
     variants: dict[str, str] = {}

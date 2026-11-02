@@ -256,8 +256,12 @@ export function ProductFormPage({
       })
       try {
         for (const [index, photo] of photos.entries()) {
+          // Assisted search uploads land in a temporary R2 bucket; catalog
+          // photos must be re-uploaded as permanent product_image assets.
           const assetId =
-            photo.assetId ?? (await uploadPrivateFile(photo.file, 'product_image'))
+            isAssisted || !photo.assetId
+              ? await uploadPrivateFile(photo.file, 'product_image')
+              : photo.assetId
           await attachProductMedia(created.product.id, assetId, index === 0)
         }
       } catch {
@@ -365,7 +369,7 @@ export function ProductFormPage({
     setSearchError(null)
     try {
       const assetId =
-        photo.assetId ?? (await uploadPrivateFile(photo.file, 'product_image'))
+        photo.assetId ?? (await uploadPrivateFile(photo.file, 'image_search'))
       setPhotos((current) =>
         current.map((item) => (item.id === photo.id ? { ...item, assetId } : item)),
       )

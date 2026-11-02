@@ -46,6 +46,7 @@ import {
 import {
   pickProductImage,
   takeProductImage,
+  uploadImageSearchPhoto,
   uploadProductImage,
   type PickedImage,
 } from '../../../lib/mobile-upload'
@@ -272,7 +273,8 @@ export default function ProductFormScreen() {
       })
       try {
         for (const [index, photo] of photos.entries()) {
-          const assetId = photo.assetId ?? (await uploadProductImage(photo))
+          const assetId =
+            isAssisted || !photo.assetId ? await uploadProductImage(photo) : photo.assetId
           await attachProductMedia(created.product.id, assetId, index === 0)
         }
       } catch {
@@ -381,7 +383,7 @@ export default function ProductFormScreen() {
     setAssistedPhase('searching')
     setSearchError(null)
     try {
-      const assetId = photo.assetId ?? (await uploadProductImage(photo))
+      const assetId = photo.assetId ?? (await uploadImageSearchPhoto(photo))
       setPhotos((current) =>
         current.map((item) => (item.uri === photo.uri ? { ...item, assetId } : item)),
       )

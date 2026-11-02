@@ -11,6 +11,7 @@ from django.db import models
 class MediaAsset(models.Model):
     class Purpose(models.TextChoices):
         PRODUCT_IMAGE = "product_image", "Product image"
+        IMAGE_SEARCH = "image_search", "Assisted image search"
         PROFILE_PHOTO = "profile_photo", "Profile photo"
         ORGANISATION_LOGO = "organisation_logo", "Organisation logo"
         PAYMENT_RECEIPT = "payment_receipt", "Payment receipt"

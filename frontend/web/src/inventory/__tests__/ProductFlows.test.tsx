@@ -336,7 +336,10 @@ describe('ProductFormPage', () => {
     ).toBeInTheDocument()
     expect(firstCard.querySelector('img[src="blob:photo"]')).not.toBeInTheDocument()
     expect(screen.getAllByText('Sin foto del anuncio').length).toBe(2)
-    expect(mocked.uploadPrivateFile).toHaveBeenCalled()
+    expect(mocked.uploadPrivateFile).toHaveBeenCalledWith(
+      expect.any(File),
+      'image_search',
+    )
     expect(mocked.suggestProductsFromImage).toHaveBeenCalledWith(
       expect.objectContaining({ assetId: 'asset-1' }),
     )
