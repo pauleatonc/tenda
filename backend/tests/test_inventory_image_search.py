@@ -330,6 +330,58 @@ def test_page_html_prefers_product_cdn_over_store_logo() -> None:
     )
 
 
+def test_page_html_trims_escaped_quote_from_cdn_url() -> None:
+    html = (
+        '{"image":"https://media.falabella.com/falabellaCL/156792104_01/public&quot;,'
+        '&quot;brand&quot;:&quot;LOUNGE&quot;}'
+    )
+    assert (
+        _best_image_from_html(html)
+        == "https://media.falabella.com/falabellaCL/156792104_01/public"
+    )
+
+
+def test_page_image_ignores_mercadolibre_account_wall(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Blocked:
+        url = (
+            "https://www.mercadolibre.cl/gz/account-verification"
+            "?go=https%3A%2F%2Flistado.mercadolibre.cl%2Fbolso-mezclilla"
+        )
+        headers = {"content-type": "text/html"}
+
+        def raise_for_status(self) -> None:
+            return None
+
+        def iter_bytes(self):
+            yield (
+                b'<meta property="og:image" '
+                b'content="https://http2.mlstatic.com/D_NQ_NP_123-O.jpg">'
+            )
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args: object) -> bool:
+            return False
+
+    class _Client:
+        def stream(self, _method: str, _url: str) -> _Blocked:
+            return _Blocked()
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args: object) -> bool:
+            return False
+
+    monkeypatch.setattr("apps.inventory.image_search.httpx.Client", lambda **_kwargs: _Client())
+    assert (
+        page_image_url("https://listado.mercadolibre.cl/bolso-mezclilla", "Bolso mezclilla") == ""
+    )
+
+
 def test_page_html_rejects_logo_only_share_image() -> None:
     html = '<meta property="og:image" content="https://www.prada.com/images/logo-black.png">'
     assert _best_image_from_html(html) == ""

@@ -89,15 +89,17 @@ _LOGO_HINT = re.compile(
     r"/v3/assets/|frontend-assets|nav-sprite|/images/g/",
     re.IGNORECASE,
 )
+# Stop before an HTML-escaped quote. JSON-in-HTML uses &quot; instead of ".
+_CDN_RUN = r"(?:(?!&quot;|&#34;)[^\s\"'<>\\])+"
 _PRODUCT_CDN = re.compile(
     r"(?:https?:)?//(?:"
-    r"media\.falabella\.com/[^\s\"'<>\\]+|"
-    r"http2\.mlstatic\.com/[^\s\"'<>\\]+|"
+    rf"media\.falabella\.com/{_CDN_RUN}|"
+    rf"http2\.mlstatic\.com/{_CDN_RUN}|"
     r"(?:m\.)?media-amazon\.com/images/I/[A-Za-z0-9%+,._-]+"
-    r"\._(?:AC|SL|UX|UY|UL|SS)[^\s\"'<>\\]*|"
+    rf"\._(?:AC|SL|UX|UY|UL|SS){_CDN_RUN}|"
     r"images-(?:eu|na)\.ssl-images-amazon\.com/images/I/[A-Za-z0-9%+,._-]+"
-    r"\._(?:AC|SL|UX|UY|UL|SS)[^\s\"'<>\\]*|"
-    r"(?:falabella|ripley)\.scene7\.com/[^\s\"'<>\\]+"
+    rf"\._(?:AC|SL|UX|UY|UL|SS){_CDN_RUN}|"
+    rf"(?:falabella|ripley)\.scene7\.com/{_CDN_RUN}"
     r")",
     re.IGNORECASE,
 )
@@ -220,10 +222,18 @@ def _looks_like_image_url(url: str) -> bool:
 
 
 def _normalize_found_url(raw: str) -> str:
-    url = html.unescape(raw).rstrip("\\").rstrip(".,);")
+    url = html.unescape(raw)
+    url = url.split('"')[0].split("'")[0]
+    url = url.rstrip("\\").rstrip(".,);")
     if url.startswith("//"):
         url = f"https:{url}"
     return _public_http_url(url)
+
+
+def _is_blocked_store_page(url: str) -> bool:
+    parsed = urlparse(url)
+    target = f"{parsed.path}?{parsed.query}".lower()
+    return "account-verification" in target
 
 
 def _is_rejected_image(url: str) -> bool:
@@ -310,7 +320,7 @@ def _inspect_url_for_image(url: str) -> str:
             with client.stream("GET", target) as response:
                 response.raise_for_status()
                 final = _public_http_url(str(response.url))
-                if not final:
+                if not final or _is_blocked_store_page(final):
                     return ""
                 content_type = str(response.headers.get("content-type") or "").split(";")[0]
                 if content_type.startswith("image/"):
