@@ -333,11 +333,10 @@ def test_page_html_prefers_product_cdn_over_store_logo() -> None:
 def test_page_html_trims_escaped_quote_from_cdn_url() -> None:
     html = (
         '{"image":"https://media.falabella.com/falabellaCL/156792104_01/public&quot;,'
-        '&quot;brand&quot;:&quot;LOUNGE&quot;}'
+        "&quot;brand&quot;:&quot;LOUNGE&quot;}"
     )
     assert (
-        _best_image_from_html(html)
-        == "https://media.falabella.com/falabellaCL/156792104_01/public"
+        _best_image_from_html(html) == "https://media.falabella.com/falabellaCL/156792104_01/public"
     )
 
 
@@ -356,8 +355,7 @@ def test_page_image_ignores_mercadolibre_account_wall(
 
         def iter_bytes(self):
             yield (
-                b'<meta property="og:image" '
-                b'content="https://http2.mlstatic.com/D_NQ_NP_123-O.jpg">'
+                b'<meta property="og:image" content="https://http2.mlstatic.com/D_NQ_NP_123-O.jpg">'
             )
 
         def __enter__(self):
