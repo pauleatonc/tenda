@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 MIN_CANDIDATES = 1
 MAX_CANDIDATES = 5
-MAX_SEARCH_HITS = 8
+MAX_SEARCH_HITS = 12
 MAX_HITS_PER_HOST = 3
 MAX_NAME_LENGTH = 160
 SEARCH_TIMEOUT_SECONDS = 8.0
@@ -61,6 +61,8 @@ BROWSER_HEADERS = {
     "Accept-Language": "es-CL,es;q=0.9,en;q=0.8",
 }
 BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
+BRAVE_IMAGE_SEARCH_URL = "https://api.search.brave.com/res/v1/images/search"
+BRAVE_RESULT_COUNT = 20
 DUCKDUCKGO_HTML_URL = "https://html.duckduckgo.com/html/"
 
 _JSON_BLOCK = re.compile(r"```(?:json)?\s*(\{.*?\}|\[.*?\])\s*```", re.DOTALL)
@@ -368,10 +370,12 @@ def page_image_url(url: str, query: str = "") -> str:
 def _image_candidates_for(
     candidate: ProductImageCandidate,
     hit_image: str,
+    hit_fallback: str = "",
 ) -> list[str]:
     claimed = _public_http_url(candidate.image_url)
     source = _public_http_url(candidate.source_url)
     hit_image = _public_http_url(hit_image)
+    hit_fallback = _public_http_url(hit_fallback)
     if claimed and source and _url_key(claimed) == _url_key(source):
         claimed = ""
     if claimed and not _usable_image_hint(claimed):
@@ -380,8 +384,10 @@ def _image_candidates_for(
         claimed = ""
     if hit_image and _is_rejected_image(hit_image):
         hit_image = ""
+    if hit_fallback and _is_rejected_image(hit_fallback):
+        hit_fallback = ""
     ordered: list[str] = []
-    for url in (hit_image, claimed, source):
+    for url in (hit_image, hit_fallback, claimed, source):
         url = _public_http_url(url)
         if url and url not in ordered:
             ordered.append(url)
@@ -394,13 +400,21 @@ def attach_candidate_images(
 ) -> list[ProductImageCandidate]:
     """Keep only URLs that resolve to a photo, never a product HTML page."""
 
-    by_url = {
-        _url_key(str(hit.get("url") or "")): _public_http_url(hit.get("image"))
-        for hit in hits
-        if hit.get("url")
-    }
+    by_url: dict[str, tuple[str, str]] = {}
+    for hit in hits:
+        key = _url_key(str(hit.get("url") or ""))
+        if not key:
+            continue
+        image = _public_http_url(hit.get("image"))
+        fallback = _public_http_url(hit.get("image_fallback"))
+        if fallback == image:
+            fallback = ""
+        by_url[key] = (image, fallback)
     choices = [
-        _image_candidates_for(candidate, by_url.get(_url_key(candidate.source_url), ""))
+        _image_candidates_for(
+            candidate,
+            *by_url.get(_url_key(candidate.source_url), ("", "")),
+        )
         for candidate in candidates
     ]
     resolved = [""] * len(candidates)
@@ -795,8 +809,10 @@ def _is_listing_url(url: str) -> bool:
     return "/search" in path or "/categoria" in path or "ntt=" in query
 
 
-def _hit_rank_score(url: str) -> int:
+def _hit_rank_score(url: str, *, has_image: bool = False) -> int:
     score = 2 if _hit_domain(url) in _PREFERRED_RETAILER_HOSTS else 0
+    if has_image:
+        score += 1
     if _is_listing_url(url):
         score -= 3
     return score
@@ -824,7 +840,12 @@ def _rank_search_hits(hits: Sequence[Mapping[str, str]]) -> list[dict[str, str]]
                 },
             )
         )
-    unique.sort(key=lambda pair: (-_hit_rank_score(pair[1]["url"]), pair[0]))
+    unique.sort(
+        key=lambda pair: (
+            -_hit_rank_score(pair[1]["url"], has_image=bool(pair[1].get("image"))),
+            pair[0],
+        )
+    )
     ranked: list[dict[str, str]] = []
     per_domain: dict[str, int] = {}
     for _index, item in unique:
@@ -852,43 +873,115 @@ def search_web(queries: Sequence[str]) -> list[dict[str, str]]:
     return _rank_search_hits(hits)
 
 
+def _brave_headers(api_key: str) -> dict[str, str]:
+    return {
+        "Accept": "application/json",
+        "X-Subscription-Token": api_key,
+    }
+
+
+def _thumbnail_url(thumbnail: Any) -> str:
+    if isinstance(thumbnail, Mapping):
+        return _public_http_url(thumbnail.get("src") or thumbnail.get("url"))
+    if isinstance(thumbnail, str):
+        return _public_http_url(thumbnail)
+    return ""
+
+
+def _remember_search_hit(
+    hits: list[dict[str, str]],
+    index_by_key: dict[str, int],
+    hit: dict[str, str],
+) -> None:
+    key = _url_key(hit["url"])
+    if not key:
+        return
+    existing = index_by_key.get(key)
+    if existing is None:
+        index_by_key[key] = len(hits)
+        hits.append(hit)
+        return
+    current = hits[existing]
+    if not current.get("image") and hit.get("image"):
+        current["image"] = hit["image"]
+    if not current.get("image_fallback") and hit.get("image_fallback"):
+        current["image_fallback"] = hit["image_fallback"]
+
+
+def _brave_web_hit(item: Mapping[str, Any]) -> dict[str, str] | None:
+    url = str(item.get("url") or "").strip()
+    if not url.startswith(("http://", "https://")):
+        return None
+    return {
+        "title": str(item.get("title") or ""),
+        "url": url,
+        "snippet": str(item.get("description") or ""),
+        "image": _thumbnail_url(item.get("thumbnail")) or _public_http_url(item.get("image")),
+        "image_fallback": "",
+    }
+
+
+def _brave_image_hit(item: Mapping[str, Any]) -> dict[str, str] | None:
+    url = str(item.get("url") or "").strip()
+    if not url.startswith(("http://", "https://")):
+        return None
+    raw_properties = item.get("properties")
+    properties = raw_properties if isinstance(raw_properties, Mapping) else {}
+    original = _public_http_url(properties.get("url"))
+    thumbnail = _thumbnail_url(item.get("thumbnail"))
+    image = original or thumbnail
+    if not image:
+        return None
+    fallback = thumbnail if original and thumbnail and thumbnail != original else ""
+    return {
+        "title": str(item.get("title") or ""),
+        "url": url,
+        "snippet": str(item.get("description") or item.get("source") or ""),
+        "image": image,
+        "image_fallback": fallback,
+    }
+
+
 def _search_brave(queries: Sequence[str], api_key: str) -> list[dict[str, str]]:
     hits: list[dict[str, str]] = []
-    seen: set[str] = set()
+    index_by_key: dict[str, int] = {}
+    params: dict[str, str | int] = {
+        "count": BRAVE_RESULT_COUNT,
+        "country": "CL",
+        "search_lang": "es",
+    }
     try:
         with httpx.Client(timeout=SEARCH_TIMEOUT_SECONDS) as client:
-            for query in queries[:3]:
+            for query in queries[:2]:
+                request_params: dict[str, str | int] = {**params, "q": query}
                 response = client.get(
                     BRAVE_SEARCH_URL,
-                    params={"q": query, "count": 6, "country": "CL", "search_lang": "es"},
-                    headers={
-                        "Accept": "application/json",
-                        "X-Subscription-Token": api_key,
-                    },
+                    params=request_params,
+                    headers=_brave_headers(api_key),
                 )
                 response.raise_for_status()
                 payload = response.json()
                 for item in (payload.get("web") or {}).get("results") or []:
-                    url = str(item.get("url") or "").strip()
-                    if not url or url in seen:
-                        continue
-                    seen.add(url)
-                    thumbnail = item.get("thumbnail")
-                    image = ""
-                    if isinstance(thumbnail, Mapping):
-                        image = _public_http_url(thumbnail.get("src") or thumbnail.get("url"))
-                    elif isinstance(thumbnail, str):
-                        image = _public_http_url(thumbnail)
-                    if not image:
-                        image = _public_http_url(item.get("image"))
-                    hits.append(
-                        {
-                            "title": str(item.get("title") or ""),
-                            "url": url,
-                            "snippet": str(item.get("description") or ""),
-                            "image": image,
-                        }
+                    if isinstance(item, Mapping):
+                        hit = _brave_web_hit(item)
+                        if hit is not None:
+                            _remember_search_hit(hits, index_by_key, hit)
+                try:
+                    images = client.get(
+                        BRAVE_IMAGE_SEARCH_URL,
+                        params=request_params,
+                        headers=_brave_headers(api_key),
                     )
+                    images.raise_for_status()
+                    image_payload = images.json()
+                except (httpx.HTTPError, ValueError, TypeError) as exc:
+                    logger.warning("brave_image_search_failed", extra={"error": str(exc)})
+                    continue
+                for item in image_payload.get("results") or []:
+                    if isinstance(item, Mapping):
+                        hit = _brave_image_hit(item)
+                        if hit is not None:
+                            _remember_search_hit(hits, index_by_key, hit)
     except (httpx.HTTPError, ValueError, TypeError) as exc:
         logger.warning("brave_search_failed", extra={"error": str(exc)})
     return hits
@@ -1024,7 +1117,15 @@ def _suggest_with_vision_and_search(
             "No encontramos productos similares. Completa la ficha a mano.",
             status=422,
         )
-    return attach_candidate_images(candidates[:MAX_CANDIDATES], hits)
+    attached = attach_candidate_images(candidates[:MAX_CANDIDATES], hits)
+    visible = [item for item in attached if item.image_url]
+    if not visible:
+        raise DomainError(
+            "PRODUCT_IMAGE_SEARCH_EMPTY",
+            "No encontramos productos similares con foto. Completa la ficha a mano.",
+            status=422,
+        )
+    return visible
 
 
 def _describe_prompt() -> str:

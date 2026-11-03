@@ -18,6 +18,7 @@ from apps.inventory.image_search import (
     OpenAIImageSearchProvider,
     ProductImageCandidate,
     _best_image_from_html,
+    _brave_image_hit,
     _extract_prompt,
     _localize_search_queries,
     _queries_from_description,
@@ -493,6 +494,26 @@ def test_queries_from_description_skips_brand_when_it_is_not_visible() -> None:
     assert all("prada" not in item.casefold() for item in queries)
 
 
+def test_brave_image_hit_prefers_original_photo() -> None:
+    hit = _brave_image_hit(
+        {
+            "title": "Bolso dorado",
+            "url": "https://tienda.example.com/bolso",
+            "thumbnail": {"src": "https://imgs.search.brave.com/abc"},
+            "properties": {"url": "https://cdn.example.com/bolso.jpg"},
+        }
+    )
+    assert hit is not None
+    assert hit["image"] == "https://cdn.example.com/bolso.jpg"
+    assert hit["image_fallback"] == "https://imgs.search.brave.com/abc"
+
+
+def test_brave_image_hit_without_photo_is_ignored() -> None:
+    assert (
+        _brave_image_hit({"title": "Listado", "url": "https://tienda.example.com/search"}) is None
+    )
+
+
 def test_rank_search_hits_dedupes_and_caps_per_domain() -> None:
     hits = [
         {
@@ -732,11 +753,10 @@ def test_nvidia_extract_timeout_falls_back_to_search_hits(
     )
     assert [item.name for item in suggested] == [
         "Bolso denim ML",
-        "Tote azul Falabella",
         "Mochila denim Paris",
     ]
     assert suggested[0].image_url == "https://http2.mlstatic.com/bolso.jpg"
-    assert suggested[1].image_url == ""
+    assert all(item.image_url for item in suggested)
 
 
 def test_nvidia_without_key_is_a_configuration_error(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -869,7 +889,6 @@ def test_openai_suggest_uses_chat_completions_http(
     assert calls[0]["json"]["response_format"] == {"type": "json_object"}  # type: ignore[index]
     assert [item.name for item in suggested] == [
         "Vela soja lavanda",
-        "Vela aromática 200g",
         "Set velas soja",
     ]
     assert suggested[0].sale_price == 7990
@@ -933,9 +952,9 @@ def test_openai_extract_timeout_falls_back_to_search_hits(
     )
     assert [item.name for item in suggested] == [
         "Bolso denim ML",
-        "Tote azul Falabella",
         "Mochila denim Paris",
     ]
+    assert all(item.image_url for item in suggested)
 
 
 def test_gemini_without_key_is_a_configuration_error(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1051,7 +1070,6 @@ def test_gemini_suggest_uses_generate_content_http(
     assert any("inlineData" in part for part in calls[0]["json"]["contents"][0]["parts"])  # type: ignore[index]
     assert [item.name for item in suggested] == [
         "Vela soja lavanda",
-        "Vela aromática 200g",
         "Set velas soja",
     ]
     assert suggested[0].sale_price == 7990
@@ -1116,9 +1134,9 @@ def test_gemini_extract_timeout_falls_back_to_search_hits(
     )
     assert [item.name for item in suggested] == [
         "Bolso denim ML",
-        "Tote azul Falabella",
         "Mochila denim Paris",
     ]
+    assert all(item.image_url for item in suggested)
 
 
 def test_graphql_suggests_candidates_from_a_ready_photo() -> None:
