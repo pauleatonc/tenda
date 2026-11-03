@@ -695,6 +695,78 @@ def _localize_search_queries(queries: Sequence[Any]) -> list[str]:
     return cleaned
 
 
+_STORE_NAMES = (
+    "mercado libre",
+    "mercadolibre",
+    "falabella",
+    "ripley",
+    "sodimac",
+    "lider",
+    "easy",
+    "paris",
+)
+_QUERY_FILLER = frozenset({"color", "material", "marca", "modelo"})
+
+
+def _description_text(description: Mapping[str, Any], key: str) -> str:
+    value = description.get(key)
+    if not isinstance(value, str):
+        return ""
+    return " ".join(value.split())
+
+
+def _without_store_names(text: str) -> str:
+    cleaned = text
+    for name in _STORE_NAMES:
+        cleaned = re.sub(rf"\b{re.escape(name)}\b", " ", cleaned, flags=re.IGNORECASE)
+    return " ".join(cleaned.split())
+
+
+def _join_query(*parts: str) -> str:
+    words: list[str] = []
+    seen: set[str] = set()
+    for part in parts:
+        for word in _without_store_names(part).split():
+            key = word.casefold()
+            if key in _QUERY_FILLER or key in seen:
+                continue
+            seen.add(key)
+            words.append(word)
+    return " ".join(words)
+
+
+def _queries_from_description(description: Mapping[str, Any]) -> list[str]:
+    """Search brand and model only when the photo actually shows them."""
+
+    brand = _without_store_names(_description_text(description, "brand"))
+    model = _without_store_names(_description_text(description, "model"))
+    product_type = _description_text(description, "productType")
+    color = _description_text(description, "color")
+    material = _description_text(description, "material")
+    shape = _description_text(description, "shape")
+    queries: list[str] = []
+    if brand and model:
+        identity = _join_query(brand, model)
+        detailed = _join_query(brand, model, product_type, color)
+        if identity:
+            queries.append(identity)
+        if detailed and detailed.casefold() != identity.casefold():
+            queries.append(detailed)
+    elif brand or model:
+        named = _join_query(brand, model, product_type, color)
+        if named:
+            queries.append(named)
+    else:
+        traits = _join_query(product_type, color, material, shape)
+        if traits:
+            queries.append(traits)
+        else:
+            summary = _without_store_names(_description_text(description, "summary"))
+            if summary:
+                queries.append(summary)
+    return _localize_search_queries(queries)
+
+
 _PREFERRED_RETAILER_HOSTS = (
     "falabella.com",
     "paris.cl",
@@ -891,14 +963,13 @@ def _suggest_with_vision_and_search(
     schema: Sequence[CustomFieldDefinition],
 ) -> list[ProductImageCandidate]:
     description = describe(image_bytes, content_type or "image/jpeg")
-    queries = description.get("queries") or []
-    if isinstance(queries, str):
-        queries = [queries]
-    if not queries and description.get("summary"):
-        queries = [str(description["summary"])]
-    queries = _localize_search_queries(queries)
+    if not isinstance(description, Mapping):
+        description = {}
+    queries = _queries_from_description(description)
     logger.info(
-        "image_search described %s",
+        "image_search described brand=%s model=%s queries=%s",
+        _description_text(description, "brand"),
+        _description_text(description, "model"),
         queries,
         extra={"step": "describe", "hits": len(queries)},
     )
@@ -960,12 +1031,13 @@ def _describe_prompt() -> str:
     return (
         "Identifica el producto de la foto para buscarlo en tiendas de Chile. "
         "Responde SOLO JSON: "
-        '{"summary":"...","brand":"","visibleText":"",'
-        '"queries":["consulta específica en español","consulta genérica en español"]} '
-        "brand y visibleText vacíos si no se leen. "
-        "queries: máximo 2, sin nombre de tienda. "
-        "La primera incluye marca o texto visible si existen; "
-        "la segunda es tipo de producto, color y material."
+        '{"summary":"","brand":"","model":"","productType":"",'
+        '"color":"","material":"","shape":""} '
+        "Cada campo vacío si no se ve. "
+        "brand es el nombre de la marca solo si el logo o el texto se leen. "
+        "model es la línea del producto solo si está escrita o es reconocible. "
+        "No completes brand ni model por parecido. "
+        "No incluyas nombres de tienda."
     )
 
 
@@ -981,12 +1053,22 @@ def _extract_prompt(
         )
         or "(sin resultados de búsqueda)"
     )
+    brand = _without_store_names(_description_text(description, "brand"))
+    model = _without_store_names(_description_text(description, "model"))
+    if brand:
+        identity = f"Quédate en la marca {brand}. Omite otras marcas."
+    else:
+        identity = (
+            "Incluye otras tiendas y variantes cercanas: mismo tipo de producto, "
+            "aunque cambien marca, talla o tienda."
+        )
+    if model:
+        identity = f"{identity} Prioriza el modelo {model}."
     return (
         "A partir de la descripción de una foto y resultados de internet, "
         "arma de 3 a 5 fichas del mismo tipo de producto para un inventario chileno.\n"
         "Cada candidato sale de un resultado distinto. "
-        "Incluye otras tiendas y variantes cercanas: mismo tipo de producto, "
-        "aunque cambien marca, talla o tienda. "
+        f"{identity} "
         "Omite solo blogs, páginas de categoría y productos de otro tipo. "
         "Si hay menos de 3 fichas de ese tipo, devuelve las que haya. "
         'Si ninguna es una ficha de ese tipo, responde {"candidates":[]}.\n'

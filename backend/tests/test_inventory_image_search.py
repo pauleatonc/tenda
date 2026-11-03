@@ -20,6 +20,7 @@ from apps.inventory.image_search import (
     _best_image_from_html,
     _extract_prompt,
     _localize_search_queries,
+    _queries_from_description,
     _rank_search_hits,
     _supplement_candidates,
     attach_candidate_images,
@@ -441,6 +442,57 @@ def test_localize_search_queries_keeps_two_distinct_phrases() -> None:
     ) == ["Bolso denim", "tote azul"]
 
 
+def test_queries_from_description_uses_brand_and_model() -> None:
+    assert _queries_from_description(
+        {
+            "brand": "Louis Vuitton",
+            "model": "Neverfull",
+            "productType": "cartera",
+            "color": "negra",
+            "material": "cuero",
+            "shape": "tote",
+        }
+    ) == ["Louis Vuitton Neverfull", "Louis Vuitton Neverfull cartera negra"]
+
+
+def test_queries_from_description_uses_brand_only() -> None:
+    assert _queries_from_description(
+        {
+            "brand": "Prada",
+            "model": "",
+            "productType": "cartera",
+            "color": "negra",
+        }
+    ) == ["Prada cartera negra"]
+
+
+def test_queries_from_description_uses_model_only() -> None:
+    assert _queries_from_description(
+        {
+            "brand": "",
+            "model": "Neverfull",
+            "productType": "cartera",
+            "color": "negra",
+        }
+    ) == ["Neverfull cartera negra"]
+
+
+def test_queries_from_description_skips_brand_when_it_is_not_visible() -> None:
+    queries = _queries_from_description(
+        {
+            "brand": "",
+            "model": "",
+            "productType": "cartera",
+            "color": "negra",
+            "material": "cuero",
+            "shape": "asas cortas",
+            "summary": "cartera Prada negra",
+        }
+    )
+    assert queries == ["cartera negra cuero asas cortas"]
+    assert all("prada" not in item.casefold() for item in queries)
+
+
 def test_rank_search_hits_dedupes_and_caps_per_domain() -> None:
     hits = [
         {
@@ -558,6 +610,19 @@ def test_extract_prompt_lists_eight_hits_and_allows_fewer_than_three() -> None:
     assert "menos de 3" in prompt
     for item in hits:
         assert item["url"] in prompt
+    assert "aunque cambien marca" in prompt
+
+
+def test_extract_prompt_keeps_known_brand() -> None:
+    prompt = _extract_prompt(
+        {"brand": "Prada", "model": "Galleria", "summary": "cartera"},
+        [{"title": "p", "url": "https://tienda.example.com/p/1", "snippet": "s"}],
+        [],
+    )
+    assert "Quédate en la marca Prada" in prompt
+    assert "Omite otras marcas" in prompt
+    assert "Prioriza el modelo Galleria" in prompt
+    assert "aunque cambien marca" not in prompt
 
 
 def test_supplement_candidates_adds_other_store_listings() -> None:
