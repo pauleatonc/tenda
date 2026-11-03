@@ -21,6 +21,7 @@ from apps.inventory.image_search import (
     _extract_prompt,
     _localize_search_queries,
     _rank_search_hits,
+    _supplement_candidates,
     attach_candidate_images,
     map_candidate_attributes,
     page_image_url,
@@ -502,9 +503,60 @@ def test_extract_prompt_lists_eight_hits_and_allows_fewer_than_three() -> None:
     ]
     prompt = _extract_prompt({"summary": "bolso"}, hits, [])
     assert "entre 3 y 5" not in prompt
-    assert "de 1 a 5" in prompt
+    assert "de 3 a 5" in prompt
+    assert "variantes cercanas" in prompt
+    assert "menos de 3" in prompt
     for item in hits:
         assert item["url"] in prompt
+
+
+def test_supplement_candidates_adds_other_store_listings() -> None:
+    kept = ProductImageCandidate(
+        name="Bolso azul",
+        sale_price=None,
+        purchase_price=None,
+        extra_attributes={},
+        source_url="https://www.mercadolibre.cl/bolso/up/MLCU1",
+        image_url="",
+        confidence=0.8,
+    )
+    filled = _supplement_candidates(
+        [kept],
+        [
+            {
+                "title": "Bolso azul",
+                "url": kept.source_url,
+                "snippet": "",
+                "image": "",
+            },
+            {
+                "title": "Bolso mujer azul",
+                "url": "https://www.paris.cl/bolso-azul",
+                "snippet": "",
+                "image": "",
+            },
+            {
+                "title": "Blog de moda",
+                "url": "https://blog.example.com/bolsos",
+                "snippet": "",
+                "image": "",
+            },
+            {
+                "title": "Buscar bolsos",
+                "url": "https://www.falabella.com/falabella-cl/search?Ntt=bolso",
+                "snippet": "",
+                "image": "",
+            },
+            {
+                "title": "Cartera azul",
+                "url": "https://www.ripley.cl/cartera-azul",
+                "snippet": "",
+                "image": "",
+            },
+        ],
+        [],
+    )
+    assert [item.name for item in filled] == ["Bolso azul", "Bolso mujer azul", "Cartera azul"]
 
 
 def test_nvidia_extract_timeout_falls_back_to_search_hits(

@@ -481,6 +481,47 @@ def _candidates_from_hits(
     return candidates
 
 
+def _supplement_candidates(
+    candidates: Sequence[ProductImageCandidate],
+    hits: Sequence[Mapping[str, str]],
+    schema: Sequence[CustomFieldDefinition],
+) -> list[ProductImageCandidate]:
+    """Add other store listings when the model keeps only its closest match."""
+
+    filled = list(candidates)
+    if len(filled) >= MAX_CANDIDATES:
+        return filled
+    used_urls = {_url_key(item.source_url) for item in filled if item.source_url}
+    used_names = {item.name.casefold() for item in filled}
+    for item in hits:
+        if len(filled) >= MAX_CANDIDATES:
+            break
+        url = str(item.get("url") or "")
+        key = _url_key(url)
+        if (
+            not key
+            or key in used_urls
+            or _is_listing_url(url)
+            or _hit_domain(url) not in _PREFERRED_RETAILER_HOSTS
+        ):
+            continue
+        built = _candidate_from_raw(
+            {
+                "name": item.get("title"),
+                "sourceUrl": url,
+                "imageUrl": item.get("image"),
+                "confidence": 0.45,
+            },
+            schema,
+        )
+        if built is None or built.name.casefold() in used_names:
+            continue
+        used_urls.add(key)
+        used_names.add(built.name.casefold())
+        filled.append(built)
+    return filled
+
+
 def _candidate_from_raw(
     raw: Mapping[str, Any],
     schema: Sequence[CustomFieldDefinition],
@@ -847,14 +888,15 @@ def _suggest_with_vision_and_search(
         queries = [str(description["summary"])]
     queries = _localize_search_queries(queries)
     logger.info(
-        "image_search described queries=%s",
-        len(queries),
+        "image_search described %s",
+        queries,
         extra={"step": "describe", "hits": len(queries)},
     )
     hits = search_web(queries)
     logger.info(
-        "image_search web_hits=%s",
+        "image_search web_hits=%s titles=%s",
         len(hits),
+        [str(item.get("title") or "")[:80] for item in hits],
         extra={"step": "web_search", "hits": len(hits)},
     )
     extracted = extract_candidates(description, hits, schema)
@@ -871,6 +913,19 @@ def _suggest_with_vision_and_search(
         len(candidates),
         extra={"step": "extract", "candidates": len(candidates), "hits": len(extracted)},
     )
+    if candidates and len(candidates) < MAX_CANDIDATES:
+        supplemented = _supplement_candidates(candidates, hits, schema)
+        if len(supplemented) > len(candidates):
+            logger.info(
+                "image_search supplemented mapped=%s",
+                len(supplemented),
+                extra={
+                    "step": "supplement",
+                    "candidates": len(supplemented),
+                    "hits": len(hits),
+                },
+            )
+        candidates = supplemented
     if not candidates:
         candidates = _candidates_from_hits(hits, schema)
         logger.info(
@@ -918,10 +973,13 @@ def _extract_prompt(
     )
     return (
         "A partir de la descripción de una foto y resultados de internet, "
-        "elige de 1 a 5 productos que coincidan para un inventario chileno.\n"
-        "Cada candidato debe corresponder a un resultado. "
-        "Si un resultado es otra categoría u otro producto, omítelo. "
-        'Si ninguno coincide, responde {"candidates":[]}.\n'
+        "arma de 3 a 5 fichas del mismo tipo de producto para un inventario chileno.\n"
+        "Cada candidato sale de un resultado distinto. "
+        "Incluye otras tiendas y variantes cercanas: mismo tipo de producto, "
+        "aunque cambien marca, talla o tienda. "
+        "Omite solo blogs, páginas de categoría y productos de otro tipo. "
+        "Si hay menos de 3 fichas de ese tipo, devuelve las que haya. "
+        'Si ninguna es una ficha de ese tipo, responde {"candidates":[]}.\n'
         "Responde SOLO JSON: "
         '{"candidates":[{"name":"","salePrice":null,"purchasePrice":null,'
         '"extraAttributes":{},"sourceUrl":"","imageUrl":"","confidence":0.0}]}\n'
