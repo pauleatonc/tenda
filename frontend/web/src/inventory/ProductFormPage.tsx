@@ -648,6 +648,7 @@ export function ProductFormPage({
           <ProductPhotoQueue
             photos={photos}
             required
+            captureOnPhone
             onAdd={addPhotos}
             onRemove={removePhoto}
           />

@@ -21,32 +21,50 @@ export function revokeStagedPhotos(photos: StagedPhoto[]) {
   for (const photo of photos) URL.revokeObjectURL(photo.previewUrl)
 }
 
+/** Phones only. Tablets and desktop browsers keep the file picker. */
+export function isPhoneBrowser() {
+  if (typeof navigator === 'undefined') return false
+  return /iPhone|iPod|Android.+Mobile|Windows Phone/i.test(navigator.userAgent)
+}
+
 export function ProductPhotoQueue({
   photos,
   onAdd,
   onRemove,
   required = false,
+  captureOnPhone = false,
 }: {
   photos: StagedPhoto[]
   onAdd: (files: File[]) => void
   onRemove: (id: string) => void
   required?: boolean
+  /** On a phone, open the rear camera instead of the gallery. */
+  captureOnPhone?: boolean
 }) {
   const inputId = useId()
   const remaining = MAX_CREATE_PHOTOS - photos.length
+  const openCamera = captureOnPhone && isPhoneBrowser()
+  const addLabel = photos.length
+    ? 'Agregar fotos'
+    : openCamera
+      ? 'Tomar foto'
+      : 'Subir fotos'
 
   return (
     <div className="photo-queue">
       <p className="fieldset-hint">
         {required && !photos.length
-          ? 'Sube al menos una foto para continuar. Puedes agregar hasta 10.'
+          ? openCamera
+            ? 'Toma una foto del producto con la cámara para continuar.'
+            : 'Sube al menos una foto para continuar. Puedes agregar hasta 10.'
           : `Hasta ${MAX_CREATE_PHOTOS} fotos. La primera será la principal.`}
       </p>
       <input
         id={inputId}
         type="file"
         accept="image/jpeg,image/png,image/webp"
-        multiple
+        multiple={openCamera ? undefined : true}
+        capture={openCamera ? 'environment' : undefined}
         disabled={remaining <= 0}
         onChange={(event) => {
           const files = Array.from(event.target.files ?? []).slice(0, remaining)
@@ -55,7 +73,7 @@ export function ProductPhotoQueue({
         }}
       />
       <label className="button button--secondary button--compact" htmlFor={inputId}>
-        {photos.length ? 'Agregar fotos' : 'Subir fotos'}
+        {addLabel}
       </label>
       {photos.length ? (
         <ul className="photo-queue__list">
