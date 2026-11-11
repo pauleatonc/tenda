@@ -41,6 +41,9 @@ MAX_CANDIDATES = 5
 MAX_SEARCH_HITS = 12
 MAX_HITS_PER_HOST = 3
 MAX_NAME_LENGTH = 160
+MAX_BRAND_LENGTH = 80
+MAX_COPY_DESCRIPTION_LENGTH = 500
+COPY_OPTION_COUNT = 3
 SEARCH_TIMEOUT_SECONDS = 8.0
 VISION_TIMEOUT_SECONDS = 18.0
 # Extract sends schema + search hits; NIM often exceeds the 18s describe budget.
@@ -143,6 +146,28 @@ class SuggestedProducts:
     replayed: bool
 
 
+@dataclass(frozen=True, slots=True)
+class ProductDescriptionOption:
+    name: str
+    brand: str
+    description: str
+    extra_attributes: dict[str, Any]
+
+    def as_payload(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "brand": self.brand,
+            "description": self.description,
+            "extraAttributes": self.extra_attributes,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class SuggestedDescriptions:
+    options: list[ProductDescriptionOption]
+    replayed: bool
+
+
 class ProductImageSearchProvider(Protocol):
     def suggest(
         self,
@@ -151,6 +176,14 @@ class ProductImageSearchProvider(Protocol):
         content_type: str,
         schema: Sequence[CustomFieldDefinition],
     ) -> list[ProductImageCandidate]: ...
+
+    def describe_copy(
+        self,
+        *,
+        image_bytes: bytes,
+        content_type: str,
+        schema: Sequence[CustomFieldDefinition],
+    ) -> list[ProductDescriptionOption]: ...
 
 
 def _blank(value: Any) -> bool:
@@ -635,6 +668,127 @@ _FAKE_TEMPLATES: tuple[dict[str, Any], ...] = (
 )
 
 
+def _copy_prompt(schema: Sequence[CustomFieldDefinition]) -> str:
+    short_fields = [
+        definition
+        for definition in schema
+        if definition.is_active
+        and definition.field_type == CustomFieldDefinition.FieldType.SHORT_TEXT
+    ]
+    if short_fields:
+        lines = [
+            "Columnas de texto corto de ESTA tienda. extraAttributes solo puede usar estas claves.",
+            "Si el valor no se ve en la foto, omite la clave. No inventes.",
+        ]
+        for definition in short_fields:
+            required = "obligatorio" if definition.is_required else "opcional"
+            lines.append(
+                f"- {definition.key} | {definition.label} | texto corto | {required} | máximo 500"
+            )
+        columns = "\n".join(lines)
+    else:
+        columns = "Esta tienda no tiene columnas de texto corto. extraAttributes debe ser {}."
+    return (
+        "Miras la foto de un producto para un inventario en Chile. "
+        "Responde SOLO JSON: "
+        '{"options":[{"name":"","brand":"","description":"","extraAttributes":{}}]} '
+        "Devuelve exactamente 3 opciones distintas.\n"
+        "name máximo 160 caracteres. description máximo 500 y solo lo visible.\n"
+        "brand máximo 80. Escríbela solo si el nombre se lee en el logo o en un texto de la foto. "
+        "Si no se lee, brand es cadena vacía en esa opción. "
+        "No infieras la marca por el estilo, por un producto parecido "
+        "ni por el nombre de una tienda. "
+        "No copies una columna propia al campo brand.\n"
+        "No incluyas precio de compra, precio de venta, moneda, estado, cantidad "
+        "ni columnas que no sean texto corto.\n"
+        f"{columns}"
+    )
+
+
+def _bounded_copy_text(value: Any, limit: int) -> str:
+    if not isinstance(value, str):
+        return ""
+    return " ".join(value.split())[:limit]
+
+
+def _parse_copy_content(content: str) -> list[Any]:
+    parsed = _extract_json(content)
+    if isinstance(parsed, Mapping) and isinstance(parsed.get("options"), list):
+        return list(parsed["options"])
+    if isinstance(parsed, list):
+        return parsed
+    return []
+
+
+def _clean_copy_options(
+    raw_options: Sequence[Any],
+    schema: Sequence[CustomFieldDefinition],
+) -> list[ProductDescriptionOption]:
+    short_fields = {
+        definition.key: definition
+        for definition in schema
+        if definition.is_active
+        and definition.field_type == CustomFieldDefinition.FieldType.SHORT_TEXT
+    }
+    options: list[ProductDescriptionOption] = []
+    for item in raw_options:
+        if not isinstance(item, Mapping):
+            continue
+        name = _bounded_copy_text(item.get("name"), MAX_NAME_LENGTH)
+        if not name:
+            continue
+        extras: dict[str, Any] = {}
+        raw_extras = item.get("extraAttributes")
+        if isinstance(raw_extras, Mapping):
+            for key, definition in short_fields.items():
+                if key not in raw_extras or _blank(raw_extras.get(key)):
+                    continue
+                try:
+                    extras[key] = clean_value(definition, raw_extras.get(key))
+                except DomainError:
+                    continue
+        options.append(
+            ProductDescriptionOption(
+                name=name,
+                brand=_bounded_copy_text(item.get("brand"), MAX_BRAND_LENGTH),
+                description=_bounded_copy_text(
+                    item.get("description"),
+                    MAX_COPY_DESCRIPTION_LENGTH,
+                ),
+                extra_attributes=extras,
+            )
+        )
+        if len(options) == COPY_OPTION_COUNT:
+            break
+    return options
+
+
+def _options_from_payload(payload: Mapping[str, Any]) -> list[ProductDescriptionOption]:
+    items = payload.get("options")
+    if not isinstance(items, list):
+        return []
+    options: list[ProductDescriptionOption] = []
+    for item in items:
+        if not isinstance(item, Mapping):
+            continue
+        name = _bounded_copy_text(item.get("name"), MAX_NAME_LENGTH)
+        if not name:
+            continue
+        extras = item.get("extraAttributes")
+        options.append(
+            ProductDescriptionOption(
+                name=name,
+                brand=_bounded_copy_text(item.get("brand"), MAX_BRAND_LENGTH),
+                description=_bounded_copy_text(
+                    item.get("description"),
+                    MAX_COPY_DESCRIPTION_LENGTH,
+                ),
+                extra_attributes=dict(extras) if isinstance(extras, Mapping) else {},
+            )
+        )
+    return options
+
+
 def _fake_value_for_field(definition: CustomFieldDefinition, index: int) -> Any:
     field_type = definition.field_type
     if field_type == CustomFieldDefinition.FieldType.SHORT_TEXT:
@@ -677,6 +831,48 @@ class FakeImageSearchProvider:
             if built is not None:
                 candidates.append(built)
         return candidates
+
+    def describe_copy(
+        self,
+        *,
+        image_bytes: bytes,
+        content_type: str,
+        schema: Sequence[CustomFieldDefinition],
+    ) -> list[ProductDescriptionOption]:
+        del image_bytes, content_type
+        extras = {
+            definition.key: "Cuero negro"
+            for definition in schema
+            if definition.is_active
+            and definition.field_type == CustomFieldDefinition.FieldType.SHORT_TEXT
+        }
+        return _clean_copy_options(
+            [
+                {
+                    "name": "Cartera negra de cuero",
+                    "brand": "Prada",
+                    "description": "Cartera negra de cuero con asas cortas.",
+                    "extraAttributes": {
+                        **extras,
+                        "peso": "1.5",
+                        "salePrice": 12990,
+                    },
+                },
+                {
+                    "name": "Cartera de cuero",
+                    "brand": "",
+                    "description": "Cartera de cuero negro, sin logo visible.",
+                    "extraAttributes": extras,
+                },
+                {
+                    "name": "Bolso negro",
+                    "brand": "",
+                    "description": "Bolso negro con cierre superior.",
+                    "extraAttributes": {},
+                },
+            ],
+            schema,
+        )
 
 
 def _strip_tags(value: str) -> str:
@@ -1235,6 +1431,40 @@ class NvidiaImageSearchProvider:
             schema=schema,
         )
 
+    def describe_copy(
+        self,
+        *,
+        image_bytes: bytes,
+        content_type: str,
+        schema: Sequence[CustomFieldDefinition],
+    ) -> list[ProductDescriptionOption]:
+        api_key = str(getattr(settings, "NVIDIA_API_KEY", "") or "").strip()
+        if not api_key:
+            raise DomainError(
+                "PRODUCT_IMAGE_SEARCH_NOT_CONFIGURED",
+                "La búsqueda por imagen no está configurada.",
+                status=503,
+            )
+        encoded = base64.b64encode(image_bytes).decode("ascii")
+        content = self._chat(
+            api_key,
+            [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": _copy_prompt(schema)},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{content_type};base64,{encoded}"},
+                        },
+                    ],
+                }
+            ],
+            timeout=VISION_TIMEOUT_SECONDS,
+            step="describe_copy",
+        )
+        return _clean_copy_options(_parse_copy_content(content), schema)
+
     def _chat(
         self,
         api_key: str,
@@ -1362,6 +1592,40 @@ class OpenAIImageSearchProvider:
             schema=schema,
         )
 
+    def describe_copy(
+        self,
+        *,
+        image_bytes: bytes,
+        content_type: str,
+        schema: Sequence[CustomFieldDefinition],
+    ) -> list[ProductDescriptionOption]:
+        api_key = str(getattr(settings, "OPENAI_API_KEY", "") or "").strip()
+        if not api_key:
+            raise DomainError(
+                "PRODUCT_IMAGE_SEARCH_NOT_CONFIGURED",
+                "La búsqueda por imagen no está configurada.",
+                status=503,
+            )
+        encoded = base64.b64encode(image_bytes).decode("ascii")
+        content = self._chat(
+            api_key,
+            [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": _copy_prompt(schema)},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:{content_type};base64,{encoded}"},
+                        },
+                    ],
+                }
+            ],
+            timeout=VISION_TIMEOUT_SECONDS,
+            step="describe_copy",
+        )
+        return _clean_copy_options(_parse_copy_content(content), schema)
+
     def _chat(
         self,
         api_key: str,
@@ -1484,6 +1748,32 @@ class GeminiImageSearchProvider:
             content_type=content_type,
             schema=schema,
         )
+
+    def describe_copy(
+        self,
+        *,
+        image_bytes: bytes,
+        content_type: str,
+        schema: Sequence[CustomFieldDefinition],
+    ) -> list[ProductDescriptionOption]:
+        api_key = str(getattr(settings, "GEMINI_API_KEY", "") or "").strip()
+        if not api_key:
+            raise DomainError(
+                "PRODUCT_IMAGE_SEARCH_NOT_CONFIGURED",
+                "La búsqueda por imagen no está configurada.",
+                status=503,
+            )
+        encoded = base64.b64encode(image_bytes).decode("ascii")
+        content = self._generate(
+            api_key,
+            [
+                {"text": _copy_prompt(schema)},
+                {"inlineData": {"mimeType": content_type, "data": encoded}},
+            ],
+            timeout=VISION_TIMEOUT_SECONDS,
+            step="describe_copy",
+        )
+        return _clean_copy_options(_parse_copy_content(content), schema)
 
     def _generate(
         self,
@@ -1695,5 +1985,56 @@ def suggest_products_from_image(
     )
     return SuggestedProducts(
         candidates=_candidates_from_payload(outcome.payload),
+        replayed=outcome.replayed,
+    )
+
+
+def suggest_product_descriptions(
+    *,
+    context: TenantContext,
+    asset_id: object,
+    idempotency_key: str,
+) -> SuggestedDescriptions:
+    from apps.billing.entitlements import assert_ai_assisted_allowed
+
+    assert_ai_assisted_allowed(context.organisation)
+    try:
+        public_id = asset_id if isinstance(asset_id, uuid.UUID) else uuid.UUID(str(asset_id))
+    except (TypeError, ValueError) as exc:
+        raise DomainError("NOT_FOUND", "No encontramos el recurso solicitado.", status=404) from exc
+
+    asset = ready_asset(context=context, public_id=public_id)
+    if asset.purpose not in {
+        MediaAsset.Purpose.IMAGE_SEARCH,
+        MediaAsset.Purpose.PRODUCT_IMAGE,
+    }:
+        raise DomainError("NOT_FOUND", "No encontramos el recurso solicitado.", status=404)
+    provider = get_image_search_provider()
+
+    def command() -> tuple[dict[str, Any], int]:
+        _ready, content = read_ready_asset(context=context, public_id=asset.public_id)
+        schema = list(active_custom_fields(context))
+        options = provider.describe_copy(
+            image_bytes=content,
+            content_type=asset.content_type or "image/jpeg",
+            schema=schema,
+        )
+        if not options:
+            raise DomainError(
+                "PRODUCT_IMAGE_SEARCH_EMPTY",
+                "No pudimos redactar una descripción. Completa la ficha a mano.",
+                status=422,
+            )
+        return {"options": [item.as_payload() for item in options]}, 200
+
+    outcome = execute_idempotent(
+        context=context,
+        scope="inventory.suggest_product_descriptions",
+        key=idempotency_key,
+        request_payload={"assetId": str(asset.public_id)},
+        command=command,
+    )
+    return SuggestedDescriptions(
+        options=_options_from_payload(outcome.payload),
         replayed=outcome.replayed,
     )

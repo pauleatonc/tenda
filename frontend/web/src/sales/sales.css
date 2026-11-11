@@ -1464,7 +1464,8 @@
 }
 
 .public-lines img,
-.public-lines > li > span {
+.public-lines > li > span,
+.public-lines__placeholder {
   align-items: center;
   background: #eeece5;
   border-radius: 12px;
@@ -1485,6 +1486,10 @@
   color: var(--ink-soft);
   font-size: 13px;
   margin: 0;
+}
+
+.public-lines__placeholder {
+  color: var(--ink-soft);
 }
 
 .public-lines dl {

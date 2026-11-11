@@ -4,6 +4,8 @@ import { productDraftEquals, suggestVariantName } from '../product-draft'
 
 const base = {
   name: 'Polera',
+  brand: '',
+  description: '',
   catalogStatus: 'active',
   purchasePrice: '2000',
   salePrice: '5000',

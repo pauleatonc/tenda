@@ -530,6 +530,23 @@ def _clean_name(value: str) -> str:
     return name
 
 
+def clean_brand(value: str) -> str:
+    brand = " ".join(value.split())
+    if len(brand) > 80:
+        raise validation_error("brand", "Usa una marca de hasta 80 caracteres.")
+    return brand
+
+
+def clean_description(value: str) -> str:
+    description = value.strip()
+    if len(description) > 500:
+        raise validation_error(
+            "description",
+            "Usa una descripción de hasta 500 caracteres.",
+        )
+    return description
+
+
 def _clean_catalog_status(value: str) -> str:
     if value in {Product.CatalogStatus.ACTIVE, Product.CatalogStatus.INACTIVE}:
         return value
@@ -635,6 +652,8 @@ def _create_product(
     *,
     context: TenantContext,
     name: str,
+    brand: str,
+    description: str,
     catalog_status: str,
     purchase_price: Decimal | None,
     sale_price: Decimal | None,
@@ -649,6 +668,8 @@ def _create_product(
             product = Product.objects.create(
                 inventory=context.inventory,
                 name=name,
+                brand=brand,
+                description=description,
                 catalog_status=catalog_status,
                 purchase_price=purchase_price,
                 sale_price=sale_price,
@@ -688,6 +709,8 @@ def create_product(
     *,
     context: TenantContext,
     name: str,
+    brand: str = "",
+    description: str = "",
     catalog_status: str = Product.CatalogStatus.ACTIVE,
     purchase_price: Any = None,
     sale_price: Any = None,
@@ -704,6 +727,8 @@ def create_product(
 
     assert_can_create_product(context.organisation)
     clean_name_value = _clean_name(name)
+    clean_brand_value = clean_brand(brand)
+    clean_description_value = clean_description(description)
     status_value = _clean_catalog_status(catalog_status)
     purchase = clean_reference_price(purchase_price, field="purchasePrice")
     sale = clean_reference_price(sale_price, field="salePrice")
@@ -718,6 +743,8 @@ def create_product(
         result = _create_product(
             context=context,
             name=clean_name_value,
+            brand=clean_brand_value,
+            description=clean_description_value,
             catalog_status=status_value,
             purchase_price=purchase,
             sale_price=sale,
@@ -739,6 +766,8 @@ def create_product(
         return _create_product(
             context=context,
             name=clean_name_value,
+            brand=clean_brand_value,
+            description=clean_description_value,
             catalog_status=status_value,
             purchase_price=purchase,
             sale_price=sale,
@@ -755,6 +784,8 @@ def create_product(
         key=idempotency_key,
         request_payload={
             "name": clean_name_value.casefold(),
+            "brand": clean_brand_value.casefold(),
+            "description": clean_description_value,
             "catalogStatus": status_value,
             "purchasePrice": str(purchase) if purchase is not None else None,
             "salePrice": str(sale) if sale is not None else None,
@@ -795,6 +826,8 @@ def update_product(
     context: TenantContext,
     product_id: uuid.UUID,
     name: str | None = None,
+    brand: str | None = None,
+    description: str | None = None,
     catalog_status: str | None = None,
     purchase_price: Any = UNSET,
     sale_price: Any = UNSET,
@@ -815,6 +848,12 @@ def update_product(
     if name is not None:
         product.name = _clean_name(name)
         changes.append("name")
+    if brand is not None:
+        product.brand = clean_brand(brand)
+        changes.append("brand")
+    if description is not None:
+        product.description = clean_description(description)
+        changes.append("description")
     if catalog_status is not None:
         product.catalog_status = _clean_catalog_status(catalog_status)
         changes.append("catalog_status")

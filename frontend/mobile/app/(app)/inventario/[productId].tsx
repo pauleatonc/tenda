@@ -151,6 +151,10 @@ export default function ProductDetailScreen() {
           <Text accessibilityRole="header" style={styles.title}>
             {product.name}
           </Text>
+          {product.brand ? <Text style={styles.muted}>{product.brand}</Text> : null}
+          {product.description ? (
+            <Text style={styles.muted}>{product.description}</Text>
+          ) : null}
           <View style={styles.chips}>
             {product.stock.available > 0 ? (
               <InventoryChip

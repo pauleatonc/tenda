@@ -37,10 +37,12 @@ import {
   fetchProducts,
   invalidateInventoryCatalog,
   inventoryKeys,
+  suggestProductDescriptionsFromImage,
   suggestProductsFromImage,
   updateProduct,
   type CustomField,
   type ProductCard,
+  type ProductDescriptionOption,
   type ProductImageCandidate,
 } from '../../../lib/inventory-api'
 import {
@@ -95,6 +97,8 @@ function attributesFromDraft(
 function identityFromProduct(product: ProductCard): ProductIdentityDraft {
   return {
     name: product.name,
+    brand: product.brand,
+    description: product.description,
     catalogStatus: product.catalogStatus,
     purchasePrice: product.purchasePrice,
     salePrice: product.salePrice,
@@ -116,6 +120,8 @@ export default function ProductFormScreen() {
   const queryClient = useQueryClient()
 
   const [name, setName] = useState('')
+  const [brand, setBrand] = useState('')
+  const [description, setDescription] = useState('')
   const [catalogStatus, setCatalogStatus] = useState('active')
   const [initialQuantity, setInitialQuantity] = useState('')
   const [purchasePrice, setPurchasePrice] = useState('')
@@ -129,8 +135,9 @@ export default function ProductFormScreen() {
   const [suggestionKey, setSuggestionKey] = useState(newIdempotencyKey)
   const [photos, setPhotos] = useState<PickedImage[]>([])
   const [candidates, setCandidates] = useState<ProductImageCandidate[]>([])
+  const [copyOptions, setCopyOptions] = useState<ProductDescriptionOption[]>([])
   const [assistedPhase, setAssistedPhase] = useState<
-    'photo' | 'searching' | 'pick' | 'form'
+    'photo' | 'choose' | 'searching' | 'pick' | 'describing' | 'pick-copy' | 'form'
   >('photo')
   const [searchError, setSearchError] = useState<string | null>(null)
   const [pickerQuery, setPickerQuery] = useState('')
@@ -189,6 +196,8 @@ export default function ProductFormScreen() {
     loaded.current = true
     const detail = product.data.product
     setName(detail.name)
+    setBrand(detail.brand)
+    setDescription(detail.description)
     setCatalogStatus(detail.catalogStatus)
     setPurchasePrice(detail.purchasePrice ?? '')
     setSalePrice(detail.salePrice ?? '')
@@ -219,6 +228,8 @@ export default function ProductFormScreen() {
   function currentIdentity(): ProductIdentityDraft {
     return {
       name,
+      brand,
+      description,
       catalogStatus,
       purchasePrice: parsePrice(purchasePrice).value,
       salePrice: parsePrice(salePrice).value,
@@ -230,6 +241,8 @@ export default function ProductFormScreen() {
     setSourceProduct(row)
     setSourceIdentity(identityFromProduct(row))
     setName(row.name)
+    setBrand(row.brand)
+    setDescription(row.description)
     setCatalogStatus(row.catalogStatus)
     setPurchasePrice(row.purchasePrice ?? '')
     setSalePrice(row.salePrice ?? '')
@@ -253,6 +266,8 @@ export default function ProductFormScreen() {
         return updateProduct({
           productId,
           name: name.trim(),
+          brand: brand.trim(),
+          description: description.trim(),
           catalogStatus,
           purchasePrice: purchase.value,
           salePrice: sale.value,
@@ -263,6 +278,8 @@ export default function ProductFormScreen() {
       }
       const created = await createProduct({
         name: name.trim(),
+        brand: brand.trim(),
+        description: description.trim(),
         catalogStatus,
         purchasePrice: purchase.value,
         salePrice: sale.value,
@@ -374,8 +391,17 @@ export default function ProductFormScreen() {
 
   function resetAssistedSearch() {
     setCandidates([])
+    setCopyOptions([])
     setSearchError(null)
     setAssistedPhase('photo')
+    setSuggestionKey(newIdempotencyKey())
+  }
+
+  function backToAssistedChoice() {
+    setCandidates([])
+    setCopyOptions([])
+    setSearchError(null)
+    setAssistedPhase('choose')
     setSuggestionKey(newIdempotencyKey())
   }
 
@@ -404,8 +430,35 @@ export default function ProductFormScreen() {
     }
   }
 
+  async function runDescription(photo: PickedImage) {
+    setAssistedPhase('describing')
+    setSearchError(null)
+    try {
+      const assetId = photo.assetId ?? (await uploadImageSearchPhoto(photo))
+      setPhotos((current) =>
+        current.map((item) => (item.uri === photo.uri ? { ...item, assetId } : item)),
+      )
+      const result = await suggestProductDescriptionsFromImage({
+        assetId,
+        idempotencyKey: suggestionKey,
+      })
+      setCopyOptions(result.options)
+      setAssistedPhase('pick-copy')
+    } catch (error) {
+      setSearchError(
+        error instanceof MobileApiError
+          ? error.message
+          : 'No pudimos redactar una descripción. Completa la ficha a mano.',
+      )
+      setAssistedPhase('form')
+      setSuggestionKey(newIdempotencyKey())
+    }
+  }
+
   function applyCandidate(candidate: ProductImageCandidate) {
     setName(candidate.name)
+    setBrand('')
+    setDescription('')
     setSalePrice(candidate.salePrice != null ? String(candidate.salePrice) : '')
     setPurchasePrice(
       candidate.purchasePrice != null ? String(candidate.purchasePrice) : '',
@@ -413,6 +466,21 @@ export default function ProductFormScreen() {
     setAttributes((current) => {
       const next = { ...current }
       for (const [key, value] of Object.entries(candidate.extraAttributes)) {
+        next[key] = attributeToDraft(value)
+      }
+      return next
+    })
+    setAssistedPhase('form')
+    setDirty(true)
+  }
+
+  function applyDescription(option: ProductDescriptionOption) {
+    setName(option.name)
+    setBrand(option.brand)
+    setDescription(option.description)
+    setAttributes((current) => {
+      const next = { ...current }
+      for (const [key, value] of Object.entries(option.extraAttributes)) {
         next[key] = attributeToDraft(value)
       }
       return next
@@ -430,7 +498,7 @@ export default function ProductFormScreen() {
       setPhotos((current) => [...current, image])
       setDirty(true)
       if (isFirstAssistedPhoto) {
-        await runAssistedSearch(image)
+        setAssistedPhase('choose')
       }
     } catch (error) {
       Alert.alert(
@@ -480,10 +548,17 @@ export default function ProductFormScreen() {
 
   const errorList = Object.values(errors).filter(Boolean) as string[]
   const showAssistedGate = isAssisted && photos.length === 0 && assistedPhase === 'photo'
+  const showAssistedChoice = isAssisted && assistedPhase === 'choose'
   const showCandidates =
     isAssisted && (assistedPhase === 'searching' || assistedPhase === 'pick')
+  const showCopyOptions =
+    isAssisted && (assistedPhase === 'describing' || assistedPhase === 'pick-copy')
   const showForm =
-    (!isVariant || Boolean(sourceProduct)) && !showAssistedGate && !showCandidates
+    (!isVariant || Boolean(sourceProduct)) &&
+    !showAssistedGate &&
+    !showAssistedChoice &&
+    !showCandidates &&
+    !showCopyOptions
   const title = isEdit
     ? 'Editar producto'
     : isVariant
@@ -494,14 +569,20 @@ export default function ProductFormScreen() {
     : isVariant
       ? 'Cambia al menos un dato. El nombre tiene que ser distinto al del producto original.'
       : isAssisted && assistedPhase === 'photo'
-        ? 'Sube o toma una foto. Buscaremos productos similares para que elijas uno.'
-        : isAssisted && assistedPhase === 'searching'
-          ? 'Estamos buscando productos similares a tu foto.'
-          : isAssisted && assistedPhase === 'pick'
-            ? 'Elige el producto que más se parece. Puedes editarlo después.'
-            : isAssisted
-              ? 'Revisa y completa los datos. La foto original se adjunta al guardar.'
-              : 'Registra el mínimo necesario. Puedes ampliar la ficha con columnas propias.'
+        ? 'Sube o toma una foto. Después eliges si buscamos un producto similar o redactamos la ficha.'
+        : isAssisted && assistedPhase === 'choose'
+          ? 'Elige cómo quieres usar la foto.'
+          : isAssisted && assistedPhase === 'searching'
+            ? 'Estamos buscando productos similares a tu foto.'
+            : isAssisted && assistedPhase === 'pick'
+              ? 'Elige el producto que más se parece. Puedes editarlo después.'
+              : isAssisted && assistedPhase === 'describing'
+                ? 'Estamos redactando opciones a partir de tu foto.'
+                : isAssisted && assistedPhase === 'pick-copy'
+                  ? 'Elige la descripción que más se parece. Puedes editarla después.'
+                  : isAssisted
+                    ? 'Revisa y completa los datos. La foto original se adjunta al guardar.'
+                    : 'Registra el mínimo necesario. Puedes ampliar la ficha con columnas propias.'
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -595,6 +676,36 @@ export default function ProductFormScreen() {
             </>
           ) : null}
 
+          {showAssistedChoice ? (
+            <>
+              <MobilePendingPhotoQueue
+                photos={photos}
+                required
+                onAddFromLibrary={() => void addPhoto('library')}
+                onAddFromCamera={() => void addPhoto('camera')}
+                onRemove={removePhoto}
+              />
+              <View style={styles.choiceActions}>
+                <PrimaryButton
+                  label="Generar descripción con IA"
+                  onPress={() => {
+                    const photo = photos[0]
+                    if (photo) void runDescription(photo)
+                  }}
+                />
+                <PrimaryButton
+                  label="Buscar producto similar en la web con IA"
+                  variant="secondary"
+                  onPress={() => {
+                    const photo = photos[0]
+                    if (photo) void runAssistedSearch(photo)
+                  }}
+                />
+                <PrimaryButton label="Cancelar" variant="secondary" onPress={leave} />
+              </View>
+            </>
+          ) : null}
+
           {showCandidates ? (
             <>
               <MobilePendingPhotoQueue
@@ -647,10 +758,67 @@ export default function ProductFormScreen() {
                 </SectionCard>
               )}
               {assistedPhase === 'pick' ? (
+                <>
+                  <PrimaryButton
+                    label="Volver"
+                    variant="secondary"
+                    onPress={backToAssistedChoice}
+                  />
+                  <PrimaryButton
+                    label="Completar a mano"
+                    variant="secondary"
+                    onPress={() => setAssistedPhase('form')}
+                  />
+                </>
+              ) : null}
+              <PrimaryButton label="Cancelar" variant="secondary" onPress={leave} />
+            </>
+          ) : null}
+
+          {showCopyOptions ? (
+            <>
+              <MobilePendingPhotoQueue
+                photos={photos}
+                required
+                onAddFromLibrary={() => void addPhoto('library')}
+                onAddFromCamera={() => void addPhoto('camera')}
+                onRemove={removePhoto}
+              />
+              {assistedPhase === 'describing' ? (
+                <Text accessibilityLiveRegion="polite" style={styles.muted}>
+                  Redactando descripciones…
+                </Text>
+              ) : (
+                <SectionCard title="Descripciones">
+                  {copyOptions.map((option) => (
+                    <Pressable
+                      key={option.name}
+                      accessibilityRole="button"
+                      onPress={() => applyDescription(option)}
+                      style={styles.candidate}
+                    >
+                      <View style={styles.candidateCopy}>
+                        <Text style={styles.candidateName}>{option.name}</Text>
+                        <Text style={styles.candidatePrice}>
+                          {option.brand || 'Sin marca'}
+                        </Text>
+                        <Text style={styles.muted}>{option.description}</Text>
+                        {Object.entries(option.extraAttributes).map(([key, value]) => (
+                          <Text key={key} style={styles.muted}>
+                            {fields.find((field) => field.key === key)?.label ?? key}:{' '}
+                            {String(value)}
+                          </Text>
+                        ))}
+                      </View>
+                    </Pressable>
+                  ))}
+                </SectionCard>
+              )}
+              {assistedPhase === 'pick-copy' ? (
                 <PrimaryButton
-                  label="Completar a mano"
+                  label="Volver"
                   variant="secondary"
-                  onPress={() => setAssistedPhase('form')}
+                  onPress={backToAssistedChoice}
                 />
               ) : null}
               <PrimaryButton label="Cancelar" variant="secondary" onPress={leave} />
@@ -672,6 +840,28 @@ export default function ProductFormScreen() {
                   ref={(node: TextInput | null) => {
                     inputRefs.current.name = node
                   }}
+                />
+                <SheetField
+                  label="Marca"
+                  value={brand}
+                  maxLength={80}
+                  onChangeText={(value) => {
+                    setBrand(value)
+                    setDirty(true)
+                  }}
+                  error={errors.brand}
+                />
+                <SheetField
+                  label="Descripción"
+                  value={description}
+                  maxLength={500}
+                  multiline
+                  onChangeText={(value) => {
+                    setDescription(value)
+                    setDirty(true)
+                  }}
+                  error={errors.description}
+                  help="Hasta 500 caracteres."
                 />
 
                 {!isEdit ? (
@@ -877,6 +1067,7 @@ const styles = StyleSheet.create({
   summaryTitle: { color: colors.error, fontSize: 15, fontWeight: '800' },
   summaryItem: { color: colors.error, fontSize: 14, lineHeight: 20 },
   actions: { gap: 12 },
+  choiceActions: { alignSelf: 'stretch', gap: 12, width: '100%' },
   sourceRow: {
     borderColor: colors.line,
     borderRadius: 12,

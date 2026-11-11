@@ -15,6 +15,8 @@ const mocked = api as jest.Mocked<typeof api>
 const product: ProductCard = {
   id: 'product-1',
   name: 'Velas de soya',
+  brand: '',
+  description: '',
   catalogStatus: 'active',
   purchasePrice: '2000',
   salePrice: '5000',

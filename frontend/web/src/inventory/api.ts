@@ -22,6 +22,7 @@ import {
   RetryInventoryExportDocument,
   RetryInventoryImportDocument,
   SetPrimaryProductMediaDocument,
+  SuggestProductDescriptionsFromImageDocument,
   SuggestProductsFromImageDocument,
   StartInventoryExportDocument,
   StartInventoryImportDocument,
@@ -68,6 +69,13 @@ export type ProductImageCandidate = {
   sourceUrl: string | null
   imageUrl: string | null
   confidence: number
+}
+
+export type ProductDescriptionOption = {
+  name: string
+  brand: string
+  description: string
+  extraAttributes: Record<string, unknown>
 }
 
 /** `JSONString` travels as text, so the boundary parses it exactly once. */
@@ -261,6 +269,22 @@ export async function suggestProductsFromImage(input: {
     candidates: data.suggestProductsFromImage.candidates.map((candidate) => ({
       ...candidate,
       extraAttributes: parseAttributes(candidate.extraAttributes),
+    })),
+  }
+}
+
+export async function suggestProductDescriptionsFromImage(input: {
+  assetId: string
+  idempotencyKey: string
+}): Promise<{ options: ProductDescriptionOption[]; replayed: boolean }> {
+  const data = await graphqlRequest(SuggestProductDescriptionsFromImageDocument, {
+    input,
+  })
+  return {
+    replayed: data.suggestProductDescriptionsFromImage.replayed,
+    options: data.suggestProductDescriptionsFromImage.options.map((option) => ({
+      ...option,
+      extraAttributes: parseAttributes(option.extraAttributes),
     })),
   }
 }

@@ -129,6 +129,8 @@ export function ProductDetailPage() {
             <Link to="/app/inventario">Inventario</Link>
           </p>
           <h1>{product.name}</h1>
+          {product.brand ? <p>{product.brand}</p> : null}
+          {product.description ? <p>{product.description}</p> : null}
           <div className="stock-chips">
             {product.stock.available > 0 ? (
               <StatusChip

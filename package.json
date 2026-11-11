@@ -51,7 +51,7 @@
       "js-yaml@^3.0.0": "3.15.2",
       "js-yaml@^4.0.0": "4.3.2",
       "minimatch": "11.0.1",
-      "node-forge": "1.4.1",
+      "node-forge": "1.4.3",
       "re2js": "2.8.7",
       "shell-quote": "1.11.0",
       "source-map-js": "1.2.2",

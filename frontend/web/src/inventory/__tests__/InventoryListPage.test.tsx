@@ -27,6 +27,8 @@ function makeProduct(overrides: Partial<ProductRow> = {}): ProductRow {
   return {
     id: 'product-1',
     name: 'Velas de soya',
+    brand: '',
+    description: '',
     catalogStatus: 'active',
     purchasePrice: '2000',
     salePrice: '5000',
@@ -244,6 +246,8 @@ describe('InventoryListPage', () => {
       screen.getByLabelText('Se genera alerta cuando el stock disponible es menor a:'),
     ).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Columnas' })).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: 'Marca' })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Descripción' })).toBeChecked()
     expect(screen.getByRole('button', { name: 'Agregar columna' })).toBeInTheDocument()
   })
 
@@ -278,9 +282,11 @@ describe('InventoryListPage', () => {
     renderPage(makeViewer(true))
     await screen.findByRole('link', { name: 'Velas de soya' })
 
-    expect(screen.getByRole('columnheader', { name: 'Descripción' })).toHaveClass(
-      'cell-text-column',
-    )
+    expect(
+      screen
+        .getAllByRole('columnheader', { name: 'Descripción' })
+        .some((header) => header.classList.contains('cell-text-column')),
+    ).toBe(true)
     const description = screen.getByText(longDescription)
     expect(description.closest('.cell-text-clamp')).not.toBeNull()
   })
@@ -300,6 +306,9 @@ describe('InventoryListPage', () => {
       'href',
       '/app/inventario/nuevo',
     )
+    expect(
+      screen.getByRole('link', { name: 'Venta de múltiples artículos' }),
+    ).toHaveAttribute('href', '/app/ventas/nueva')
     expect(screen.queryByRole('button', { name: 'Agregar con asistente' })).toBeNull()
     expect(
       screen.queryByText('Próximamente: el asistente con foto aún no está disponible.'),

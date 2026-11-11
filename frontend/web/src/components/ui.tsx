@@ -7,6 +7,8 @@ import {
   useState,
 } from 'react'
 
+import { SectionIcon } from './section-icons'
+
 type SearchFieldProps = {
   value: string
   onChange: (value: string) => void
@@ -26,7 +28,9 @@ export function SearchField({
       <label className="sr-only" htmlFor={id}>
         {label}
       </label>
-      <span aria-hidden="true">⌕</span>
+      <span className="search-field__icon">
+        <SectionIcon name="search" size={20} />
+      </span>
       <input
         id={id}
         type="search"
@@ -73,7 +77,9 @@ export function EmptyState({
 }) {
   return (
     <section className="empty-state">
-      <span aria-hidden="true">◇</span>
+      <span className="empty-state__mark">
+        <SectionIcon name="empty" size={40} />
+      </span>
       <h2>{title}</h2>
       <p>{description}</p>
       {action}

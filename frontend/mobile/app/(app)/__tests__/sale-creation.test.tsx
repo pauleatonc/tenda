@@ -40,6 +40,8 @@ function productPage(available = 5) {
       {
         id: 'product-1',
         name: 'Velas de soya',
+        brand: '',
+        description: '',
         catalogStatus: 'active',
         purchasePrice: '2000',
         salePrice: '5000',

@@ -211,6 +211,7 @@ export const styles = StyleSheet.create({
   errorText: { color: colors.error, fontSize: 13, lineHeight: 18 },
   button: {
     alignItems: 'center',
+    alignSelf: 'stretch',
     backgroundColor: colors.green,
     borderColor: colors.green,
     borderRadius: 13,
@@ -222,7 +223,12 @@ export const styles = StyleSheet.create({
   buttonSecondary: { backgroundColor: colors.surface, borderColor: colors.line },
   buttonPressed: { opacity: 0.82 },
   buttonDisabled: { opacity: 0.58 },
-  buttonText: { color: '#ffffff', fontSize: 15, fontWeight: '800' },
+  buttonText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
   buttonTextSecondary: { color: colors.green },
   message: {
     backgroundColor: colors.errorPale,

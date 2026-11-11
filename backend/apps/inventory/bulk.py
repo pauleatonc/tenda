@@ -37,7 +37,13 @@ from tenda.errors import DomainError, ResourceNotFound
 from .custom_fields import validate_extra_attributes
 from .models import InventoryExport, InventoryImport, Product
 from .selectors import ProductFilters, active_custom_fields, filtered_products
-from .services import MAX_MOVEMENT_QUANTITY, clean_reference_price, create_product
+from .services import (
+    MAX_MOVEMENT_QUANTITY,
+    clean_brand,
+    clean_description,
+    clean_reference_price,
+    create_product,
+)
 
 MAX_IMPORT_ROWS = 50_000
 MAX_STORED_ERRORS = 1_000
@@ -47,6 +53,8 @@ logger = logging.getLogger(__name__)
 CORE_DESTINATIONS = frozenset(
     {
         "name",
+        "brand",
+        "description",
         "initialQuantity",
         "catalogStatus",
         "purchasePrice",
@@ -74,6 +82,8 @@ class ImportColumn:
 
 IMPORT_CORE_COLUMNS: tuple[ImportColumn, ...] = (
     ImportColumn("name", "Nombre", True),
+    ImportColumn("brand", "Marca"),
+    ImportColumn("description", "Descripción"),
     ImportColumn("initialQuantity", "Cantidad inicial"),
     ImportColumn("catalogStatus", "Estado de catálogo"),
     ImportColumn("purchasePrice", "Precio de compra"),
@@ -405,6 +415,8 @@ def normalise_import_row(
     }
     return {
         "name": name,
+        "brand": clean_brand(str(_row_value(row, mapping, "brand"))),
+        "description": clean_description(str(_row_value(row, mapping, "description"))),
         "catalog_status": catalog_status,
         "purchase_price": clean_reference_price(
             _row_value(row, mapping, "purchasePrice"),
@@ -987,6 +999,8 @@ def _export_rows(context: TenantContext, job: InventoryExport) -> tuple[list[str
     fields = active_custom_fields(context)
     headers = [
         "Nombre",
+        "Marca",
+        "Descripción",
         "Estado",
         "Stock total",
         "Reservado",
@@ -1001,6 +1015,8 @@ def _export_rows(context: TenantContext, job: InventoryExport) -> tuple[list[str
         rows.append(
             [
                 product.name,
+                product.brand,
+                product.description,
                 product.catalog_status,
                 int(getattr(product, "on_hand", 0)),
                 int(getattr(product, "reserved", 0)),

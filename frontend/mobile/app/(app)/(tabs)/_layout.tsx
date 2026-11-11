@@ -4,14 +4,15 @@ import { Text, View } from 'react-native'
 
 import { AuthImage } from '../../../components/auth-image'
 import { colors } from '../../../components/auth-ui'
+import { SectionIcon } from '../../../components/section-icons'
 import { getMobileViewer } from '../../../lib/auth-api'
 
 const icons: Record<string, string> = {
-  index: '⌂',
-  inventario: '□',
-  ventas: '↗',
-  despachos: '◇',
-  mas: '•••',
+  index: 'home',
+  inventario: 'inventory',
+  ventas: 'sales',
+  despachos: 'shipping',
+  mas: 'more',
 }
 
 function StoreTitle() {
@@ -78,9 +79,10 @@ export default function TabsLayout() {
           paddingTop: 8,
         },
         tabBarIcon: ({ color }) => (
-          <Text style={{ color, fontSize: 18, fontWeight: '800' }}>
-            {icons[route.name] ?? '•'}
-          </Text>
+          <SectionIcon
+            name={icons[route.name] ?? 'more'}
+            color={typeof color === 'string' ? color : colors.ink}
+          />
         ),
       })}
     >

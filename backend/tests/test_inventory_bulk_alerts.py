@@ -352,8 +352,8 @@ def test_xlsx_import_and_export_preserve_integral_inventory_values() -> None:
     assert exported_sheet is not None
     rows = list(exported_sheet.iter_rows(values_only=True))
     assert rows[1][0] == "Tazón"
-    assert rows[1][2] == 7
-    assert rows[1][6] == "12990"
+    assert rows[1][4] == 7
+    assert rows[1][8] == "12990"
 
 
 def test_import_template_roundtrip_creates_products_from_canonical_headers() -> None:
@@ -369,15 +369,17 @@ def test_import_template_roundtrip_creates_products_from_canonical_headers() -> 
     workbook = load_workbook(io.BytesIO(content))
     sheet = workbook["Productos"]
     headers = [str(cell.value) for cell in next(sheet.iter_rows(min_row=1, max_row=1))]
-    assert headers[:5] == [
+    assert headers[:7] == [
         "Nombre",
+        "Marca",
+        "Descripción",
         "Cantidad inicial",
         "Estado de catálogo",
         "Precio de compra",
         "Precio de venta",
     ]
-    assert headers[5] == "Aroma"
-    sheet.append(["Vela lima", 4, "Activo", 1200, 3900, "Lima"])
+    assert headers[7] == "Aroma"
+    sheet.append(["Vela lima", "Casa Lima", "Vela de lima", 4, "Activo", 1200, 3900, "Lima"])
     buffer = io.BytesIO()
     workbook.save(buffer)
     source = uploaded_asset(
@@ -399,6 +401,8 @@ def test_import_template_roundtrip_creates_products_from_canonical_headers() -> 
     completed = process_import_job(job.public_id)
     assert completed.status == InventoryImport.Status.SUCCEEDED
     product = Product.objects.get(inventory=context.inventory, name="Vela lima")
+    assert product.brand == "Casa Lima"
+    assert product.description == "Vela de lima"
     assert product.catalog_status == Product.CatalogStatus.ACTIVE
     assert product.purchase_price == 1200
     assert product.sale_price == 3900

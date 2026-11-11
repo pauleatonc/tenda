@@ -63,8 +63,10 @@ export async function publishShippingSale(
   productName: string,
 ): Promise<string> {
   await page.evaluate(() => window.localStorage.removeItem('tenda.sales.new-draft.v1'))
-  await page.getByRole('link', { name: 'Ventas', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Ventas', exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Inventario', exact: true }).click()
+  await expect(
+    page.getByRole('heading', { name: 'Inventario', exact: true }),
+  ).toBeVisible()
   await page.getByRole('link', { name: 'Venta de múltiples artículos' }).click()
   await expect(page.getByRole('heading', { name: 'Nueva venta' })).toBeVisible()
   await page.getByLabel('Buscar productos activos').fill(productName)

@@ -14,6 +14,7 @@ import { getViewer, logout, TendaApiError, type ViewerPayload } from '../auth/ap
 import { billingKeys, fetchOrganisationBilling } from '../billing/api'
 import { SLOW_QUERY_STALE_MS } from '../lib/queryDefaults'
 import { AuthenticatedImage, PersonAvatar } from '../components/AuthenticatedImage'
+import { SectionIcon, type SectionIconName } from '../components/section-icons'
 import { ConnectivityBanner, StatusChip } from '../components/ui'
 import { InventorySummary } from '../inventory/InventorySummary'
 import { SalesAttentionSummary } from '../sales/SalesAttentionSummary'
@@ -22,17 +23,17 @@ import { ShippingHomeSummary } from '../shipping/ShippingHomeSummary'
 type NavItem = {
   to: string
   label: string
-  icon: string
+  icon: SectionIconName
   financial?: boolean
 }
 
 const navigation: NavItem[] = [
-  { to: '/app', label: 'Inicio', icon: '⌂' },
-  { to: '/app/inventario', label: 'Inventario', icon: '□' },
-  { to: '/app/ventas', label: 'Ventas', icon: '↗' },
-  { to: '/app/despachos', label: 'Despachos', icon: '◇' },
-  { to: '/app/balances', label: 'Balances', icon: '◒', financial: true },
-  { to: '/app/mas', label: 'Más', icon: '•••' },
+  { to: '/app', label: 'Inicio', icon: 'home' },
+  { to: '/app/inventario', label: 'Inventario', icon: 'inventory' },
+  { to: '/app/ventas', label: 'Ventas', icon: 'sales' },
+  { to: '/app/despachos', label: 'Despachos', icon: 'shipping' },
+  { to: '/app/balances', label: 'Balances', icon: 'balances', financial: true },
+  { to: '/app/mas', label: 'Más', icon: 'more' },
 ]
 
 function ShellLoading() {
@@ -136,7 +137,9 @@ export function ApplicationShell() {
                 title={collapsed ? item.label : undefined}
                 className={item.financial ? 'nav-financial' : undefined}
               >
-                <span aria-hidden="true">{item.icon}</span>
+                <span className="nav-icon">
+                  <SectionIcon name={item.icon} />
+                </span>
                 <span>{item.label}</span>
               </NavLink>
             ))}
@@ -178,7 +181,7 @@ export function ApplicationShell() {
             </Link>
             <div className="app-header__actions">
               <button type="button" aria-label="Notificaciones" title="Notificaciones">
-                ♢
+                <SectionIcon name="bell" size={20} />
               </button>
               <button
                 className="button button--secondary"
@@ -281,10 +284,6 @@ export function MorePage() {
             <small>Solo información comercial</small>
           </Link>
         ) : null}
-        <div aria-disabled="true">
-          <span>Asistente con foto</span>
-          <StatusChip status="coming_soon" />
-        </div>
       </div>
     </>
   )

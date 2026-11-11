@@ -11,8 +11,10 @@ from apps.inventory.selectors import active_custom_fields, custom_field_for_cont
 from apps.inventory.services import (
     clean_reference_price,
     create_custom_field,
+    create_product,
     reorder_custom_fields,
     update_custom_field,
+    update_product,
 )
 from apps.organisations.models import Membership
 from apps.organisations.selectors import TenantContext, resolve_tenant_context
@@ -316,3 +318,41 @@ def test_duplicate_labels_and_reserved_keys_are_rejected() -> None:
             key="sale_price",
         )
     assert "key" in reserved.value.field_errors
+
+
+def test_brand_and_description_are_saved_and_limited() -> None:
+    _user, context = identity("owner-brand@example.com")
+    created = create_product(
+        context=context,
+        name="Cartera negra",
+        brand="  Prada  ",
+        description="  Cuero negro.  ",
+        idempotency_key="brand-create-1",
+    )
+    assert created.product.brand == "Prada"
+    assert created.product.description == "Cuero negro."
+
+    updated = update_product(
+        context=context,
+        product_id=created.product.public_id,
+        brand="",
+        description="Sin logo visible",
+    )
+    assert updated.brand == ""
+    assert updated.description == "Sin logo visible"
+
+    with pytest.raises(DomainError) as long_brand:
+        update_product(
+            context=context,
+            product_id=created.product.public_id,
+            brand="x" * 81,
+        )
+    assert "brand" in long_brand.value.field_errors
+
+    with pytest.raises(DomainError) as long_description:
+        update_product(
+            context=context,
+            product_id=created.product.public_id,
+            description="x" * 501,
+        )
+    assert "description" in long_description.value.field_errors

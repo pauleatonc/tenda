@@ -19,6 +19,13 @@
   padding: 0 12px;
 }
 
+.search-field__icon {
+  align-items: center;
+  color: var(--ink-soft);
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
 .search-field input {
   background: transparent;
   border: 0;
@@ -78,9 +85,10 @@
   text-align: center;
 }
 
-.empty-state > span {
+.empty-state__mark {
+  align-items: center;
   color: var(--clay-strong);
-  font-size: 34px;
+  display: inline-flex;
 }
 
 .empty-state h2 {
@@ -196,7 +204,7 @@
 }
 
 .modal--large {
-  width: min(100%, 720px);
+  width: min(100%, 960px);
 }
 
 .modal__header {

@@ -19,6 +19,7 @@ from apps.inventory.image_search import (
     ProductImageCandidate,
     _best_image_from_html,
     _brave_image_hit,
+    _clean_copy_options,
     _extract_prompt,
     _localize_search_queries,
     _queries_from_description,
@@ -1171,3 +1172,91 @@ def test_graphql_suggests_candidates_from_a_ready_photo() -> None:
         extras = json.loads(extras)
     assert extras["marca"]
     assert extras["talla"] in {"m", "l"}
+
+
+def test_fake_describe_copy_keeps_short_text_and_blank_brand() -> None:
+    _user, context = identity("owner-copy@example.com")
+    fields = store_schema(context)
+    options = FakeImageSearchProvider().describe_copy(
+        image_bytes=rgb_image_bytes(),
+        content_type="image/png",
+        schema=list(active_custom_fields(context)),
+    )
+    assert [item.brand for item in options] == ["Prada", "", ""]
+    assert options[0].extra_attributes == {fields["marca"].key: "Cuero negro"}
+    assert "talla" not in options[0].extra_attributes
+    assert options[1].description.startswith("Cartera de cuero")
+
+
+def test_clean_copy_options_drops_prices_and_non_text_columns() -> None:
+    _user, context = identity("owner-copy-clean@example.com")
+    fields = store_schema(context)
+    cleaned = _clean_copy_options(
+        [
+            {
+                "name": " " + ("Cartera " * 40),
+                "brand": "x" * 90,
+                "description": "y" * 520,
+                "salePrice": 12990,
+                "purchasePrice": 4000,
+                "catalogStatus": "inactive",
+                "extraAttributes": {
+                    fields["marca"].key: "Cuero",
+                    fields["peso"].key: "1.5",
+                    fields["talla"].key: "m",
+                    "salePrice": 12990,
+                },
+            },
+            {"name": "   ", "brand": "Prada", "description": "vacío"},
+        ],
+        list(active_custom_fields(context)),
+    )
+    assert len(cleaned) == 1
+    assert len(cleaned[0].name) == 160
+    assert len(cleaned[0].brand) == 80
+    assert len(cleaned[0].description) == 500
+    assert cleaned[0].extra_attributes == {fields["marca"].key: "Cuero"}
+
+
+def test_graphql_describes_a_photo_without_web_search(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail_web(*_args: object, **_kwargs: object) -> list[dict[str, str]]:
+        raise AssertionError("la descripción no debe buscar en la web")
+
+    monkeypatch.setattr("apps.inventory.image_search.search_web", fail_web)
+    fake_object_storage.clear()
+    client, context = signed_in("owner-gql-copy@example.com", paid=True)
+    store_schema(context)
+    asset = uploaded_product_image(context)
+    response = client.post(
+        "/graphql/",
+        data=json.dumps(
+            {
+                "query": """
+                mutation Describe($input: SuggestProductDescriptionsFromImageInput!) {
+                  suggestProductDescriptionsFromImage(input: $input) {
+                    replayed
+                    options { name brand description extraAttributes }
+                  }
+                }
+                """,
+                "variables": {
+                    "input": {
+                        "assetId": str(asset.public_id),
+                        "idempotencyKey": "gql-copy-1",
+                    }
+                },
+            }
+        ),
+        content_type="application/json",
+    )
+    payload = response.json()
+    assert "errors" not in payload, payload.get("errors")
+    options = payload["data"]["suggestProductDescriptionsFromImage"]["options"]
+    assert len(options) == 3
+    assert options[1]["brand"] == ""
+    extras = options[0]["extraAttributes"]
+    if isinstance(extras, str):
+        extras = json.loads(extras)
+    assert extras["marca"] == "Cuero negro"
+    assert "peso" not in extras
+    assert "talla" not in extras

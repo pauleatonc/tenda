@@ -573,6 +573,8 @@ type ProductConnectionType {
 type ProductType {
   id: ID!
   name: String!
+  brand: String!
+  description: String!
   catalogStatus: String!
   purchasePrice: String
   salePrice: String
@@ -848,6 +850,9 @@ type Mutation {
   suggestProductsFromImage(
     input: SuggestProductsFromImageInput!
   ): SuggestProductsFromImage!
+  suggestProductDescriptionsFromImage(
+    input: SuggestProductDescriptionsFromImageInput!
+  ): SuggestProductDescriptionsFromImage!
   createProduct(input: CreateProductInput!): CreateProduct!
   updateProduct(input: UpdateProductInput!): UpdateProduct!
   recordStockMovement(input: RecordStockMovementInput!): RecordStockMovement!
@@ -1096,6 +1101,23 @@ input SuggestProductsFromImageInput {
   idempotencyKey: String!
 }
 
+type SuggestProductDescriptionsFromImage {
+  options: [ProductDescriptionOptionType!]!
+  replayed: Boolean!
+}
+
+type ProductDescriptionOptionType {
+  name: String!
+  brand: String!
+  description: String!
+  extraAttributes: JSONString!
+}
+
+input SuggestProductDescriptionsFromImageInput {
+  assetId: ID!
+  idempotencyKey: String!
+}
+
 type CreateProduct {
   product: ProductType!
   movement: StockMovementType
@@ -1104,6 +1126,8 @@ type CreateProduct {
 
 input CreateProductInput {
   name: String!
+  brand: String
+  description: String
   catalogStatus: String
   purchasePrice: String
   salePrice: String
@@ -1121,6 +1145,8 @@ type UpdateProduct {
 input UpdateProductInput {
   productId: ID!
   name: String
+  brand: String
+  description: String
   catalogStatus: String
   purchasePrice: String
   salePrice: String

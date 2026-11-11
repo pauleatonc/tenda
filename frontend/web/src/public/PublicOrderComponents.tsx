@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 import { StatusChip } from '../components/ui'
+import { SectionIcon } from '../components/section-icons'
 import type { PublicOrder } from '../sales/api'
 import {
   formatClp,
@@ -349,7 +350,9 @@ export function PublicOrderSummary({
             {line.imageUrl ? (
               <img src={line.imageUrl} alt="" />
             ) : (
-              <span aria-hidden="true">◇</span>
+              <span className="public-lines__placeholder">
+                <SectionIcon name="inventory" size={28} />
+              </span>
             )}
             <div>
               <strong>{line.name}</strong>

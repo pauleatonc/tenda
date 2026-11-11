@@ -19,10 +19,12 @@ import {
   fetchProducts,
   invalidateInventoryCatalog,
   inventoryKeys,
+  suggestProductDescriptionsFromImage,
   suggestProductsFromImage,
   updateProduct,
   uploadPrivateFile,
   type CustomField,
+  type ProductDescriptionOption,
   type ProductImageCandidate,
   type ProductRow,
 } from './api'
@@ -83,6 +85,8 @@ function attributesFromDraft(
 function identityFromProduct(product: ProductRow): ProductIdentityDraft {
   return {
     name: product.name,
+    brand: product.brand,
+    description: product.description,
     catalogStatus: product.catalogStatus,
     purchasePrice: product.purchasePrice,
     salePrice: product.salePrice,
@@ -105,6 +109,8 @@ export function ProductFormPage({
   const isAssisted = !isEdit && origin === 'assisted'
 
   const [name, setName] = useState('')
+  const [brand, setBrand] = useState('')
+  const [description, setDescription] = useState('')
   const [catalogStatus, setCatalogStatus] = useState('active')
   const [purchasePrice, setPurchasePrice] = useState('')
   const [salePrice, setSalePrice] = useState('')
@@ -118,8 +124,9 @@ export function ProductFormPage({
   const [suggestionKey, setSuggestionKey] = useState(newIdempotencyKey)
   const [photos, setPhotos] = useState<StagedPhoto[]>([])
   const [candidates, setCandidates] = useState<ProductImageCandidate[]>([])
+  const [copyOptions, setCopyOptions] = useState<ProductDescriptionOption[]>([])
   const [assistedPhase, setAssistedPhase] = useState<
-    'photo' | 'searching' | 'pick' | 'form'
+    'photo' | 'choose' | 'searching' | 'pick' | 'describing' | 'pick-copy' | 'form'
   >('photo')
   const [searchError, setSearchError] = useState<string | null>(null)
   const [pickerQuery, setPickerQuery] = useState('')
@@ -166,6 +173,8 @@ export function ProductFormPage({
     const detail = product.data.product
     loaded.current = true
     setName(detail.name)
+    setBrand(detail.brand)
+    setDescription(detail.description)
     setCatalogStatus(detail.catalogStatus)
     setPurchasePrice(detail.purchasePrice ?? '')
     setSalePrice(detail.salePrice ?? '')
@@ -202,6 +211,8 @@ export function ProductFormPage({
   function currentIdentity(): ProductIdentityDraft {
     return {
       name,
+      brand,
+      description,
       catalogStatus,
       purchasePrice: parsePrice(purchasePrice).value,
       salePrice: parsePrice(salePrice).value,
@@ -213,6 +224,8 @@ export function ProductFormPage({
     setSourceProduct(row)
     setSourceIdentity(identityFromProduct(row))
     setName(row.name)
+    setBrand(row.brand)
+    setDescription(row.description)
     setCatalogStatus(row.catalogStatus)
     setPurchasePrice(row.purchasePrice ?? '')
     setSalePrice(row.salePrice ?? '')
@@ -236,6 +249,8 @@ export function ProductFormPage({
         return updateProduct({
           productId,
           name: name.trim(),
+          brand: brand.trim(),
+          description: description.trim(),
           catalogStatus,
           purchasePrice: purchase.value,
           salePrice: sale.value,
@@ -246,6 +261,8 @@ export function ProductFormPage({
       }
       const created = await createProduct({
         name: name.trim(),
+        brand: brand.trim(),
+        description: description.trim(),
         catalogStatus,
         purchasePrice: purchase.value,
         salePrice: sale.value,
@@ -359,8 +376,17 @@ export function ProductFormPage({
 
   function resetAssistedSearch() {
     setCandidates([])
+    setCopyOptions([])
     setSearchError(null)
     setAssistedPhase('photo')
+    setSuggestionKey(newIdempotencyKey())
+  }
+
+  function backToAssistedChoice() {
+    setCandidates([])
+    setCopyOptions([])
+    setSearchError(null)
+    setAssistedPhase('choose')
     setSuggestionKey(newIdempotencyKey())
   }
 
@@ -390,8 +416,36 @@ export function ProductFormPage({
     }
   }
 
+  async function runDescription(photo: StagedPhoto) {
+    setAssistedPhase('describing')
+    setSearchError(null)
+    try {
+      const assetId =
+        photo.assetId ?? (await uploadPrivateFile(photo.file, 'image_search'))
+      setPhotos((current) =>
+        current.map((item) => (item.id === photo.id ? { ...item, assetId } : item)),
+      )
+      const result = await suggestProductDescriptionsFromImage({
+        assetId,
+        idempotencyKey: suggestionKey,
+      })
+      setCopyOptions(result.options)
+      setAssistedPhase('pick-copy')
+    } catch (error) {
+      setSearchError(
+        error instanceof TendaApiError
+          ? error.message
+          : 'No pudimos redactar una descripción. Completa la ficha a mano.',
+      )
+      setAssistedPhase('form')
+      setSuggestionKey(newIdempotencyKey())
+    }
+  }
+
   function applyCandidate(candidate: ProductImageCandidate) {
     setName(candidate.name)
+    setBrand('')
+    setDescription('')
     setSalePrice(candidate.salePrice != null ? String(candidate.salePrice) : '')
     setPurchasePrice(
       candidate.purchasePrice != null ? String(candidate.purchasePrice) : '',
@@ -407,13 +461,28 @@ export function ProductFormPage({
     setDirty(true)
   }
 
+  function applyDescription(option: ProductDescriptionOption) {
+    setName(option.name)
+    setBrand(option.brand)
+    setDescription(option.description)
+    setAttributes((current) => {
+      const next = { ...current }
+      for (const [key, value] of Object.entries(option.extraAttributes)) {
+        next[key] = attributeToDraft(value)
+      }
+      return next
+    })
+    setAssistedPhase('form')
+    setDirty(true)
+  }
+
   function addPhotos(files: File[]) {
     const staged = files.map(createStagedPhoto)
     const isFirstAssistedPhoto = isAssisted && photos.length === 0
     setPhotos((current) => [...current, ...staged])
     setDirty(true)
     if (isFirstAssistedPhoto && staged[0]) {
-      void runAssistedSearch(staged[0])
+      setAssistedPhase('choose')
     }
   }
 
@@ -460,19 +529,32 @@ export function ProductFormPage({
     : isVariant
       ? 'Cambia al menos un dato. El nombre tiene que ser distinto al del producto original.'
       : isAssisted && assistedPhase === 'photo'
-        ? 'Sube o toma una foto. Buscaremos productos similares para que elijas uno.'
-        : isAssisted && assistedPhase === 'searching'
-          ? 'Estamos buscando productos similares a tu foto.'
-          : isAssisted && assistedPhase === 'pick'
-            ? 'Elige el producto que más se parece. Puedes editarlo después.'
-            : isAssisted
-              ? 'Revisa y completa los datos. La foto original se adjunta al guardar.'
-              : 'Registra el mínimo necesario. Puedes ampliar la ficha con columnas propias.'
+        ? 'Sube o toma una foto. Después eliges si buscamos un producto similar o redactamos la ficha.'
+        : isAssisted && assistedPhase === 'choose'
+          ? 'Elige cómo quieres usar la foto.'
+          : isAssisted && assistedPhase === 'searching'
+            ? 'Estamos buscando productos similares a tu foto.'
+            : isAssisted && assistedPhase === 'pick'
+              ? 'Elige el producto que más se parece. Puedes editarlo después.'
+              : isAssisted && assistedPhase === 'describing'
+                ? 'Estamos redactando opciones a partir de tu foto.'
+                : isAssisted && assistedPhase === 'pick-copy'
+                  ? 'Elige la descripción que más se parece. Puedes editarla después.'
+                  : isAssisted
+                    ? 'Revisa y completa los datos. La foto original se adjunta al guardar.'
+                    : 'Registra el mínimo necesario. Puedes ampliar la ficha con columnas propias.'
   const showAssistedGate = isAssisted && photos.length === 0 && assistedPhase === 'photo'
+  const showAssistedChoice = isAssisted && assistedPhase === 'choose'
   const showCandidates =
     isAssisted && (assistedPhase === 'searching' || assistedPhase === 'pick')
+  const showCopyOptions =
+    isAssisted && (assistedPhase === 'describing' || assistedPhase === 'pick-copy')
   const showForm =
-    (!isVariant || Boolean(sourceProduct)) && !showAssistedGate && !showCandidates
+    (!isVariant || Boolean(sourceProduct)) &&
+    !showAssistedGate &&
+    !showAssistedChoice &&
+    !showCandidates &&
+    !showCopyOptions
 
   return (
     <>
@@ -578,6 +660,42 @@ export function ProductFormPage({
         </fieldset>
       ) : null}
 
+      {showAssistedChoice ? (
+        <section className="product-candidates" aria-label="Qué hacer con la foto">
+          <ProductPhotoQueue
+            photos={photos}
+            required
+            onAdd={addPhotos}
+            onRemove={removePhoto}
+          />
+          <div className="form-row product-candidates__choices">
+            <button
+              className="button button--primary"
+              type="button"
+              onClick={() => {
+                const photo = photos[0]
+                if (photo) void runDescription(photo)
+              }}
+            >
+              Generar descripción con IA
+            </button>
+            <button
+              className="button button--secondary"
+              type="button"
+              onClick={() => {
+                const photo = photos[0]
+                if (photo) void runAssistedSearch(photo)
+              }}
+            >
+              Buscar producto similar en la web con IA
+            </button>
+            <button className="button button--secondary" type="button" onClick={leave}>
+              Cancelar
+            </button>
+          </div>
+        </section>
+      ) : null}
+
       {showCandidates ? (
         <section className="product-candidates" aria-label="Productos similares">
           <ProductPhotoQueue
@@ -621,9 +739,72 @@ export function ProductFormPage({
               <button
                 className="button button--secondary"
                 type="button"
+                onClick={backToAssistedChoice}
+              >
+                Volver
+              </button>
+              <button
+                className="button button--secondary"
+                type="button"
                 onClick={() => setAssistedPhase('form')}
               >
                 Completar a mano
+              </button>
+              <button className="button button--secondary" type="button" onClick={leave}>
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <div className="form-row">
+              <button className="button button--secondary" type="button" onClick={leave}>
+                Cancelar
+              </button>
+            </div>
+          )}
+        </section>
+      ) : null}
+
+      {showCopyOptions ? (
+        <section className="product-candidates" aria-label="Descripciones generadas">
+          <ProductPhotoQueue
+            photos={photos}
+            required
+            onAdd={addPhotos}
+            onRemove={removePhoto}
+          />
+          {assistedPhase === 'describing' ? (
+            <p aria-live="polite">Redactando descripciones…</p>
+          ) : (
+            <ul className="product-candidates__list">
+              {copyOptions.map((option) => (
+                <li key={option.name}>
+                  <button type="button" onClick={() => applyDescription(option)}>
+                    <span className="product-candidates__name">{option.name}</span>
+                    <span className="product-candidates__price">
+                      {option.brand || 'Sin marca'}
+                    </span>
+                    <small className="product-candidates__source">
+                      {option.description}
+                    </small>
+                    {Object.entries(option.extraAttributes).map(([key, value]) => (
+                      <small key={key} className="product-candidates__source">
+                        {fields.find((field) => field.key === key)?.label ?? key}:{' '}
+                        {String(value)}
+                      </small>
+                    ))}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {assistedPhase === 'pick-copy' ? (
+            <div className="form-row">
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={backToAssistedChoice}
+              >
+                Volver
               </button>
               <button className="button button--secondary" type="button" onClick={leave}>
                 Cancelar
@@ -668,6 +849,43 @@ export function ProductFormPage({
               {errors.variant ? (
                 <small className="field__error">{errors.variant}</small>
               ) : null}
+            </div>
+
+            <div className="field">
+              <label htmlFor="brand">Marca</label>
+              <input
+                id="brand"
+                value={brand}
+                maxLength={80}
+                aria-invalid={Boolean(errors.brand)}
+                onChange={(event) => {
+                  setBrand(event.target.value)
+                  setDirty(true)
+                }}
+              />
+              {errors.brand ? (
+                <small className="field__error">{errors.brand}</small>
+              ) : null}
+            </div>
+
+            <div className="field">
+              <label htmlFor="description">Descripción</label>
+              <textarea
+                id="description"
+                value={description}
+                maxLength={500}
+                rows={4}
+                aria-invalid={Boolean(errors.description)}
+                onChange={(event) => {
+                  setDescription(event.target.value)
+                  setDirty(true)
+                }}
+              />
+              {errors.description ? (
+                <small className="field__error">{errors.description}</small>
+              ) : (
+                <small className="field__hint">Hasta 500 caracteres.</small>
+              )}
             </div>
 
             {!isEdit ? (

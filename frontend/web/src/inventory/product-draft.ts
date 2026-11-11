@@ -1,5 +1,7 @@
 export type ProductIdentityDraft = {
   name: string
+  brand: string
+  description: string
   catalogStatus: string
   purchasePrice: string | null
   salePrice: string | null
@@ -19,6 +21,8 @@ function normalizeAttributes(attrs: Record<string, unknown>): Record<string, unk
 function normalizeIdentityDraft(draft: ProductIdentityDraft): ProductIdentityDraft {
   return {
     name: draft.name.trim().toLocaleLowerCase('es-CL'),
+    brand: draft.brand.trim().toLocaleLowerCase('es-CL'),
+    description: draft.description.trim().toLocaleLowerCase('es-CL'),
     catalogStatus: draft.catalogStatus,
     purchasePrice: draft.purchasePrice,
     salePrice: draft.salePrice,

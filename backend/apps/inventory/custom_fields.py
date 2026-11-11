@@ -24,6 +24,8 @@ CORE_FIELD_KEYS = frozenset(
     {
         "id",
         "name",
+        "brand",
+        "description",
         "catalog_status",
         "purchase_price",
         "sale_price",

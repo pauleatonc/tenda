@@ -57,7 +57,7 @@ class ProductAdmin(MaintainerModelAdmin):
         "created_at",
     )
     list_filter = ("catalog_status",)
-    search_fields = ("name", "public_id", "inventory__organisation__name")
+    search_fields = ("name", "brand", "public_id", "inventory__organisation__name")
     autocomplete_fields = ("inventory", "primary_image", "created_by")
     inlines = (ProductMediaAttachmentInline,)
 

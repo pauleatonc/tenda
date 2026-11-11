@@ -90,8 +90,9 @@
 }
 
 .app-sidebar nav a > span:first-child {
-  font-size: 17px;
-  text-align: center;
+  align-items: center;
+  display: flex;
+  justify-content: center;
 }
 
 .app-sidebar__account {

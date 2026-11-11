@@ -1,6 +1,8 @@
 fragment ProductRow on ProductType {
   id
   name
+  brand
+  description
   catalogStatus
   purchasePrice
   salePrice
@@ -253,6 +255,20 @@ mutation SuggestProductsFromImage($input: SuggestProductsFromImageInput!) {
       sourceUrl
       imageUrl
       confidence
+    }
+  }
+}
+
+mutation SuggestProductDescriptionsFromImage(
+  $input: SuggestProductDescriptionsFromImageInput!
+) {
+  suggestProductDescriptionsFromImage(input: $input) {
+    replayed
+    options {
+      name
+      brand
+      description
+      extraAttributes
     }
   }
 }

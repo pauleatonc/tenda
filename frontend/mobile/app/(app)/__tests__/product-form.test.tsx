@@ -18,6 +18,7 @@ jest.mock('../../../lib/inventory-api', () => ({
   createCustomField: jest.fn(),
   attachProductMedia: jest.fn(),
   suggestProductsFromImage: jest.fn(),
+  suggestProductDescriptionsFromImage: jest.fn(),
 }))
 
 jest.mock('../../../lib/mobile-upload', () => ({
@@ -131,6 +132,8 @@ describe('Crear producto en mobile', () => {
       product: {
         id: 'product-1',
         name: 'Velas de soya',
+        brand: '',
+        description: '',
         catalogStatus: 'active',
         purchasePrice: '2000',
         salePrice: '5000',
@@ -160,6 +163,8 @@ describe('Crear producto en mobile', () => {
       product: {
         id: 'product-1',
         name: 'Velas de soya',
+        brand: '',
+        description: '',
         catalogStatus: 'active',
         purchasePrice: '2000',
         salePrice: '5000',
@@ -297,6 +302,15 @@ describe('Crear producto en mobile', () => {
 
     await renderScreen(<ProductFormScreen />)
     await fireEvent.press(screen.getByRole('button', { name: 'Elegir de la galería' }))
+    expect(
+      await screen.findByRole('button', {
+        name: 'Buscar producto similar en la web con IA',
+      }),
+    ).toBeOnTheScreen()
+    expect(mocked.suggestProductsFromImage).not.toHaveBeenCalled()
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Buscar producto similar en la web con IA' }),
+    )
 
     expect(await screen.findByText('Vela de soya aroma lavanda')).toBeOnTheScreen()
     expect(mockedUpload.uploadImageSearchPhoto).toHaveBeenCalled()
@@ -309,7 +323,65 @@ describe('Crear producto en mobile', () => {
     expect(screen.getByLabelText('Nombre')).toHaveDisplayValue(
       'Vela de soya aroma lavanda',
     )
+    expect(screen.getByLabelText('Marca')).toHaveDisplayValue('')
+    expect(screen.getByLabelText('Descripción')).toHaveDisplayValue('')
     expect(screen.getByLabelText('Precio de venta')).toHaveDisplayValue('12990')
+  })
+
+  it('genera una descripción y vuelve a la elección', async () => {
+    mockedParams.mockReturnValue({ origen: 'asistida' })
+    mockedUpload.pickProductImage.mockResolvedValue({
+      uri: 'file://cartera.png',
+      fileName: 'cartera.png',
+      contentType: 'image/png',
+      size: 12,
+    })
+    mockedUpload.uploadImageSearchPhoto.mockResolvedValue('asset-1')
+    mocked.suggestProductDescriptionsFromImage.mockResolvedValue({
+      replayed: false,
+      options: [
+        {
+          name: 'Cartera negra de cuero',
+          brand: 'Prada',
+          description: 'Cartera negra de cuero con asas cortas.',
+          extraAttributes: { aroma: 'Cuero' },
+        },
+        {
+          name: 'Cartera de cuero',
+          brand: '',
+          description: 'Cartera de cuero negro, sin logo visible.',
+          extraAttributes: {},
+        },
+        {
+          name: 'Bolso negro',
+          brand: '',
+          description: 'Bolso negro con cierre superior.',
+          extraAttributes: {},
+        },
+      ],
+    })
+
+    await renderScreen(<ProductFormScreen />)
+    await fireEvent.press(screen.getByRole('button', { name: 'Elegir de la galería' }))
+    await fireEvent.press(
+      await screen.findByRole('button', { name: 'Generar descripción con IA' }),
+    )
+    expect((await screen.findAllByText('Sin marca')).length).toBeGreaterThan(0)
+    await fireEvent.press(screen.getByRole('button', { name: 'Volver' }))
+    expect(
+      screen.getByRole('button', { name: 'Buscar producto similar en la web con IA' }),
+    ).toBeOnTheScreen()
+
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Generar descripción con IA' }),
+    )
+    await fireEvent.press(await screen.findByText('Cartera negra de cuero'))
+    expect(screen.getByLabelText('Nombre')).toHaveDisplayValue('Cartera negra de cuero')
+    expect(screen.getByLabelText('Marca')).toHaveDisplayValue('Prada')
+    expect(screen.getByLabelText('Descripción')).toHaveDisplayValue(
+      'Cartera negra de cuero con asas cortas.',
+    )
+    expect(screen.getByLabelText('Precio de venta')).toHaveDisplayValue('')
   })
 
   it('bloquea una variante idéntica y no llama al API', async () => {
@@ -322,6 +394,8 @@ describe('Crear producto en mobile', () => {
         {
           id: 'product-1',
           name: 'Velas de soya',
+          brand: '',
+          description: '',
           catalogStatus: 'active',
           purchasePrice: '2000',
           salePrice: '5000',

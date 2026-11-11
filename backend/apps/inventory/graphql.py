@@ -41,7 +41,7 @@ from .bulk import (
     start_inventory_export,
     start_inventory_import,
 )
-from .image_search import suggest_products_from_image
+from .image_search import suggest_product_descriptions, suggest_products_from_image
 from .media import (
     attach_product_media,
     product_media,
@@ -253,6 +253,8 @@ class ProductMediaType(graphene.ObjectType):  # type: ignore[misc]
 class ProductType(graphene.ObjectType):  # type: ignore[misc]
     id = graphene.ID(required=True)
     name = graphene.String(required=True)
+    brand = graphene.String(required=True)
+    description = graphene.String(required=True)
     catalog_status = graphene.String(required=True)
     purchase_price = graphene.String()
     sale_price = graphene.String()
@@ -775,8 +777,56 @@ class SuggestProductsFromImage(graphene.Mutation):  # type: ignore[misc]
         )
 
 
+class ProductDescriptionOptionType(graphene.ObjectType):  # type: ignore[misc]
+    name = graphene.String(required=True)
+    brand = graphene.String(required=True)
+    description = graphene.String(required=True)
+    extra_attributes = graphene.JSONString(required=True)
+
+    @staticmethod
+    def resolve_extra_attributes(root: Any, _info: GraphQLResolveInfo) -> dict[str, Any]:
+        extras = getattr(root, "extra_attributes", None)
+        if extras is None and isinstance(root, dict):
+            extras = root.get("extra_attributes")
+        return dict(extras or {})
+
+
+class SuggestProductDescriptionsFromImageInput(graphene.InputObjectType):  # type: ignore[misc]
+    asset_id = graphene.ID(required=True)
+    idempotency_key = graphene.String(required=True)
+
+
+class SuggestProductDescriptionsFromImage(graphene.Mutation):  # type: ignore[misc]
+    class Arguments:
+        input = graphene.Argument(SuggestProductDescriptionsFromImageInput, required=True)
+
+    options = graphene.List(graphene.NonNull(ProductDescriptionOptionType), required=True)
+    replayed = graphene.Boolean(required=True)
+
+    @staticmethod
+    def mutate(
+        _root: object,
+        info: GraphQLResolveInfo,
+        input: dict[str, Any],
+    ) -> SuggestProductDescriptionsFromImage:
+        try:
+            result = suggest_product_descriptions(
+                context=context_from_info(info),
+                asset_id=input.get("asset_id"),
+                idempotency_key=str(input.get("idempotency_key", "")),
+            )
+        except DomainError as exc:
+            raise graphql_error(info, exc) from exc
+        return SuggestProductDescriptionsFromImage(
+            options=result.options,
+            replayed=result.replayed,
+        )
+
+
 class CreateProductInput(graphene.InputObjectType):  # type: ignore[misc]
     name = graphene.String(required=True)
+    brand = graphene.String()
+    description = graphene.String()
     catalog_status = graphene.String()
     purchase_price = graphene.String()
     sale_price = graphene.String()
@@ -806,6 +856,8 @@ class CreateProduct(graphene.Mutation):  # type: ignore[misc]
             result = create_product(
                 context=context,
                 name=str(input.get("name", "")),
+                brand=str(input.get("brand") or ""),
+                description=str(input.get("description") or ""),
                 catalog_status=str(input.get("catalog_status") or Product.CatalogStatus.ACTIVE),
                 purchase_price=input.get("purchase_price"),
                 sale_price=input.get("sale_price"),
@@ -829,6 +881,8 @@ class CreateProduct(graphene.Mutation):  # type: ignore[misc]
 class UpdateProductInput(graphene.InputObjectType):  # type: ignore[misc]
     product_id = graphene.ID(required=True)
     name = graphene.String()
+    brand = graphene.String()
+    description = graphene.String()
     catalog_status = graphene.String()
     purchase_price = graphene.String()
     sale_price = graphene.String()
@@ -864,6 +918,8 @@ class UpdateProduct(graphene.Mutation):  # type: ignore[misc]
                 context=context,
                 product_id=_uuid_or_not_found(input.get("product_id")),
                 name=input.get("name"),
+                brand=input.get("brand"),
+                description=input.get("description"),
                 catalog_status=input.get("catalog_status"),
                 purchase_price=purchase,
                 sale_price=sale,
@@ -1661,6 +1717,9 @@ class InventoryMutation(graphene.ObjectType):  # type: ignore[misc]
     update_custom_field = UpdateCustomField.Field(required=True)
     reorder_custom_fields = ReorderCustomFields.Field(required=True)
     suggest_products_from_image = SuggestProductsFromImage.Field(required=True)
+    suggest_product_descriptions_from_image = SuggestProductDescriptionsFromImage.Field(
+        required=True
+    )
     create_product = CreateProduct.Field(required=True)
     update_product = UpdateProduct.Field(required=True)
     record_stock_movement = RecordStockMovement.Field(required=True)

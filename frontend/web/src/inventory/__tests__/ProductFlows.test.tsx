@@ -25,6 +25,7 @@ vi.mock('../api', async () => {
     uploadPrivateFile: vi.fn(),
     attachProductMedia: vi.fn(),
     suggestProductsFromImage: vi.fn(),
+    suggestProductDescriptionsFromImage: vi.fn(),
   }
 })
 
@@ -33,6 +34,8 @@ const mocked = vi.mocked(api)
 const product: ProductRow = {
   id: 'product-1',
   name: 'Velas de soya',
+  brand: '',
+  description: '',
   catalogStatus: 'active',
   purchasePrice: '2000',
   salePrice: '5000',
@@ -327,6 +330,15 @@ describe('ProductFormPage', () => {
 
     const file = new File(['img'], 'vela.png', { type: 'image/png' })
     await userEvent.upload(screen.getByLabelText(/Subir fotos|Agregar fotos/), file)
+    expect(
+      await screen.findByRole('button', {
+        name: 'Buscar producto similar en la web con IA',
+      }),
+    ).toBeInTheDocument()
+    expect(mocked.suggestProductsFromImage).not.toHaveBeenCalled()
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Buscar producto similar en la web con IA' }),
+    )
 
     const firstCard = await screen.findByRole('button', {
       name: /Vela de soya aroma lavanda/,
@@ -349,7 +361,71 @@ describe('ProductFormPage', () => {
       screen.getByRole('button', { name: /Vela de soya aroma lavanda/ }),
     )
     expect(screen.getByLabelText('Nombre')).toHaveValue('Vela de soya aroma lavanda')
+    expect(screen.getByLabelText('Marca')).toHaveValue('')
+    expect(screen.getByLabelText('Descripción')).toHaveValue('')
     expect(screen.getByLabelText('Precio de venta')).toHaveValue('12990')
+  })
+
+  it('genera una descripción, permite volver y prellena la ficha', async () => {
+    mocked.uploadPrivateFile.mockResolvedValue('asset-1')
+    mocked.suggestProductDescriptionsFromImage.mockResolvedValue({
+      replayed: false,
+      options: [
+        {
+          name: 'Cartera negra de cuero',
+          brand: 'Prada',
+          description: 'Cartera negra de cuero con asas cortas.',
+          extraAttributes: { aroma: 'Cuero' },
+        },
+        {
+          name: 'Cartera de cuero',
+          brand: '',
+          description: 'Cartera de cuero negro, sin logo visible.',
+          extraAttributes: {},
+        },
+        {
+          name: 'Bolso negro',
+          brand: '',
+          description: 'Bolso negro con cierre superior.',
+          extraAttributes: {},
+        },
+      ],
+    })
+
+    renderWithRouter(
+      <ProductFormPage mode="create" origin="assisted" />,
+      '/app/inventario/nuevo/asistida',
+      '/app/inventario/nuevo/asistida',
+    )
+
+    const file = new File(['img'], 'cartera.png', { type: 'image/png' })
+    await userEvent.upload(screen.getByLabelText(/Subir fotos|Agregar fotos/), file)
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Generar descripción con IA' }),
+    )
+
+    expect(
+      await screen.findByRole('button', { name: /Cartera de cuero negro/ }),
+    ).toBeInTheDocument()
+    expect(screen.getAllByText('Sin marca').length).toBeGreaterThan(0)
+    await userEvent.click(screen.getByRole('button', { name: 'Volver' }))
+    expect(
+      screen.getByRole('button', { name: 'Buscar producto similar en la web con IA' }),
+    ).toBeInTheDocument()
+    expect(mocked.suggestProductsFromImage).not.toHaveBeenCalled()
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Generar descripción con IA' }),
+    )
+    await userEvent.click(
+      await screen.findByRole('button', { name: /Cartera negra de cuero con asas/ }),
+    )
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Cartera negra de cuero')
+    expect(screen.getByLabelText('Marca')).toHaveValue('Prada')
+    expect(screen.getByLabelText('Descripción')).toHaveValue(
+      'Cartera negra de cuero con asas cortas.',
+    )
+    expect(screen.getByLabelText('Precio de venta')).toHaveValue('')
   })
 
   it('si la búsqueda falla deja el formulario vacío y usable', async () => {
@@ -374,6 +450,11 @@ describe('ProductFormPage', () => {
 
     const file = new File(['img'], 'vela.png', { type: 'image/png' })
     await userEvent.upload(screen.getByLabelText(/Subir fotos|Agregar fotos/), file)
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: 'Buscar producto similar en la web con IA',
+      }),
+    )
 
     expect(
       await screen.findByText('La búsqueda por imagen no está configurada.'),

@@ -179,9 +179,6 @@ export function SalesListPage() {
             </p>
           </div>
           <div className="page-heading__actions">
-            <Link className="button button--primary" to="/app/ventas/nueva">
-              Venta de múltiples artículos
-            </Link>
             <Link className="button button--secondary" to="/app/ventas/reconciliaciones">
               Reconciliaciones
             </Link>

@@ -137,6 +137,24 @@ function buildColumns(
       ),
     },
     {
+      id: 'brand',
+      header: 'Marca',
+      accessorFn: (row) => row.brand,
+      cell: ({ row }) => row.original.brand || '—',
+    },
+    {
+      id: 'description',
+      header: 'Descripción',
+      accessorFn: (row) => row.description,
+      meta: { cellClassName: 'cell-text-column' },
+      cell: ({ row }) =>
+        row.original.description ? (
+          <ClampedText>{row.original.description}</ClampedText>
+        ) : (
+          '—'
+        ),
+    },
+    {
       id: 'available',
       header: 'Disponible',
       accessorFn: (row) => row.stock.available,
@@ -322,6 +340,9 @@ export function InventoryListPage() {
             <Link className="button button--primary" to="/app/inventario/nuevo">
               Agregar producto
             </Link>
+            <Link className="button button--secondary" to="/app/ventas/nueva">
+              Venta de múltiples artículos
+            </Link>
             <Link className="button button--secondary" to="/app/inventario/importar">
               Importar
             </Link>
@@ -347,6 +368,10 @@ export function InventoryListPage() {
 
               <section aria-labelledby="inventory-columns-heading">
                 <h2 id="inventory-columns-heading">Columnas</h2>
+                <p>
+                  Marca y Descripción son datos del producto: se activan aquí, no se crean
+                  como columna adicional.
+                </p>
                 <div className="inventory-settings__columns">
                   {table.getAllLeafColumns().map((column) => (
                     <label key={column.id}>
