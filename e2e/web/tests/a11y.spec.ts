@@ -17,9 +17,7 @@ test.beforeAll(() => {
   prepareE2eOwner()
 })
 
-test('axe WCAG en landing, login, inventario y el anuncio del agente', async ({
-  page,
-}) => {
+test('axe WCAG en landing, login, inventario y Más', async ({ page }) => {
   await page.goto('/')
   await expect(
     page.getByRole('heading', { name: /Inventario, venta y despacho/ }),
@@ -50,6 +48,6 @@ test('axe WCAG en landing, login, inventario y el anuncio del agente', async ({
     page.getByRole('link', { name: 'Perfil y negocio', exact: true }),
   ).toBeVisible()
   await expect(page.getByRole('link', { name: /^Plan y facturación/ })).toBeVisible()
-  await expect(page.getByText('Próximamente')).toBeVisible()
+  await expect(page.getByText('Asistente con foto')).toHaveCount(0)
   await expectNoSeriousAxeViolations(page)
 })
