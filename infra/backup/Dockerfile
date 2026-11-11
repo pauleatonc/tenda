@@ -4,7 +4,7 @@
 FROM mirror.gcr.io/library/golang:1.27.3-bookworm AS rclone
 WORKDIR /src
 RUN git clone --depth 1 --branch v1.75.1 https://github.com/rclone/rclone.git . \
-    && go get golang.org/x/net@v0.60.0 \
+    && go get golang.org/x/net@v0.62.0 \
     && go get google.golang.org/grpc@v1.85.0-dev.0.20260825072537-93e31b48545e \
     && go mod tidy \
     && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /rclone .
