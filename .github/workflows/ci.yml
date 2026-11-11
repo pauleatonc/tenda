@@ -225,7 +225,20 @@ jobs:
           uv sync --project backend --frozen
 
       - name: Install Playwright Chromium
-        run: pnpm --filter @tenda/e2e-web exec playwright install --with-deps chromium
+        run: |
+          set -euo pipefail
+          # --with-deps apt-installs extra fonts from azure.archive.ubuntu.com.
+          # That mirror often fails DNS on GitHub-hosted runners. The shared
+          # libraries Chromium needs are already on ubuntu-24.04.
+          for attempt in 1 2 3; do
+            if pnpm --filter @tenda/e2e-web exec playwright install --with-deps chromium; then
+              exit 0
+            fi
+            echo "Playwright system packages failed (attempt ${attempt})."
+            sleep $((attempt * 15))
+          done
+          echo "Installing Chromium without apt packages."
+          pnpm --filter @tenda/e2e-web exec playwright install chromium
 
       - name: Run web E2E and axe
         run: pnpm test:e2e
