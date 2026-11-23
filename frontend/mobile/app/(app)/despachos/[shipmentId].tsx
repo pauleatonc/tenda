@@ -16,7 +16,12 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { MobileEmptyState } from '../../../components/app-ui'
 import { PrimaryButton, StatusMessage, colors } from '../../../components/auth-ui'
-import { OptionRow, SectionCard, Sheet, SheetField } from '../../../components/inventory-ui'
+import {
+  OptionRow,
+  SectionCard,
+  Sheet,
+  SheetField,
+} from '../../../components/inventory-ui'
 import { DetailRow, salesStyles } from '../../../components/sales-ui'
 import {
   ShipmentStatus,
@@ -75,8 +80,7 @@ export default function ShipmentDetailScreen() {
       registerShipmentDispatch({
         shipmentId,
         carrier:
-          (carrierChoice === otherCarrier ? customCarrier : carrierChoice).trim() ||
-          null,
+          (carrierChoice === otherCarrier ? customCarrier : carrierChoice).trim() || null,
         trackingCode: trackingCode.trim() || null,
         trackingUrl: trackingUrl.trim() || null,
         note: note.trim() || null,
@@ -249,7 +253,10 @@ export default function ShipmentDetailScreen() {
           {detail.deliveryNotes ? (
             <DetailRow label="Notas de entrega" value={detail.deliveryNotes} />
           ) : null}
-          <DetailRow label="Correo" value={detail.buyerEmail || 'Sin correo registrado'} />
+          <DetailRow
+            label="Correo"
+            value={detail.buyerEmail || 'Sin correo registrado'}
+          />
           <DetailRow
             label="Correo de despacho"
             value={detail.deliveryEmail || 'Sin correo de despacho'}

@@ -63,7 +63,10 @@ const StaffPlatformOverviewDocument = parse(`
       pendingShipmentCount
     }
   }
-`) as TypedDocumentNode<{ staffPlatformOverview: StaffPlatformOverview }, Record<string, never>>
+`) as TypedDocumentNode<
+  { staffPlatformOverview: StaffPlatformOverview },
+  Record<string, never>
+>
 
 export const staffKeys = {
   overview: () => ['staff', 'platform-overview'] as const,

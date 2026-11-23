@@ -60,8 +60,7 @@ export function ShipmentDetailPage() {
       registerShipmentDispatch({
         shipmentId: id,
         carrier:
-          (carrierChoice === otherCarrier ? customCarrier : carrierChoice).trim() ||
-          null,
+          (carrierChoice === otherCarrier ? customCarrier : carrierChoice).trim() || null,
         trackingCode: trackingCode.trim() || null,
         trackingUrl: trackingUrl.trim() || null,
         note: note.trim() || null,

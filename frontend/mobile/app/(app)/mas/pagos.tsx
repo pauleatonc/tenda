@@ -1,14 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Redirect } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
-import {
-  Alert,
-  AppState,
-  Linking,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native'
+import { Alert, AppState, Linking, StyleSheet, Text, View } from 'react-native'
 
 import { MobileEmptyState, MobileStatusChip } from '../../../components/app-ui'
 import { PrimaryButton, StatusMessage, colors } from '../../../components/auth-ui'
@@ -154,118 +147,116 @@ export function PaymentsSection() {
         ni claves de Mercado Pago.
       </Text>
 
-        {message ? <StatusMessage kind="success" message={message} /> : null}
-        {error ? <StatusMessage message={error} /> : null}
+      {message ? <StatusMessage kind="success" message={message} /> : null}
+      {error ? <StatusMessage message={error} /> : null}
 
-        {payment.isPending ? (
-          <Text accessibilityLiveRegion="polite" style={styles.loadingInline}>
-            Cargando conexión…
-          </Text>
-        ) : payment.isError ? (
-          <MobileEmptyState
-            title="No pudimos consultar Mercado Pago"
-            description={
-              payment.error instanceof MobileApiError
-                ? payment.error.message
-                : 'Revisa tu conexión e inténtalo otra vez.'
-            }
+      {payment.isPending ? (
+        <Text accessibilityLiveRegion="polite" style={styles.loadingInline}>
+          Cargando conexión…
+        </Text>
+      ) : payment.isError ? (
+        <MobileEmptyState
+          title="No pudimos consultar Mercado Pago"
+          description={
+            payment.error instanceof MobileApiError
+              ? payment.error.message
+              : 'Revisa tu conexión e inténtalo otra vez.'
+          }
+          action={
+            <PrimaryButton label="Reintentar" onPress={() => void payment.refetch()} />
+          }
+        />
+      ) : (
+        <>
+          <SectionCard
+            title="Mercado Pago"
             action={
-              <PrimaryButton label="Reintentar" onPress={() => void payment.refetch()} />
-            }
-          />
-        ) : (
-          <>
-            <SectionCard
-              title="Mercado Pago"
-              action={
-                <MobileStatusChip
-                  label={
-                    connection
-                      ? (CONNECTION_LABELS[connection.status] ?? connection.status)
-                      : 'Sin conectar'
-                  }
-                  tone={connection?.status === 'connected' ? 'success' : 'warning'}
-                />
-              }
-            >
-              {connection ? (
-                <>
-                  <DetailRow
-                    label="Cuenta"
-                    value={connection.providerAccountId || 'Pendiente de autorización'}
-                  />
-                  <DetailRow
-                    label="Scopes autorizados"
-                    value={
-                      connection.scopes.length
-                        ? connection.scopes.join(', ')
-                        : 'Pendientes'
-                    }
-                  />
-                  <DetailRow
-                    label="Última conexión / sincronización conocida"
-                    value={formatDate(connection.connectedAt)}
-                  />
-                  <DetailRow
-                    label="Vencimiento de autorización"
-                    value={formatDate(connection.tokenExpiresAt)}
-                  />
-                  {connection.disconnectedAt ? (
-                    <DetailRow
-                      label="Desconectada"
-                      value={formatDate(connection.disconnectedAt)}
-                    />
-                  ) : null}
-                </>
-              ) : (
-                <Text style={salesStyles.muted}>
-                  Aún no hay una cuenta vinculada. Mercado Pago permanecerá desactivado al
-                  crear ventas.
-                </Text>
-              )}
-
-              {connection?.status === 'connected' ? (
-                <PrimaryButton
-                  label="Desconectar"
-                  variant="secondary"
-                  loading={disconnect.isPending}
-                  onPress={confirmDisconnect}
-                />
-              ) : (
-                <PrimaryButton
-                  label={
-                    connection?.status === 'pending'
-                      ? 'Continuar conexión'
-                      : 'Conectar Mercado Pago'
-                  }
-                  loading={connect.isPending}
-                  onPress={() => connect.mutate()}
-                />
-              )}
-              <PrimaryButton
-                label="Actualizar estado"
-                variant="secondary"
-                onPress={() => void payment.refetch()}
+              <MobileStatusChip
+                label={
+                  connection
+                    ? (CONNECTION_LABELS[connection.status] ?? connection.status)
+                    : 'Sin conectar'
+                }
+                tone={connection?.status === 'connected' ? 'success' : 'warning'}
               />
-            </SectionCard>
-
-            {commission ? (
-              <SectionCard title="Comisión configurada">
-                <DetailRow label="Modo" value={commission.mode} />
-                <DetailRow label="Tasa" value={commission.rate} />
+            }
+          >
+            {connection ? (
+              <>
                 <DetailRow
-                  label="Mínimo operacional"
-                  value={`$${commission.minimum} CLP`}
+                  label="Cuenta"
+                  value={connection.providerAccountId || 'Pendiente de autorización'}
                 />
-                <Text style={salesStyles.muted}>
-                  La comisión efectiva se informa al comprador antes de confirmar. El
-                  retorno del navegador no marca un pago como aprobado: Tenda espera la
-                  verificación del proveedor.
-                </Text>
-              </SectionCard>
-            ) : null}
-          </>
-        )}
+                <DetailRow
+                  label="Scopes autorizados"
+                  value={
+                    connection.scopes.length ? connection.scopes.join(', ') : 'Pendientes'
+                  }
+                />
+                <DetailRow
+                  label="Última conexión / sincronización conocida"
+                  value={formatDate(connection.connectedAt)}
+                />
+                <DetailRow
+                  label="Vencimiento de autorización"
+                  value={formatDate(connection.tokenExpiresAt)}
+                />
+                {connection.disconnectedAt ? (
+                  <DetailRow
+                    label="Desconectada"
+                    value={formatDate(connection.disconnectedAt)}
+                  />
+                ) : null}
+              </>
+            ) : (
+              <Text style={salesStyles.muted}>
+                Aún no hay una cuenta vinculada. Mercado Pago permanecerá desactivado al
+                crear ventas.
+              </Text>
+            )}
+
+            {connection?.status === 'connected' ? (
+              <PrimaryButton
+                label="Desconectar"
+                variant="secondary"
+                loading={disconnect.isPending}
+                onPress={confirmDisconnect}
+              />
+            ) : (
+              <PrimaryButton
+                label={
+                  connection?.status === 'pending'
+                    ? 'Continuar conexión'
+                    : 'Conectar Mercado Pago'
+                }
+                loading={connect.isPending}
+                onPress={() => connect.mutate()}
+              />
+            )}
+            <PrimaryButton
+              label="Actualizar estado"
+              variant="secondary"
+              onPress={() => void payment.refetch()}
+            />
+          </SectionCard>
+
+          {commission ? (
+            <SectionCard title="Comisión configurada">
+              <DetailRow label="Modo" value={commission.mode} />
+              <DetailRow label="Tasa" value={commission.rate} />
+              <DetailRow
+                label="Mínimo operacional"
+                value={`$${commission.minimum} CLP`}
+              />
+              <Text style={salesStyles.muted}>
+                La comisión efectiva se informa al comprador antes de confirmar. El
+                retorno del navegador no marca un pago como aprobado: Tenda espera la
+                verificación del proveedor.
+              </Text>
+            </SectionCard>
+          ) : null}
+        </>
+      )}
     </View>
   )
 }

@@ -227,8 +227,7 @@ export function InventoryImportPage() {
               </>
             ) : (
               <>
-                Sin cupo para altas.{' '}
-                <Link to="/app/cuenta/plan">Mejorar plan</Link>
+                Sin cupo para altas. <Link to="/app/cuenta/plan">Mejorar plan</Link>
               </>
             )}
           </span>

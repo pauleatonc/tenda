@@ -301,9 +301,7 @@ function CurrentPlan({
       <ul className="plan-current__facts">
         <li>{formatProductLimit(billing.productLimit)}</li>
         <li>
-          {billing.aiAssistedEnabled
-            ? 'Creación asistida con foto'
-            : 'Solo carga manual'}
+          {billing.aiAssistedEnabled ? 'Creación asistida con foto' : 'Solo carga manual'}
         </li>
         {periodEnd && paid && !billing.cancelAtPeriodEnd ? (
           <li>Próximo período hasta el {periodEnd}</li>
@@ -366,8 +364,8 @@ function CurrentPlan({
         </div>
       ) : (
         <p className="plan-current__free">
-          Estás en Gratis. Elige un plan de pago cuando necesites más productos o
-          creación asistida.
+          Estás en Gratis. Elige un plan de pago cuando necesites más productos o creación
+          asistida.
         </p>
       )}
 
@@ -405,8 +403,7 @@ function PlanOption({
   const current = plan.isCurrent || plan.code === currentCode
   const free = plan.code === 'free'
   const upgrade = (planRank[plan.code] ?? 0) > (planRank[currentCode] ?? 0)
-  const shrinksCatalog =
-    plan.productLimit != null && productCount > plan.productLimit
+  const shrinksCatalog = plan.productLimit != null && productCount > plan.productLimit
 
   return (
     <article className={`plan-card${current ? ' plan-card--current' : ''}`}>
@@ -419,11 +416,13 @@ function PlanOption({
         {plan.priceClp > 0 ? <span> / mes</span> : null}
       </p>
       <p>{formatProductLimit(plan.productLimit)}</p>
-      <p>{plan.aiAssistedEnabled ? 'Incluye creación asistida' : 'Solo creación manual'}</p>
+      <p>
+        {plan.aiAssistedEnabled ? 'Incluye creación asistida' : 'Solo creación manual'}
+      </p>
       {shrinksCatalog && !current ? (
         <p className="plan-card__note">
-          Tienes {productCount} productos. Este plan conserva el catálogo y bloquea
-          altas nuevas sobre su cupo.
+          Tienes {productCount} productos. Este plan conserva el catálogo y bloquea altas
+          nuevas sobre su cupo.
         </p>
       ) : null}
       {current ? (
@@ -508,8 +507,8 @@ function CancelPlanDialog({
         ) : null}
         {overFreeLimit ? (
           <li>
-            Tienes {billing.productCount} productos. No podrás crear más hasta archivar
-            o volver a un plan de pago.
+            Tienes {billing.productCount} productos. No podrás crear más hasta archivar o
+            volver a un plan de pago.
           </li>
         ) : null}
       </ul>

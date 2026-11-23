@@ -102,7 +102,9 @@ function StaffFigures({ data }: { data: StaffPlatformOverview }) {
                   </strong>
                 </div>
                 <div className="staff-plans__track" aria-hidden="true">
-                  <span style={{ width: `${data.organisationCount === 0 ? 0 : share}%` }} />
+                  <span
+                    style={{ width: `${data.organisationCount === 0 ? 0 : share}%` }}
+                  />
                 </div>
               </li>
             )
@@ -155,8 +157,8 @@ function StaffFigures({ data }: { data: StaffPlatformOverview }) {
           </dl>
           {data.salesCostComplete ? null : (
             <p className="staff-note">
-              El margen usa solo líneas con costo registrado. Hay ventas confirmadas
-              sin ese dato.
+              El margen usa solo líneas con costo registrado. Hay ventas confirmadas sin
+              ese dato.
             </p>
           )}
         </section>

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -51,14 +51,16 @@ class StaffPlatformOverview:
     pending_shipment_count: int
 
 
-def _money(value: object) -> Decimal:
-    return Decimal(value or 0)
+def _money(value: Decimal | int | None) -> Decimal:
+    if value is None:
+        return Decimal(0)
+    return Decimal(value)
 
 
 def _effective_plan_code(
     subscription: OrganisationSubscription | None,
     *,
-    now: object,
+    now: datetime,
     grace: timedelta,
 ) -> str:
     if subscription is None:
@@ -67,11 +69,7 @@ def _effective_plan_code(
     plan = subscription.plan
     if status == OrganisationSubscription.Status.ACTIVE:
         period_end = subscription.current_period_end
-        if (
-            subscription.cancel_at_period_end
-            and period_end is not None
-            and period_end <= now
-        ):
+        if subscription.cancel_at_period_end and period_end is not None and period_end <= now:
             return Plan.Code.FREE
         return plan.code
     if status == OrganisationSubscription.Status.PENDING:

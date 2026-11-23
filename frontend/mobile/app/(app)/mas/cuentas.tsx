@@ -13,7 +13,12 @@ import { Redirect } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
-import { FormField, PrimaryButton, StatusMessage, colors } from '../../../components/auth-ui'
+import {
+  FormField,
+  PrimaryButton,
+  StatusMessage,
+  colors,
+} from '../../../components/auth-ui'
 import { OptionRow, Sheet } from '../../../components/inventory-ui'
 import { AnalyticsEvents, getAnalytics, markActivationFlag } from '../../../lib/analytics'
 import { MobileApiError, getMobileViewer } from '../../../lib/auth-api'
@@ -60,7 +65,8 @@ export function BankAccountsSection() {
   const data = viewer.data
   const canManageStore =
     data?.membership.permissions.manageSensitiveConfiguration === true
-  const fallbackEmail = data?.organisation.bankConfirmationEmail || data?.viewer.email || ''
+  const fallbackEmail =
+    data?.organisation.bankConfirmationEmail || data?.viewer.email || ''
   const [accounts, setAccounts] = useState<DraftAccount[]>([
     toDraft(undefined, fallbackEmail, 0),
   ])

@@ -4,7 +4,12 @@ import { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
 import { AuthImage } from '../../../components/auth-image'
-import { FormField, PrimaryButton, StatusMessage, colors } from '../../../components/auth-ui'
+import {
+  FormField,
+  PrimaryButton,
+  StatusMessage,
+  colors,
+} from '../../../components/auth-ui'
 import { MobileApiError, getMobileViewer } from '../../../lib/auth-api'
 import { updateMobileOrganisation, updateMobileProfile } from '../../../lib/profile-api'
 import { pickProductImage, uploadPrivateImage } from '../../../lib/mobile-upload'

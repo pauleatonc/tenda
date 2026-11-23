@@ -75,9 +75,7 @@ class StaffPlatformOverviewType(graphene.ObjectType):  # type: ignore[misc]
         return str(root.gross_margin)
 
     @staticmethod
-    def resolve_pending_sales_amount(
-        root: StaffPlatformOverview, _info: GraphQLResolveInfo
-    ) -> str:
+    def resolve_pending_sales_amount(root: StaffPlatformOverview, _info: GraphQLResolveInfo) -> str:
         return str(root.pending_sales_amount)
 
 

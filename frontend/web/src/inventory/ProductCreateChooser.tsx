@@ -36,8 +36,8 @@ export function ProductCreateChooser() {
         <div className="form-message form-message--error" role="alert">
           <strong>Límite de productos alcanzado</strong>
           <span>
-            Archiva productos o <Link to="/app/cuenta/plan">mejora tu plan</Link>{' '}
-            para crear más.
+            Archiva productos o <Link to="/app/cuenta/plan">mejora tu plan</Link> para
+            crear más.
           </span>
         </div>
       ) : null}
@@ -63,8 +63,7 @@ export function ProductCreateChooser() {
                     </>
                   ) : (
                     <>
-                      Sin cupo disponible.{' '}
-                      <Link to="/app/cuenta/plan">Mejorar plan</Link>
+                      Sin cupo disponible. <Link to="/app/cuenta/plan">Mejorar plan</Link>
                     </>
                   )}
                 </p>

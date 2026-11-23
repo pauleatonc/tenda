@@ -88,9 +88,7 @@ def test_platform_overview_is_staff_only() -> None:
     client = Client()
     login = client.post(
         "/api/v1/auth/login",
-        data=json.dumps(
-            {"email": user.email, "password": "Correct-Horse-Battery-42"}
-        ),
+        data=json.dumps({"email": user.email, "password": "Correct-Horse-Battery-42"}),
         content_type="application/json",
     )
     assert login.status_code == 200

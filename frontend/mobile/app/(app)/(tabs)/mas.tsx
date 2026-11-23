@@ -28,7 +28,9 @@ function sectionFromParam(value: string | string[] | undefined): SectionId | nul
 export default function AccountScreen() {
   const queryClient = useQueryClient()
   const params = useLocalSearchParams<{ seccion?: string | string[] }>()
-  const [section, setSection] = useState<SectionId | null>(sectionFromParam(params.seccion))
+  const [section, setSection] = useState<SectionId | null>(
+    sectionFromParam(params.seccion),
+  )
   const [loggingOut, setLoggingOut] = useState(false)
   const viewer = useQuery({
     queryKey: ['mobile-viewer'],
