@@ -133,8 +133,8 @@ class OrderItemAdmin(MaintainerModelAdmin):
 
 @admin.register(BuyerSnapshot)
 class BuyerSnapshotAdmin(MaintainerModelAdmin):
-    list_display = ("order", "name", "email", "phone", "completed_at")
-    search_fields = ("order__number", "name", "email", "phone")
+    list_display = ("order", "name", "email", "delivery_email", "phone", "completed_at")
+    search_fields = ("order__number", "name", "email", "delivery_email", "phone")
     autocomplete_fields = ("order",)
 
 

@@ -36,6 +36,7 @@ fragment ShipmentDetail on ShipmentType {
   deliveryNotes
   dispatchNote
   buyerEmail
+  deliveryEmail
   updatedAt
   latestLabel {
     ...ShipmentLabel

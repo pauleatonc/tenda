@@ -19,6 +19,7 @@ from .selectors import (
     ShipmentListFilter,
     ShippingDashboard,
     buyer_email_for,
+    delivery_email_for,
     paginated_shipments,
     seller_allowed_actions,
     shipment_for_context,
@@ -132,6 +133,7 @@ class ShipmentType(graphene.ObjectType):  # type: ignore[misc]
     tracking_url = graphene.String(required=True)
     dispatch_note = graphene.String(required=True)
     buyer_email = graphene.String(required=True)
+    delivery_email = graphene.String(required=True)
     allowed_actions = graphene.List(graphene.NonNull(graphene.String), required=True)
     dispatched_at = graphene.DateTime()
     delivered_at = graphene.DateTime()
@@ -151,6 +153,10 @@ class ShipmentType(graphene.ObjectType):  # type: ignore[misc]
     @staticmethod
     def resolve_buyer_email(root: Shipment, _info: GraphQLResolveInfo) -> str:
         return buyer_email_for(root)
+
+    @staticmethod
+    def resolve_delivery_email(root: Shipment, _info: GraphQLResolveInfo) -> str:
+        return delivery_email_for(root)
 
     @staticmethod
     def resolve_allowed_actions(

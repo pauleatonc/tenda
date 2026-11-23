@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { shipmentNoticeEmail } from '@tenda/api-client'
 import { router, useLocalSearchParams } from 'expo-router'
 import { useRef, useState } from 'react'
 import {
@@ -15,15 +16,18 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { MobileEmptyState } from '../../../components/app-ui'
 import { PrimaryButton, StatusMessage, colors } from '../../../components/auth-ui'
-import { SectionCard, Sheet, SheetField } from '../../../components/inventory-ui'
+import { OptionRow, SectionCard, Sheet, SheetField } from '../../../components/inventory-ui'
 import { DetailRow, salesStyles } from '../../../components/sales-ui'
 import {
   ShipmentStatus,
   deliveryModeLabels,
   destinationLine,
+  otherCarrier,
   registeredAt,
   registrationLabel,
   requiresCarrier,
+  shippingCarriers,
+  shippingCostOnDelivery,
 } from '../../../components/shipping-ui'
 import { AnalyticsEvents, getAnalytics } from '../../../lib/analytics'
 import { MobileApiError } from '../../../lib/auth-api'
@@ -46,7 +50,8 @@ export default function ShipmentDetailScreen() {
   const params = useLocalSearchParams<{ shipmentId?: string }>()
   const shipmentId = typeof params.shipmentId === 'string' ? params.shipmentId : ''
   const queryClient = useQueryClient()
-  const [carrier, setCarrier] = useState('')
+  const [carrierChoice, setCarrierChoice] = useState('')
+  const [customCarrier, setCustomCarrier] = useState('')
   const [trackingCode, setTrackingCode] = useState('')
   const [trackingUrl, setTrackingUrl] = useState('')
   const [note, setNote] = useState('')
@@ -69,7 +74,9 @@ export default function ShipmentDetailScreen() {
     mutationFn: () =>
       registerShipmentDispatch({
         shipmentId,
-        carrier: carrier.trim() || null,
+        carrier:
+          (carrierChoice === otherCarrier ? customCarrier : carrierChoice).trim() ||
+          null,
         trackingCode: trackingCode.trim() || null,
         trackingUrl: trackingUrl.trim() || null,
         note: note.trim() || null,
@@ -84,8 +91,8 @@ export default function ShipmentDetailScreen() {
       setRegisterError(null)
       getAnalytics().track(AnalyticsEvents.shipmentDispatched)
       setSuccess(
-        result.shipment.buyerEmail
-          ? `Registrado. Enviamos el correo a ${result.shipment.buyerEmail}.`
+        shipmentNoticeEmail(result.shipment)
+          ? `Registrado. Enviamos el correo a ${shipmentNoticeEmail(result.shipment)}.`
           : 'Registrado. El comprador no dejó correo, no se envió notificación.',
       )
       registerLock.current = false
@@ -200,7 +207,10 @@ export default function ShipmentDetailScreen() {
   const actionLabel = registrationLabel(detail.deliveryMode)
   const place = destinationLine(detail)
   const registeredOn = registeredAt(detail)
-  const formValid = !needsCarrier || carrier.trim().length > 0
+  const selectedCarrier = (
+    carrierChoice === otherCarrier ? customCarrier : carrierChoice
+  ).trim()
+  const formValid = !needsCarrier || selectedCarrier.length > 0
 
   return (
     <SafeAreaView style={salesStyles.safeArea}>
@@ -239,9 +249,10 @@ export default function ShipmentDetailScreen() {
           {detail.deliveryNotes ? (
             <DetailRow label="Notas de entrega" value={detail.deliveryNotes} />
           ) : null}
+          <DetailRow label="Correo" value={detail.buyerEmail || 'Sin correo registrado'} />
           <DetailRow
-            label="Correo del comprador"
-            value={detail.buyerEmail || 'Sin correo registrado'}
+            label="Correo de despacho"
+            value={detail.deliveryEmail || 'Sin correo de despacho'}
           />
           <PrimaryButton
             label="Abrir venta asociada"
@@ -254,20 +265,34 @@ export default function ShipmentDetailScreen() {
           {canRegister ? (
             <>
               <Text style={salesStyles.muted}>
-                {detail.buyerEmail
-                  ? `Al registrar, enviaremos un correo a ${detail.buyerEmail} con estos datos. No se hace seguimiento posterior.`
+                {shipmentNoticeEmail(detail)
+                  ? `Al registrar, enviaremos un correo a ${shipmentNoticeEmail(detail)} con estos datos. No se hace seguimiento posterior.`
                   : 'El comprador no dejó correo. Registraremos el envío sin enviar notificación.'}
               </Text>
               <View style={salesStyles.actions}>
                 {needsCarrier ? (
                   <>
-                    <SheetField
+                    <OptionRow
                       label="Transportista"
-                      value={carrier}
-                      onChangeText={setCarrier}
-                      placeholder="Chilexpress, Starken, Blue Express…"
+                      value={carrierChoice}
+                      options={[
+                        ...shippingCarriers.map((name) => ({
+                          value: name,
+                          label: name,
+                        })),
+                        { value: otherCarrier, label: 'Otros' },
+                      ]}
                       error={fieldError(registerError, 'carrier')}
+                      onChange={setCarrierChoice}
                     />
+                    {carrierChoice === otherCarrier ? (
+                      <SheetField
+                        label="Nombre del transportista"
+                        value={customCarrier}
+                        onChangeText={setCustomCarrier}
+                      />
+                    ) : null}
+                    <Text style={salesStyles.muted}>{shippingCostOnDelivery}</Text>
                     <SheetField
                       label="Código de tracking (opcional)"
                       value={trackingCode}
@@ -334,8 +359,8 @@ export default function ShipmentDetailScreen() {
               <DetailRow
                 label="Correo al comprador"
                 value={
-                  detail.buyerEmail
-                    ? `Enviado a ${detail.buyerEmail}`
+                  shipmentNoticeEmail(detail)
+                    ? `Enviado a ${shipmentNoticeEmail(detail)}`
                     : 'No se envió (sin correo registrado)'
                 }
               />
@@ -393,14 +418,15 @@ export default function ShipmentDetailScreen() {
       >
         {needsCarrier ? (
           <>
-            <DetailRow label="Transportista" value={carrier.trim()} />
+            <DetailRow label="Transportista" value={selectedCarrier} />
+            <Text style={salesStyles.muted}>{shippingCostOnDelivery}</Text>
             <DetailRow label="Tracking" value={trackingCode.trim() || '—'} />
           </>
         ) : null}
         {note.trim() ? <DetailRow label="Nota" value={note.trim()} /> : null}
         <Text style={salesStyles.muted}>
-          {detail.buyerEmail
-            ? `Se enviará un correo a ${detail.buyerEmail}.`
+          {shipmentNoticeEmail(detail)
+            ? `Se enviará un correo a ${shipmentNoticeEmail(detail)}.`
             : 'No se enviará correo porque el comprador no dejó uno.'}
         </Text>
       </Sheet>

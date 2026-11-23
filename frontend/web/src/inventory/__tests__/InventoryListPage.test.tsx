@@ -306,9 +306,12 @@ describe('InventoryListPage', () => {
       'href',
       '/app/inventario/nuevo',
     )
-    expect(
-      screen.getByRole('link', { name: 'Venta de múltiples artículos' }),
-    ).toHaveAttribute('href', '/app/ventas/nueva')
+    expect(screen.getByRole('link', { name: 'Agregar producto' })).toHaveClass(
+      'button--secondary',
+    )
+    const groupSale = screen.getByRole('link', { name: 'Venta de múltiples artículos' })
+    expect(groupSale).toHaveAttribute('href', '/app/ventas/nueva')
+    expect(groupSale).toHaveClass('button--primary')
     expect(screen.queryByRole('button', { name: 'Agregar con asistente' })).toBeNull()
     expect(
       screen.queryByText('Próximamente: el asistente con foto aún no está disponible.'),

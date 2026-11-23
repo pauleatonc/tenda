@@ -166,6 +166,7 @@ class PaymentConnectionStartType(graphene.ObjectType):  # type: ignore[misc]
 class BuyerSnapshotType(graphene.ObjectType):  # type: ignore[misc]
     name = graphene.String(required=True)
     email = graphene.String(required=True)
+    delivery_email = graphene.String(required=True)
     phone = graphene.String(required=True)
     recipient_name = graphene.String(required=True)
     recipient_tax_id = graphene.String(required=True)
@@ -1100,6 +1101,7 @@ class CreateOrderInput(graphene.InputObjectType):  # type: ignore[misc]
 class BuyerDetailsInput(graphene.InputObjectType):  # type: ignore[misc]
     name = graphene.String(required=True)
     email = graphene.String()
+    delivery_email = graphene.String()
     phone = graphene.String()
     recipient_name = graphene.String()
     recipient_tax_id = graphene.String()

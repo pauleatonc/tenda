@@ -228,6 +228,22 @@ describe('Inventario mobile', () => {
     expect(router.push).toHaveBeenCalledWith('/inventario/producto')
   })
 
+  it('abre la venta de múltiples artículos', async () => {
+    mocked.fetchProducts.mockResolvedValue({
+      totalCount: 1,
+      hasNextPage: false,
+      endCursor: '',
+      products: [makeProduct()],
+    })
+
+    await renderScreen(<InventoryScreen />)
+    await fireEvent.press(
+      await screen.findByRole('button', { name: 'Venta de múltiples artículos' }),
+    )
+
+    expect(router.push).toHaveBeenCalledWith('/ventas/nueva')
+  })
+
   it('abre el sheet de depósito y deja Online deshabilitado sin Mercado Pago', async () => {
     mocked.fetchProducts.mockResolvedValue({
       totalCount: 1,

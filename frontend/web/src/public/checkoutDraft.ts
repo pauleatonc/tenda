@@ -1,6 +1,7 @@
 import { isValidChileLocation, isValidChileanRut } from '@tenda/api-client'
 
 import { newIdempotencyKey } from '../lib/http'
+import { isDeliveryEmail } from './publicDelivery'
 
 export type PublicCheckoutDraft = {
   version: 2
@@ -10,6 +11,7 @@ export type PublicCheckoutDraft = {
   phone: string
   recipientName: string
   recipientTaxId: string
+  deliveryEmail: string
   deliveryAddress: string
   deliveryCommune: string
   deliveryRegion: string
@@ -39,6 +41,7 @@ function createPublicCheckoutDraft(): PublicCheckoutDraft {
     phone: '',
     recipientName: '',
     recipientTaxId: '',
+    deliveryEmail: '',
     deliveryAddress: '',
     deliveryCommune: '',
     deliveryRegion: '',
@@ -100,6 +103,7 @@ export type CheckoutErrors = Partial<
     | 'phone'
     | 'recipientName'
     | 'recipientTaxId'
+    | 'deliveryEmail'
     | 'deliveryAddress'
     | 'deliveryCommune'
     | 'deliveryRegion'
@@ -140,6 +144,11 @@ export function validateContactAndDelivery(
     }
     if (!isValidChileanRut(draft.recipientTaxId)) {
       errors.recipientTaxId = 'Ingresa el RUT de quien recibe.'
+    }
+    if (!draft.deliveryEmail.trim()) {
+      errors.deliveryEmail = 'Ingresa el correo de despacho.'
+    } else if (!isDeliveryEmail(draft.deliveryEmail)) {
+      errors.deliveryEmail = 'Ingresa un correo de despacho válido.'
     }
     if (!draft.deliveryAddress.trim()) {
       errors.deliveryAddress = 'Escribe la dirección de despacho.'

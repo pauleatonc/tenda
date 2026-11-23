@@ -61,12 +61,14 @@ def paid_order(
     *,
     delivery_mode: str = Order.DeliveryMode.SHIPPING,
     email: str = "camila@example.cl",
+    delivery_email: str | None = None,
 ) -> Order:
     order = reserved_order(context, delivery_mode=delivery_mode)
     token = decrypt_credential(order.public_token_ciphertext)
     details = {
         "name": "Camila Soto",
         "email": email,
+        "deliveryEmail": email if delivery_email is None else delivery_email,
         "phone": "+56911111111",
         "recipientName": "Camila Soto",
         "recipientTaxId": "11.111.111-1",
@@ -140,6 +142,28 @@ def test_buyer_snapshot_edits_do_not_change_shipment_address() -> None:
     with pytest.raises(ValidationError):
         shipment.address_line = "Nueva 999"
         shipment.save()
+
+
+def test_dispatch_notifies_delivery_email_when_it_differs() -> None:
+    _user, context = identity("ship-delivery-mail@example.com")
+    order = paid_order(
+        context,
+        email="pago@example.cl",
+        delivery_email="despacho@example.cl",
+    )
+    shipment = order.shipment
+    register_shipment_dispatch(
+        context=context,
+        shipment_id=shipment.public_id,
+        payload={"carrier": "Chilexpress", "tracking_code": "CX-1"},
+        idempotency_key="dispatch-mail",
+    )
+
+    order.refresh_from_db()
+    events = _notifications(shipment)
+    assert order.buyer.email == "pago@example.cl"
+    assert order.buyer.delivery_email == "despacho@example.cl"
+    assert events[0].payload["recipient"] == "despacho@example.cl"
 
 
 def test_register_dispatch_sets_terminal_status_and_emails_buyer_once() -> None:
@@ -266,7 +290,11 @@ def test_register_dispatch_is_terminal() -> None:
 
 def test_register_dispatch_without_buyer_email_skips_notification() -> None:
     _user, context = identity("ship-noemail@example.com")
-    order = paid_order(context, email="")
+    order = paid_order(context, email="pago@example.cl", delivery_email="despacho@example.cl")
+    buyer = order.buyer
+    buyer.email = ""
+    buyer.delivery_email = ""
+    buyer.save(update_fields=("email", "delivery_email", "updated_at"))
 
     result = register_shipment_dispatch(
         context=context,

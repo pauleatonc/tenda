@@ -25,6 +25,18 @@ function statusTone(status: string): 'success' | 'warning' {
   return status === 'pending' ? 'warning' : 'success'
 }
 
+export const shippingCarriers = [
+  'Chilexpress',
+  'Starken',
+  'Blue Express',
+  'Correos de Chile',
+] as const
+
+export const otherCarrier = 'other'
+
+export const shippingCostOnDelivery =
+  'El costo de envío se cobrará al momento de la recepción.'
+
 export function requiresCarrier(deliveryMode: string): boolean {
   return deliveryMode === 'shipping'
 }

@@ -235,6 +235,7 @@ export default function SaleDetailScreen() {
   const [deliveryCommune, setDeliveryCommune] = useState('')
   const [deliveryRegion, setDeliveryRegion] = useState('')
   const [deliveryNotes, setDeliveryNotes] = useState('')
+  const [deliveryEmail, setDeliveryEmail] = useState('')
   const [contactKey, setContactKey] = useState(newIdempotencyKey)
   const [labelKey, setLabelKey] = useState(newIdempotencyKey)
   const actionLock = useRef(false)
@@ -347,6 +348,7 @@ export default function SaleDetailScreen() {
         orderId,
         fullName: contactName.trim() || recipientName.trim() || 'Comprador',
         email: contactEmail.trim() || null,
+        deliveryEmail: deliveryEmail.trim(),
         phone: contactPhone.trim() || null,
         recipientName: recipientName.trim() || null,
         recipientTaxId: recipientTaxId.trim() || null,
@@ -439,6 +441,7 @@ export default function SaleDetailScreen() {
     setDeliveryCommune(current?.deliveryCommune ?? '')
     setDeliveryRegion(current?.deliveryRegion ?? '')
     setDeliveryNotes(current?.deliveryNotes ?? '')
+    setDeliveryEmail(current?.deliveryEmail ?? '')
     setActionError('')
     setEditingContact(true)
   }
@@ -659,7 +662,11 @@ export default function SaleDetailScreen() {
           }
         >
           <DetailRow label="Comprador" value={buyer?.fullName ?? 'Pendiente'} />
-          <DetailRow label="Email" value={buyer?.email || 'Sin correo'} />
+          <DetailRow label="Correo" value={buyer?.email || 'Sin correo'} />
+          <DetailRow
+            label="Correo de despacho"
+            value={buyer?.deliveryEmail || 'Sin correo de despacho'}
+          />
           <DetailRow label="Teléfono" value={buyer?.phone ?? ''} />
           <DetailRow
             label="Entrega"
@@ -860,9 +867,15 @@ export default function SaleDetailScreen() {
       >
         <SheetField label="Nombre" value={contactName} onChangeText={setContactName} />
         <SheetField
-          label="Email"
+          label="Correo"
           value={contactEmail}
           onChangeText={setContactEmail}
+          keyboardType="email-address"
+        />
+        <SheetField
+          label="Correo de despacho"
+          value={deliveryEmail}
+          onChangeText={setDeliveryEmail}
           keyboardType="email-address"
         />
         <SheetField

@@ -37,6 +37,7 @@ const shipment = {
   trackingUrl: '',
   dispatchNote: '',
   buyerEmail: 'camila@example.cl',
+  deliveryEmail: '',
   allowedActions: { registerShipmentDispatch: true, generateShipmentLabel: true },
   createdAt: '2026-08-26T12:00:00Z',
   updatedAt: '2026-08-26T13:00:00Z',
@@ -104,8 +105,11 @@ describe('detalle de despacho', () => {
 
     const submit = screen.getByRole('button', { name: 'Registrar despacho' })
     expect(submit).toBeDisabled()
+    expect(
+      screen.getByText('El costo de envío se cobrará al momento de la recepción.'),
+    ).toBeInTheDocument()
 
-    await userEvent.type(screen.getByLabelText('Transportista'), 'Chilexpress')
+    await userEvent.selectOptions(screen.getByLabelText('Transportista'), 'Chilexpress')
     await userEvent.type(screen.getByLabelText('Código de tracking (opcional)'), 'CX-99')
     await userEvent.type(
       screen.getByLabelText('URL de seguimiento (opcional)'),
@@ -137,6 +141,41 @@ describe('detalle de despacho', () => {
     expect(await screen.findByRole('heading', { name: 'Despachado' })).toBeInTheDocument()
     expect(screen.getByText('Enviado a camila@example.cl')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Registrar despacho' })).toBeNull()
+  })
+
+  it('permite escribir otro transportista', async () => {
+    const custom = {
+      ...shipment,
+      status: 'dispatched',
+      statusLabel: 'Despachado',
+      carrier: 'Mensajería local',
+      allowedActions: { registerShipmentDispatch: false, generateShipmentLabel: true },
+    }
+    mocked.fetchShipment.mockResolvedValueOnce(shipment).mockResolvedValue(custom)
+    mocked.registerShipmentDispatch.mockResolvedValue({
+      replayed: false,
+      shipment: custom,
+    })
+    renderPage()
+
+    expect(
+      await screen.findByRole('heading', { name: 'Registrar despacho' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByLabelText('Nombre del transportista')).toBeNull()
+
+    await userEvent.selectOptions(screen.getByLabelText('Transportista'), 'Otros')
+    const name = screen.getByLabelText('Nombre del transportista')
+    expect(screen.getByRole('button', { name: 'Registrar despacho' })).toBeDisabled()
+    await userEvent.type(name, 'Mensajería local')
+    await userEvent.click(screen.getByRole('button', { name: 'Registrar despacho' }))
+    expect(screen.getByText('Mensajería local')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Confirmar y notificar' }))
+
+    await waitFor(() =>
+      expect(mocked.registerShipmentDispatch).toHaveBeenCalledWith(
+        expect.objectContaining({ shipmentId: 'ship-1', carrier: 'Mensajería local' }),
+      ),
+    )
   })
 
   it('para retiro registra la entrega sin pedir transportista', async () => {
@@ -186,7 +225,10 @@ describe('detalle de despacho', () => {
       ),
     )
     renderPage()
-    await userEvent.type(await screen.findByLabelText('Transportista'), 'X')
+    await userEvent.selectOptions(
+      await screen.findByLabelText('Transportista'),
+      'Chilexpress',
+    )
     await userEvent.click(screen.getByRole('button', { name: 'Registrar despacho' }))
     await userEvent.click(screen.getByRole('button', { name: 'Confirmar y notificar' }))
     expect(await screen.findByText('Indica el transportista.')).toBeInTheDocument()

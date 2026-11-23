@@ -86,6 +86,15 @@ def buyer_email_for(shipment: Shipment) -> str:
     return str(getattr(buyer, "email", "") or "")
 
 
+def delivery_email_for(shipment: Shipment) -> str:
+    buyer = getattr(shipment.order, "buyer", None)
+    return str(getattr(buyer, "delivery_email", "") or "")
+
+
+def shipment_notice_email(shipment: Shipment) -> str:
+    return delivery_email_for(shipment) or buyer_email_for(shipment)
+
+
 def seller_allowed_actions(shipment: Shipment) -> tuple[str, ...]:
     actions: list[str] = []
     if shipment_can_register_dispatch(shipment):

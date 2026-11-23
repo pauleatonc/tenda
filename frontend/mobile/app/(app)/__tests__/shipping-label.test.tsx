@@ -44,6 +44,7 @@ const shipment = {
   trackingUrl: '',
   dispatchNote: '',
   buyerEmail: 'camila@example.cl',
+  deliveryEmail: '',
   allowedActions: { registerShipmentDispatch: true, generateShipmentLabel: true },
   createdAt: '2026-08-26T12:00:00Z',
   updatedAt: '2026-08-26T13:00:00Z',

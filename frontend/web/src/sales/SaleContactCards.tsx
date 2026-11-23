@@ -23,6 +23,7 @@ type DeliveryDraft = {
   recipientName: string
   recipientTaxId: string
   phone: string
+  deliveryEmail: string
   deliveryAddress: string
   deliveryCommune: string
   deliveryRegion: string
@@ -42,6 +43,7 @@ function emptyDelivery(buyer?: BuyerView | null): DeliveryDraft {
     recipientName: buyer?.recipientName ?? '',
     recipientTaxId: buyer?.recipientTaxId ?? '',
     phone: buyer?.phone ?? '',
+    deliveryEmail: buyer?.deliveryEmail ?? '',
     deliveryAddress: buyer?.deliveryAddress ?? '',
     deliveryCommune: buyer?.deliveryCommune ?? '',
     deliveryRegion: buyer?.deliveryRegion ?? '',
@@ -66,6 +68,7 @@ function payloadFrom(order: SellerOrder, buyer: BuyerDraft, delivery: DeliveryDr
     orderId: order.id,
     fullName: buyer.fullName.trim() || delivery.recipientName.trim() || 'Comprador',
     email: buyer.email.trim() || null,
+    deliveryEmail: delivery.deliveryEmail.trim(),
     phone: buyer.phone.trim() || delivery.phone.trim() || null,
     recipientName: delivery.recipientName.trim() || null,
     recipientTaxId: delivery.recipientTaxId.trim() || null,
@@ -185,7 +188,7 @@ export function SaleContactCards({ order }: { order: SellerOrder }) {
               <dd>{buyer.fullName}</dd>
             </div>
             <div>
-              <dt>Email</dt>
+              <dt>Correo</dt>
               <dd>{buyer.email || '—'}</dd>
             </div>
             <div>
@@ -265,6 +268,20 @@ export function SaleContactCards({ order }: { order: SellerOrder }) {
               />
             </div>
             <div className="field">
+              <label htmlFor="sale-delivery-email">Correo de despacho</label>
+              <input
+                id="sale-delivery-email"
+                type="email"
+                value={deliveryDraft.deliveryEmail}
+                onChange={(event) =>
+                  setDeliveryDraft((current) => ({
+                    ...current,
+                    deliveryEmail: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="field">
               <label htmlFor="sale-delivery-phone">Teléfono de contacto</label>
               <input
                 id="sale-delivery-phone"
@@ -336,6 +353,10 @@ export function SaleContactCards({ order }: { order: SellerOrder }) {
                 <dd>{buyer.recipientTaxId}</dd>
               </div>
             ) : null}
+            <div>
+              <dt>Correo de despacho</dt>
+              <dd>{buyer?.deliveryEmail || '—'}</dd>
+            </div>
             {buyer?.deliveryAddress ? (
               <div>
                 <dt>Dirección</dt>

@@ -137,6 +137,7 @@ def complete_offer_delivery(token: str) -> None:
         details={
             "name": "Ana Pérez",
             "email": "ana@example.com",
+            "deliveryEmail": "despacho@example.com",
             "phone": "+56911111111",
             "recipientName": "Ana Pérez",
             "recipientTaxId": "11.111.111-1",
@@ -158,12 +159,14 @@ def test_deposit_offer_requires_delivery_details() -> None:
         )
     assert error.value.code == "VALIDATION_ERROR"
     assert "recipientTaxId" in error.value.field_errors
+    assert "deliveryEmail" in error.value.field_errors
 
     updated = set_buyer_details(
         token=token,
         details={
             "name": "Ana Pérez",
             "email": "ana@example.com",
+            "deliveryEmail": "despacho@example.com",
             "phone": "+56911111111",
             "recipientName": "Ana Pérez",
             "recipientTaxId": "111111111",
@@ -173,6 +176,8 @@ def test_deposit_offer_requires_delivery_details() -> None:
         },
     )
     buyer = updated.buyer
+    assert buyer.email == "ana@example.com"
+    assert buyer.delivery_email == "despacho@example.com"
     assert buyer.recipient_name == "Ana Pérez"
     assert buyer.recipient_tax_id == "11.111.111-1"
     assert buyer.address_line == "Los Aromos 123"

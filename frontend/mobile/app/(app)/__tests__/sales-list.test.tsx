@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react-native'
+import { fireEvent, render, screen } from '@testing-library/react-native'
+import { router } from 'expo-router'
 import type { ReactElement } from 'react'
 
 import SalesScreen from '../(tabs)/ventas'
@@ -69,6 +70,11 @@ describe('Listado de ventas mobile', () => {
     expect(screen.getByText('Revisar comprobante')).toBeOnTheScreen()
 
     // A phone gets one vertical card, not desktop column headers or horizontal scroll.
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Venta de múltiples artículos' }),
+    )
+    expect(router.push).toHaveBeenCalledWith('/ventas/nueva')
+
     expect(screen.queryByText('Número')).toBeNull()
     expect(screen.queryByText('Comprador', { exact: true })).toBeNull()
   })

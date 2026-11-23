@@ -64,6 +64,7 @@ export type SellerShipment = ShipmentSummary & {
   deliveryNotes: string
   dispatchNote: string
   buyerEmail: string
+  deliveryEmail: string
   updatedAt: string
   latestLabel: ShipmentLabel | null
 }
@@ -154,6 +155,13 @@ export function mapShipmentLabel(label: {
   }
 }
 
+export function shipmentNoticeEmail(shipment: {
+  buyerEmail?: string | null
+  deliveryEmail?: string | null
+}): string {
+  return shipment.deliveryEmail?.trim() || shipment.buyerEmail?.trim() || ''
+}
+
 export function mapSellerShipment(
   shipment: OperationShipmentDetailFragment,
 ): SellerShipment {
@@ -164,6 +172,7 @@ export function mapSellerShipment(
     deliveryNotes: asString(shipment.deliveryNotes),
     dispatchNote: asString(shipment.dispatchNote),
     buyerEmail: asString(shipment.buyerEmail),
+    deliveryEmail: asString(shipment.deliveryEmail),
     updatedAt: asString(shipment.updatedAt),
     latestLabel: shipment.latestLabel ? mapShipmentLabel(shipment.latestLabel) : null,
   }

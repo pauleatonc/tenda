@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { shipmentNoticeEmail } from '@tenda/api-client'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
@@ -16,9 +17,12 @@ import {
   deliveryModeLabels,
   destinationLine,
   formatDate,
+  otherCarrier,
   registeredAt,
   registrationLabel,
   requiresCarrier,
+  shippingCarriers,
+  shippingCostOnDelivery,
   shipmentStatusLabels,
   statusTone,
   translated,
@@ -32,7 +36,8 @@ function fieldError(error: Error | null, field: string): string | null {
 export function ShipmentDetailPage() {
   const { id = '' } = useParams<{ id: string }>()
   const queryClient = useQueryClient()
-  const [carrier, setCarrier] = useState('')
+  const [carrierChoice, setCarrierChoice] = useState('')
+  const [customCarrier, setCustomCarrier] = useState('')
   const [trackingCode, setTrackingCode] = useState('')
   const [trackingUrl, setTrackingUrl] = useState('')
   const [note, setNote] = useState('')
@@ -54,7 +59,9 @@ export function ShipmentDetailPage() {
     mutationFn: () =>
       registerShipmentDispatch({
         shipmentId: id,
-        carrier: carrier.trim() || null,
+        carrier:
+          (carrierChoice === otherCarrier ? customCarrier : carrierChoice).trim() ||
+          null,
         trackingCode: trackingCode.trim() || null,
         trackingUrl: trackingUrl.trim() || null,
         note: note.trim() || null,
@@ -153,7 +160,10 @@ export function ShipmentDetailPage() {
   const carrierError = fieldError(actionError, 'carrier')
   const trackingUrlError = fieldError(actionError, 'trackingUrl')
   const registeredOn = registeredAt(detail)
-  const formValid = !needsCarrier || carrier.trim().length > 0
+  const selectedCarrier = (
+    carrierChoice === otherCarrier ? customCarrier : carrierChoice
+  ).trim()
+  const formValid = !needsCarrier || selectedCarrier.length > 0
 
   return (
     <>
@@ -238,8 +248,12 @@ export function ShipmentDetailPage() {
               </div>
             ) : null}
             <div>
-              <dt>Correo del comprador</dt>
+              <dt>Correo</dt>
               <dd>{detail.buyerEmail || 'Sin correo registrado'}</dd>
+            </div>
+            <div>
+              <dt>Correo de despacho</dt>
+              <dd>{detail.deliveryEmail || 'Sin correo de despacho'}</dd>
             </div>
           </dl>
           <p>
@@ -252,11 +266,11 @@ export function ShipmentDetailPage() {
           {canRegister ? (
             <>
               <p className="shipping-notice">
-                {detail.buyerEmail ? (
+                {shipmentNoticeEmail(detail) ? (
                   <>
                     Al registrar, enviaremos un correo a{' '}
-                    <strong>{detail.buyerEmail}</strong> con estos datos. No se hace
-                    seguimiento posterior.
+                    <strong>{shipmentNoticeEmail(detail)}</strong> con estos datos. No se
+                    hace seguimiento posterior.
                   </>
                 ) : (
                   <>
@@ -276,18 +290,42 @@ export function ShipmentDetailPage() {
                   <>
                     <label htmlFor="shipment-carrier">
                       <span>Transportista</span>
-                      <input
+                      <select
                         id="shipment-carrier"
-                        value={carrier}
+                        value={carrierChoice}
                         required
                         aria-invalid={carrierError ? true : undefined}
                         aria-describedby={
-                          carrierError ? 'shipment-carrier-error' : undefined
+                          carrierError
+                            ? 'shipment-carrier-error'
+                            : 'shipment-carrier-cost'
                         }
-                        onChange={(event) => setCarrier(event.target.value)}
-                        placeholder="Chilexpress, Starken, Blue Express…"
-                      />
+                        onChange={(event) => setCarrierChoice(event.target.value)}
+                      >
+                        <option value="">Selecciona un transportista</option>
+                        {shippingCarriers.map((name) => (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
+                        ))}
+                        <option value={otherCarrier}>Otros</option>
+                      </select>
                     </label>
+                    {carrierChoice === otherCarrier ? (
+                      <label htmlFor="shipment-carrier-other">
+                        <span>Nombre del transportista</span>
+                        <input
+                          id="shipment-carrier-other"
+                          value={customCarrier}
+                          required
+                          aria-invalid={carrierError ? true : undefined}
+                          onChange={(event) => setCustomCarrier(event.target.value)}
+                        />
+                      </label>
+                    ) : null}
+                    <p id="shipment-carrier-cost" className="shipping-notice">
+                      {shippingCostOnDelivery}
+                    </p>
                     {carrierError ? (
                       <small
                         id="shipment-carrier-error"
@@ -392,8 +430,8 @@ export function ShipmentDetailPage() {
               <div>
                 <dt>Correo al comprador</dt>
                 <dd>
-                  {detail.buyerEmail
-                    ? `Enviado a ${detail.buyerEmail}`
+                  {shipmentNoticeEmail(detail)
+                    ? `Enviado a ${shipmentNoticeEmail(detail)}`
                     : 'No se envió (sin correo registrado)'}
                 </dd>
               </div>
@@ -437,7 +475,7 @@ export function ShipmentDetailPage() {
               <>
                 <div>
                   <dt>Transportista</dt>
-                  <dd>{carrier.trim()}</dd>
+                  <dd>{selectedCarrier}</dd>
                 </div>
                 <div>
                   <dt>Tracking</dt>
@@ -453,10 +491,11 @@ export function ShipmentDetailPage() {
             ) : null}
           </dl>
           <p>
-            {detail.buyerEmail
-              ? `Se enviará un correo a ${detail.buyerEmail}.`
+            {shipmentNoticeEmail(detail)
+              ? `Se enviará un correo a ${shipmentNoticeEmail(detail)}.`
               : 'No se enviará correo porque el comprador no dejó uno.'}
           </p>
+          {needsCarrier ? <p>{shippingCostOnDelivery}</p> : null}
         </Modal>
       ) : null}
 

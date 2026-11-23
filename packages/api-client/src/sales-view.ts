@@ -74,6 +74,7 @@ export type OrderAllowedActions = {
 export type BuyerView = {
   fullName: string
   email: string
+  deliveryEmail: string
   phone: string
   recipientName: string
   recipientTaxId: string
@@ -318,6 +319,7 @@ export type SetBuyerDetailsRequest = {
   token: string
   fullName: string
   email?: string | null
+  deliveryEmail?: string | null
   phone?: string | null
   recipientName?: string | null
   recipientTaxId?: string | null
@@ -404,6 +406,7 @@ function mapBuyer(
   buyer: {
     name: string
     email: string
+    deliveryEmail?: string | null
     phone: string
     recipientName: string
     recipientTaxId: string
@@ -424,6 +427,7 @@ function mapBuyer(
   return {
     fullName: buyer.name,
     email: buyer.email,
+    deliveryEmail: buyer.deliveryEmail ?? '',
     phone: buyer.phone,
     recipientName: buyer.recipientName,
     recipientTaxId: buyer.recipientTaxId,
@@ -790,6 +794,7 @@ export function toBuyerDetailsInput(
   return {
     name: input.fullName,
     email: input.email ?? null,
+    deliveryEmail: input.deliveryEmail === undefined ? null : input.deliveryEmail,
     phone: input.phone ?? null,
     recipientName: input.recipientName ?? null,
     recipientTaxId: input.recipientTaxId ?? null,

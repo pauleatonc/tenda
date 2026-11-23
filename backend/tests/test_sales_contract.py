@@ -281,6 +281,7 @@ def test_public_html_escapes_metadata_and_contextual_upload_routes_are_scoped() 
         details={
             "name": "Ana",
             "email": "ana@example.com",
+            "deliveryEmail": "despacho@example.com",
             "phone": "+56911111111",
             "recipientName": "Ana",
             "recipientTaxId": "11.111.111-1",

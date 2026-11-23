@@ -179,6 +179,7 @@ type OrderItemType {
 type BuyerSnapshotType {
   name: String!
   email: String!
+  deliveryEmail: String!
   phone: String!
   recipientName: String!
   recipientTaxId: String!
@@ -477,6 +478,7 @@ type ShipmentType {
   trackingUrl: String!
   dispatchNote: String!
   buyerEmail: String!
+  deliveryEmail: String!
   allowedActions: [String!]!
   dispatchedAt: DateTime
   deliveredAt: DateTime
@@ -948,6 +950,7 @@ type SetBuyerDetails {
 input BuyerDetailsInput {
   name: String!
   email: String
+  deliveryEmail: String
   phone: String
   recipientName: String
   recipientTaxId: String

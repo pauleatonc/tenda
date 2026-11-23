@@ -484,6 +484,7 @@ def test_public_receipt_is_order_scoped_and_approval_consumes_once() -> None:
         details={
             "name": "Ana",
             "email": "ana@example.com",
+            "deliveryEmail": "despacho@example.com",
             "phone": "+56911111111",
             "recipientName": "Ana",
             "recipientTaxId": "11.111.111-1",
@@ -571,6 +572,7 @@ def test_rejected_proof_requires_reason_and_releases_once() -> None:
         details={
             "name": "Ana",
             "email": "ana@example.com",
+            "deliveryEmail": "despacho@example.com",
             "phone": "+56911111111",
             "recipientName": "Ana",
             "recipientTaxId": "11.111.111-1",
@@ -628,6 +630,7 @@ def test_seller_can_correct_buyer_and_delivery_details() -> None:
         details={
             "name": "Ana",
             "email": "ana@example.com",
+            "deliveryEmail": "despacho@example.com",
             "phone": "+56911111111",
             "recipientName": "Ana",
             "recipientTaxId": "11.111.111-1",
@@ -671,6 +674,7 @@ def test_seller_can_correct_buyer_and_delivery_details() -> None:
     buyer = updated.order.buyer
     assert buyer.name == "Ana Pérez"
     assert buyer.email == "ana.ok@example.com"
+    assert buyer.delivery_email == "despacho@example.com"
     assert buyer.recipient_name == "Pedro Soto"
     assert buyer.address_line == "Nueva 456"
     assert buyer.commune == "Providencia"
@@ -707,6 +711,7 @@ def test_buyer_details_reject_invalid_chile_location() -> None:
             details={
                 "name": "Ana",
                 "email": "ana@example.com",
+                "deliveryEmail": "despacho@example.com",
                 "phone": "+56911111111",
                 "recipientName": "Ana",
                 "recipientTaxId": "11.111.111-1",

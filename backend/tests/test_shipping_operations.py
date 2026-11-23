@@ -84,6 +84,7 @@ def paid_order(
         details={
             "name": "Camila Soto",
             "email": "camila@example.cl",
+            "deliveryEmail": "camila@example.cl",
             "phone": "+56911111111",
             "recipientName": "Camila Soto",
             "recipientTaxId": "11.111.111-1",

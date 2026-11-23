@@ -71,6 +71,9 @@ describe('listado de ventas', () => {
   it('muestra Ver comprobante cuando hay proof', async () => {
     renderPage()
     expect(await screen.findByRole('link', { name: 'V-100' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'Venta de múltiples artículos' }),
+    ).toHaveAttribute('href', '/app/ventas/nueva')
     expect(screen.getByRole('link', { name: 'Ver comprobante' })).toHaveAttribute(
       'href',
       '/app/ventas/order-1',

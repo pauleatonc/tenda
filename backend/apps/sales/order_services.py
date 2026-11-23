@@ -1047,6 +1047,35 @@ def order_requires_delivery_details(order: Order) -> bool:
     )
 
 
+def _is_valid_email(value: str) -> bool:
+    if not value:
+        return False
+    try:
+        validate_email(value)
+    except ValidationError:
+        return False
+    return True
+
+
+def _stored_buyer(order: Order) -> BuyerSnapshot | None:
+    try:
+        return order.buyer
+    except BuyerSnapshot.DoesNotExist:
+        return None
+
+
+def _provided_delivery_email(details: Mapping[str, Any]) -> str | None:
+    if "delivery_email" in details:
+        raw = details.get("delivery_email")
+    elif "deliveryEmail" in details:
+        raw = details.get("deliveryEmail")
+    else:
+        return None
+    if raw is None:
+        return None
+    return _clean_text(raw, maximum=254).lower()
+
+
 def buyer_has_required_delivery(buyer: BuyerSnapshot | None) -> bool:
     if buyer is None:
         return False
@@ -1056,6 +1085,7 @@ def buyer_has_required_delivery(buyer: BuyerSnapshot | None) -> bool:
         and (buyer.phone or "").strip()
         and (buyer.address_line or "").strip()
         and is_valid_chile_location(buyer.region or "", buyer.commune or "")
+        and _is_valid_email(buyer.delivery_email or "")
     )
 
 
@@ -1161,6 +1191,18 @@ def _apply_buyer_snapshot(order: Order, details: Mapping[str, Any]) -> BuyerSnap
         details.get("tax_region", details.get("taxRegion")),
         maximum=120,
     )
+    provided_delivery_email = _provided_delivery_email(details)
+    stored_buyer = _stored_buyer(order)
+    delivery_email = (
+        (stored_buyer.delivery_email or "").strip().lower()
+        if provided_delivery_email is None and stored_buyer is not None
+        else (provided_delivery_email or "")
+    )
+    delivery_email_error = (
+        ["Ingresa un correo de despacho válido."]
+        if delivery_email and not _is_valid_email(delivery_email)
+        else None
+    )
     if order_requires_delivery_details(order):
         missing: dict[str, list[str]] = {}
         if not recipient:
@@ -1173,6 +1215,10 @@ def _apply_buyer_snapshot(order: Order, details: Mapping[str, Any]) -> BuyerSnap
             missing["phone"] = ["Ingresa un teléfono de contacto."]
         if not address:
             missing["addressLine"] = ["Ingresa la dirección de despacho."]
+        if not delivery_email:
+            missing["deliveryEmail"] = ["Ingresa el correo de despacho."]
+        elif delivery_email_error:
+            missing["deliveryEmail"] = delivery_email_error
         missing.update(_chile_location_errors(region, commune, required=True))
         if missing:
             raise DomainError(
@@ -1180,6 +1226,12 @@ def _apply_buyer_snapshot(order: Order, details: Mapping[str, Any]) -> BuyerSnap
                 "Completa los datos de despacho.",
                 field_errors=missing,
             )
+    elif delivery_email_error:
+        raise DomainError(
+            "VALIDATION_ERROR",
+            "Revisa los datos ingresados.",
+            field_errors={"deliveryEmail": delivery_email_error},
+        )
     else:
         location_errors = _chile_location_errors(region, commune, required=False)
         if location_errors:
@@ -1206,6 +1258,7 @@ def _apply_buyer_snapshot(order: Order, details: Mapping[str, Any]) -> BuyerSnap
         defaults={
             "name": name,
             "email": email,
+            "delivery_email": delivery_email,
             "phone": phone,
             "recipient_name": recipient,
             "recipient_tax_id": recipient_tax_id,
@@ -1253,6 +1306,7 @@ def update_order_buyer(
         "orderId": str(order_id),
         "name": details.get("name"),
         "email": details.get("email"),
+        "deliveryEmail": details.get("delivery_email", details.get("deliveryEmail")),
         "phone": details.get("phone"),
         "recipientName": details.get("recipient_name", details.get("recipientName")),
         "recipientTaxId": details.get("recipient_tax_id", details.get("recipientTaxId")),

@@ -47,6 +47,7 @@ describe('Detalle de despacho ya registrado', () => {
       trackingUrl: 'https://chilexpress.cl/track/CX-99',
       dispatchNote: 'Sale hoy en la tarde',
       buyerEmail: 'camila@example.cl',
+      deliveryEmail: '',
       allowedActions: { registerShipmentDispatch: false, generateShipmentLabel: true },
       createdAt: '2026-08-26T12:00:00Z',
       updatedAt: '2026-08-26T13:00:00Z',

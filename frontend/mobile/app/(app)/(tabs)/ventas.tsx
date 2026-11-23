@@ -149,8 +149,11 @@ export default function SalesScreen() {
               {orders.isPending ? 'Cargando ventas…' : `${totalCount} ventas`}
             </Text>
           </View>
-          <PrimaryButton label="Nueva" onPress={() => router.push('/ventas/nueva')} />
         </View>
+        <PrimaryButton
+          label="Venta de múltiples artículos"
+          onPress={() => router.push('/ventas/nueva')}
+        />
         <TextInput
           accessibilityLabel="Buscar ventas"
           placeholder="Número o comprador"

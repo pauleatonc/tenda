@@ -9,10 +9,15 @@ export type DeliveryDraft = {
   recipientName: string
   recipientTaxId: string
   phone: string
+  deliveryEmail: string
   deliveryAddress: string
   deliveryCommune: string
   deliveryRegion: string
   deliveryNotes: string
+}
+
+export function isDeliveryEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
 }
 
 export type DeliveryErrors = Partial<Record<keyof DeliveryDraft, string>>
@@ -22,6 +27,7 @@ function emptyDeliveryDraft(): DeliveryDraft {
     recipientName: '',
     recipientTaxId: '',
     phone: '',
+    deliveryEmail: '',
     deliveryAddress: '',
     deliveryCommune: '',
     deliveryRegion: '',
@@ -35,6 +41,7 @@ export function deliveryDraftFromBuyer(buyer?: BuyerView | null): DeliveryDraft 
     recipientName: buyer.recipientName,
     recipientTaxId: buyer.recipientTaxId,
     phone: buyer.phone,
+    deliveryEmail: buyer.deliveryEmail.trim() || buyer.email.trim(),
     deliveryAddress: buyer.deliveryAddress,
     deliveryCommune: buyer.deliveryCommune,
     deliveryRegion: buyer.deliveryRegion,
@@ -48,6 +55,7 @@ export function hasRequiredDelivery(buyer?: BuyerView | null): boolean {
     Boolean(buyer.recipientName.trim()) &&
     isValidChileanRut(buyer.recipientTaxId) &&
     Boolean(buyer.phone.trim()) &&
+    isDeliveryEmail(buyer.deliveryEmail) &&
     Boolean(buyer.deliveryAddress.trim()) &&
     isValidChileLocation(buyer.deliveryRegion, buyer.deliveryCommune)
   )
@@ -63,6 +71,11 @@ export function validateDeliveryDraft(draft: DeliveryDraft): DeliveryErrors {
   }
   if (!draft.phone.trim()) {
     errors.phone = 'Ingresa un teléfono de contacto.'
+  }
+  if (!draft.deliveryEmail.trim()) {
+    errors.deliveryEmail = 'Ingresa el correo de despacho.'
+  } else if (!isDeliveryEmail(draft.deliveryEmail)) {
+    errors.deliveryEmail = 'Ingresa un correo de despacho válido.'
   }
   if (!draft.deliveryAddress.trim()) {
     errors.deliveryAddress = 'Escribe la dirección de despacho.'

@@ -75,7 +75,8 @@
   resize: vertical;
 }
 
-.shipping-form input[aria-invalid='true'] {
+.shipping-form input[aria-invalid='true'],
+.shipping-form select[aria-invalid='true'] {
   border-color: #b3261e;
 }
 

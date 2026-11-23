@@ -73,6 +73,7 @@ function sellerOrder() {
     buyer: {
       fullName: 'Camila Soto',
       email: 'camila@example.com',
+      deliveryEmail: '',
       phone: '+56911111111',
       recipientName: '',
       recipientTaxId: '',

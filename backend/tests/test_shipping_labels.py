@@ -5,9 +5,17 @@ from urllib.parse import urlparse
 
 import pytest
 from django.utils import timezone
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
 
 from apps.sales.models import Order
-from apps.shipping.labels import INTERNAL_LABEL_DISCLAIMER, INTERNAL_LABEL_TITLE
+from apps.shipping.labels import (
+    INTERNAL_LABEL_DISCLAIMER,
+    INTERNAL_LABEL_TITLE,
+    LABEL_PAGE_SIZE,
+    LABEL_STICKER_SIZE,
+    render_internal_label_pdf,
+)
 from apps.shipping.models import LabelDocument, Shipment
 from tests.test_shipping_operations import graphql, paid_order, signed_in
 
@@ -33,6 +41,22 @@ def _download_bytes(client, url: str) -> bytes:
     response = client.get(path)
     assert response.status_code == 200, response.content
     return response.content
+
+
+def test_internal_label_is_a_square_sticker_on_a4() -> None:
+    _client, context = signed_in("label-square@example.com")
+    order = paid_order(context)
+    pdf = render_internal_label_pdf(order.shipment)
+
+    assert LABEL_PAGE_SIZE == A4
+    assert LABEL_STICKER_SIZE == 100 * mm
+    assert pdf.startswith(b"%PDF")
+    assert pdf.count(b"/Type /Page") - pdf.count(b"/Type /Pages") == 1
+    assert INTERNAL_LABEL_TITLE.encode("latin-1") in pdf
+    assert INTERNAL_LABEL_DISCLAIMER.encode("latin-1") in pdf
+    assert b"Camila Soto" in pdf
+    assert order.number.encode("latin-1") in pdf
+    assert b"Vel" in pdf
 
 
 def test_paid_order_generates_internal_label() -> None:

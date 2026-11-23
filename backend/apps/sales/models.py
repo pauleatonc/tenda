@@ -380,6 +380,7 @@ class BuyerSnapshot(models.Model):
     )
     name = models.CharField(max_length=160)
     email = models.EmailField(blank=True)
+    delivery_email = models.EmailField(blank=True, default="")
     phone = models.CharField(max_length=32, blank=True)
     recipient_name = models.CharField(max_length=160, blank=True)
     recipient_tax_id = models.CharField(max_length=16, blank=True)

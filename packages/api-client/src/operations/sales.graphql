@@ -12,6 +12,7 @@ fragment OrderLine on OrderItemType {
 fragment BuyerSnapshot on BuyerSnapshotType {
   name
   email
+  deliveryEmail
   phone
   recipientName
   recipientTaxId

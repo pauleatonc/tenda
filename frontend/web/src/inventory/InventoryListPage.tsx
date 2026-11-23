@@ -337,11 +337,11 @@ export function InventoryListPage() {
             </p>
           </div>
           <div className="page-heading__actions">
-            <Link className="button button--primary" to="/app/inventario/nuevo">
-              Agregar producto
-            </Link>
-            <Link className="button button--secondary" to="/app/ventas/nueva">
+            <Link className="button button--primary" to="/app/ventas/nueva">
               Venta de múltiples artículos
+            </Link>
+            <Link className="button button--secondary" to="/app/inventario/nuevo">
+              Agregar producto
             </Link>
             <Link className="button button--secondary" to="/app/inventario/importar">
               Importar

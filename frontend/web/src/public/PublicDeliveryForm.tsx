@@ -39,6 +39,10 @@ function DeliverySummary({ order, onEdit }: { order: PublicOrder; onEdit?: () =>
           <dd>{buyer.phone}</dd>
         </div>
         <div>
+          <dt>Correo de despacho</dt>
+          <dd>{buyer.deliveryEmail}</dd>
+        </div>
+        <div>
           <dt>Dirección</dt>
           <dd>
             {formatChileAddress(
@@ -97,6 +101,7 @@ export function PublicDeliveryForm({
         token,
         fullName: buyerDisplayName(order.buyer, draft.recipientName),
         email: order.buyer?.email.trim() || null,
+        deliveryEmail: draft.deliveryEmail.trim(),
         phone: draft.phone.trim(),
         recipientName: draft.recipientName.trim(),
         recipientTaxId: draft.recipientTaxId.trim(),
@@ -133,7 +138,9 @@ export function PublicDeliveryForm({
       <header>
         <h2>Datos de despacho</h2>
         <p>
-          Obligatorios para coordinar el envío. El comprobante se habilita al guardarlos.
+          Obligatorios para coordinar el envío. El correo de despacho puede ser distinto
+          del correo al que llegó el enlace de pago. El comprobante se habilita al
+          guardarlos.
         </p>
       </header>
       {save.isError ? (
@@ -187,6 +194,20 @@ export function PublicDeliveryForm({
             onChange={(event) => update('phone', event.target.value)}
           />
           {errors.phone ? <small className="field__error">{errors.phone}</small> : null}
+        </div>
+        <div className="field">
+          <label htmlFor="offer-delivery-email">Correo de despacho</label>
+          <input
+            id="offer-delivery-email"
+            type="email"
+            autoComplete="email"
+            value={draft.deliveryEmail}
+            aria-invalid={Boolean(errors.deliveryEmail)}
+            onChange={(event) => update('deliveryEmail', event.target.value)}
+          />
+          {errors.deliveryEmail ? (
+            <small className="field__error">{errors.deliveryEmail}</small>
+          ) : null}
         </div>
         <div className="field">
           <label htmlFor="offer-address">Dirección</label>

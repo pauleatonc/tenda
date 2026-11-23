@@ -374,8 +374,16 @@ export default function InventoryScreen() {
               {products.isPending ? 'Cargando productos…' : `${totalCount} productos`}
             </Text>
           </View>
-          <PrimaryButton label="Agregar" onPress={() => setCreateOpen(true)} />
+          <PrimaryButton
+            label="Agregar"
+            variant="secondary"
+            onPress={() => setCreateOpen(true)}
+          />
         </View>
+        <PrimaryButton
+          label="Venta de múltiples artículos"
+          onPress={() => router.push('/ventas/nueva')}
+        />
 
         <TextInput
           accessibilityLabel="Buscar productos"

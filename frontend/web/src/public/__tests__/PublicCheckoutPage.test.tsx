@@ -81,6 +81,10 @@ async function completeContact() {
   await userEvent.type(screen.getByLabelText('Email'), 'camila@example.cl')
   await userEvent.type(screen.getByLabelText('Teléfono'), '+56911111111')
   await userEvent.type(screen.getByLabelText('Destinatario'), 'Camila Rojas')
+  await userEvent.type(
+    screen.getByLabelText('Correo de despacho'),
+    'despacho@example.cl',
+  )
   await userEvent.type(screen.getByLabelText('RUT de quien recibe'), '111111111')
   await userEvent.type(screen.getByLabelText('Dirección'), 'Los Aromos 123')
   await userEvent.selectOptions(
@@ -117,10 +121,18 @@ describe('checkout público', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Confirmar datos' }))
 
     expect(await screen.findByText('Falla temporal del servicio')).toBeInTheDocument()
-    await waitFor(() => expect(mocked.setBuyerDetails).toHaveBeenCalledTimes(1))
+    await waitFor(() =>
+      expect(mocked.setBuyerDetails).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: 'camila@example.cl',
+          deliveryEmail: 'despacho@example.cl',
+        }),
+      ),
+    )
 
     await userEvent.click(screen.getByRole('button', { name: 'Volver' }))
     await userEvent.click(screen.getByRole('button', { name: 'Volver' }))
     expect(screen.getByLabelText('Email')).toHaveValue('camila@example.cl')
-  })
+    expect(screen.getByLabelText('Correo de despacho')).toHaveValue('despacho@example.cl')
+  }, 15_000)
 })

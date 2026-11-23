@@ -89,6 +89,12 @@ export function PublicCheckoutPage() {
         token,
         fullName: draft.fullName.trim(),
         email: draft.email.trim() || null,
+        deliveryEmail: requiresCheckoutDelivery(
+          order.data?.deliveryMode ?? '',
+          selectedPaymentMethod,
+        )
+          ? draft.deliveryEmail.trim()
+          : null,
         phone: draft.phone.trim() || null,
         recipientName: draft.recipientName.trim() || null,
         recipientTaxId: draft.recipientTaxId.trim() || null,
@@ -307,6 +313,20 @@ export function PublicCheckoutPage() {
                       ) : null}
                     </div>
                     <div className="field public-form-grid__wide">
+                      <label htmlFor="delivery-email">Correo de despacho</label>
+                      <input
+                        id="delivery-email"
+                        type="email"
+                        autoComplete="email"
+                        value={draft.deliveryEmail}
+                        aria-invalid={Boolean(errors.deliveryEmail)}
+                        onChange={(event) => update('deliveryEmail', event.target.value)}
+                      />
+                      {errors.deliveryEmail ? (
+                        <small className="field__error">{errors.deliveryEmail}</small>
+                      ) : null}
+                    </div>
+                    <div className="field public-form-grid__wide">
                       <label htmlFor="delivery-address">Dirección</label>
                       <input
                         id="delivery-address"
@@ -512,6 +532,7 @@ export function PublicCheckoutPage() {
                         {[
                           draft.recipientName,
                           draft.recipientTaxId,
+                          draft.deliveryEmail,
                           formatChileAddress(
                             draft.deliveryAddress,
                             draft.deliveryCommune,

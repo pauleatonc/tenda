@@ -142,7 +142,8 @@ describe('ficha pública de depósito', () => {
   it('habilita el comprobante después de guardar el despacho', async () => {
     const savedBuyer = {
       fullName: 'Camila Rojas',
-      email: '',
+      email: 'pago@example.cl',
+      deliveryEmail: 'despacho@example.cl',
       phone: '+56911111111',
       recipientName: 'Camila Rojas',
       recipientTaxId: '11.111.111-1',
@@ -158,9 +159,21 @@ describe('ficha pública de depósito', () => {
       taxRegion: '',
       taxEmail: '',
     }
+    const offered = {
+      ...order,
+      buyer: {
+        ...savedBuyer,
+        email: 'pago@example.cl',
+        deliveryEmail: '',
+        phone: '',
+        recipientName: '',
+        recipientTaxId: '',
+        deliveryAddress: '',
+      },
+    }
     mocked.setBuyerDetails.mockResolvedValue({ ...order, buyer: savedBuyer })
     mocked.fetchPublicOrder
-      .mockResolvedValueOnce(order)
+      .mockResolvedValueOnce(offered)
       .mockResolvedValue({ ...order, buyer: savedBuyer })
 
     renderPage()
@@ -168,6 +181,15 @@ describe('ficha pública de depósito', () => {
     await userEvent.type(screen.getByLabelText('Quién recibe'), 'Camila Rojas')
     await userEvent.type(screen.getByLabelText('RUT de quien recibe'), '111111111')
     await userEvent.type(screen.getByLabelText('Teléfono de contacto'), '+56911111111')
+    const deliveryEmail = screen.getByLabelText('Correo de despacho')
+    expect(deliveryEmail).toHaveValue('pago@example.cl')
+    await userEvent.clear(deliveryEmail)
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Guardar datos de despacho' }),
+    )
+    expect(screen.getByText('Ingresa el correo de despacho.')).toBeInTheDocument()
+    expect(mocked.setBuyerDetails).not.toHaveBeenCalled()
+    await userEvent.type(deliveryEmail, 'despacho@example.cl')
     await userEvent.type(screen.getByLabelText('Dirección'), 'Los Aromos 123')
     await userEvent.selectOptions(
       screen.getByLabelText('Región'),
@@ -179,6 +201,12 @@ describe('ficha pública de depósito', () => {
     )
 
     await waitFor(() => expect(mocked.setBuyerDetails).toHaveBeenCalledTimes(1))
+    expect(mocked.setBuyerDetails).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'pago@example.cl',
+        deliveryEmail: 'despacho@example.cl',
+      }),
+    )
     expect(
       await screen.findByLabelText('Selecciona una foto o PDF del comprobante'),
     ).toBeEnabled()

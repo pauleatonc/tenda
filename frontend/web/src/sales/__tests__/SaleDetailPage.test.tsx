@@ -54,6 +54,7 @@ const order = {
   buyer: {
     fullName: 'Camila',
     email: 'camila@example.cl',
+    deliveryEmail: '',
     phone: '',
     recipientName: '',
     recipientTaxId: '',

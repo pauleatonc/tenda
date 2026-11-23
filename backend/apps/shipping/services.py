@@ -26,10 +26,10 @@ from tenda.errors import DomainError, ResourceNotFound
 from .labels import render_internal_label_pdf
 from .models import LabelDocument, Shipment
 from .selectors import (
-    buyer_email_for,
     order_is_paid,
     shipment_can_generate_label,
     shipment_label_field_errors,
+    shipment_notice_email,
 )
 from .selectors import shipment_for_context as load_shipment
 
@@ -205,7 +205,7 @@ def _order_lines(order: Order) -> list[dict[str, Any]]:
 def _enqueue_dispatch_notification(shipment: Shipment) -> None:
     from apps.sales.order_services import _store_branding_parameters
 
-    recipient = buyer_email_for(shipment)
+    recipient = shipment_notice_email(shipment)
     if not recipient:
         return
     order = shipment.order
