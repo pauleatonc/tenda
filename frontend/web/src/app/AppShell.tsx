@@ -229,6 +229,18 @@ export function ApplicationShell() {
                 </NavLink>
               ),
             )}
+            {data.viewer.isStaff ? (
+              <NavLink
+                to="/app/plataforma"
+                className="nav-staff"
+                title={collapsed ? 'Plataforma' : undefined}
+              >
+                <span className="nav-icon">
+                  <SectionIcon name="platform" />
+                </span>
+                <span>Plataforma</span>
+              </NavLink>
+            ) : null}
           </nav>
           <Link
             className="app-sidebar__account"

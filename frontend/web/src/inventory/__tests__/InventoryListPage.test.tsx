@@ -48,6 +48,7 @@ function makeViewer(manageInventorySchema: boolean): ViewerPayload {
       id: 'user-1',
       email: 'ana@tenda.cl',
       emailVerified: true,
+      isStaff: false,
       profile: {
         id: 'profile-1',
         fullName: 'Ana',

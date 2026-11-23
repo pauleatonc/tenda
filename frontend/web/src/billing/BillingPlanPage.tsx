@@ -62,7 +62,7 @@ function isFreePlan(plan: { code: string; priceClp: number }): boolean {
 }
 
 function onFreePlan(billing: OrganisationBilling): boolean {
-  if (isFreePlan(billing)) return true
+  if (isFreePlan({ code: billing.planCode, priceClp: billing.priceClp })) return true
   const current = billing.plans.find((plan) => plan.isCurrent)
   return current != null && isFreePlan(current)
 }

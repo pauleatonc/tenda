@@ -7,6 +7,7 @@ from apps.billing.graphql import BillingMutation, BillingQuery
 from apps.configuration.graphql import ConfigurationQuery
 from apps.inventory.graphql import InventoryMutation, InventoryQuery
 from apps.organisations.graphql import OrganisationsMutation, OrganisationsQuery
+from apps.platform.graphql import PlatformQuery
 from apps.sales.graphql import SalesMutation, SalesQuery
 from apps.shipping.graphql import ShippingMutation, ShippingQuery
 from apps.users.graphql import UsersMutation, UsersQuery
@@ -20,6 +21,7 @@ class Query(
     SalesQuery,
     BillingQuery,
     ConfigurationQuery,
+    PlatformQuery,
     graphene.ObjectType,  # type: ignore[misc]
 ):
     health = graphene.String(required=True)

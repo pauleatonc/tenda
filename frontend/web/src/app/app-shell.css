@@ -91,6 +91,18 @@
   color: #fff;
 }
 
+.app-sidebar nav a.nav-staff {
+  background: var(--paper);
+  color: var(--ink);
+  margin-top: 8px;
+}
+
+.app-sidebar nav a.nav-staff:hover,
+.app-sidebar nav a.nav-staff.active {
+  background: #fff;
+  color: var(--ink);
+}
+
 .nav-group {
   display: flex;
   flex-direction: column;
@@ -580,6 +592,14 @@
   .app-sidebar nav a > span:last-child,
   .nav-group > button > span:last-child {
     display: block;
+  }
+
+  .app-shell:has(.nav-staff) {
+    padding-bottom: 132px;
+  }
+
+  .app-sidebar nav a.nav-staff {
+    margin-top: 0;
   }
 
   .nav-group > button {

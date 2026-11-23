@@ -230,6 +230,7 @@ def _viewer_payload(context: TenantContext) -> dict[str, object]:
             "id": str(context.user.public_id),
             "email": context.user.email,
             "emailVerified": context.user.is_email_verified,
+            "isStaff": context.user.is_staff,
             "profile": {
                 "id": str(profile.public_id),
                 "fullName": profile.full_name,

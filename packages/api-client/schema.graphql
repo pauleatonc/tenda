@@ -1,4 +1,5 @@
 type Query {
+  staffPlatformOverview: StaffPlatformOverviewType!
   termsAndConditions: TermsAndConditionsType
   organisationBilling: OrganisationBillingType!
   sellerPaymentConnection: SellerPaymentConnectionType
@@ -61,10 +62,30 @@ type Query {
   health: String!
 }
 
-type TermsAndConditionsType {
-  title: String!
-  bodyHtml: String!
-  updatedAt: DateTime!
+type StaffPlatformOverviewType {
+  generatedAt: DateTime!
+  organisationCount: Int!
+  organisationsLast30Days: Int!
+  organisationsWithSales: Int!
+  plans: [StaffPlanCountType!]!
+  activeProductCount: Int!
+  archivedProductCount: Int!
+  productsMissingCost: Int!
+  inventoryUnits: Int!
+  inventoryReservedUnits: Int!
+  inventoryAtCost: String!
+  inventoryAtSalePrice: String!
+  inventoryCostComplete: Boolean!
+  confirmedSalesAmount: String!
+  confirmedSalesCount: Int!
+  refundedAmount: String!
+  netSalesAmount: String!
+  knownCogs: String!
+  grossMargin: String!
+  salesCostComplete: Boolean!
+  pendingSalesAmount: String!
+  pendingSalesCount: Int!
+  pendingShipmentCount: Int!
 }
 
 """
@@ -73,6 +94,18 @@ value as specified by
 [iso8601](https://en.wikipedia.org/wiki/ISO_8601).
 """
 scalar DateTime
+
+type StaffPlanCountType {
+  code: String!
+  name: String!
+  organisationCount: Int!
+}
+
+type TermsAndConditionsType {
+  title: String!
+  bodyHtml: String!
+  updatedAt: DateTime!
+}
 
 type OrganisationBillingType {
   planCode: String!

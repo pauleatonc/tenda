@@ -1,0 +1,146 @@
+.staff-page {
+  display: grid;
+  gap: 22px;
+}
+
+.staff-page__banner {
+  background: var(--gold-pale);
+  border: 1px solid #e4d7b4;
+  border-radius: 22px;
+  padding: 28px;
+}
+
+.staff-kicker {
+  color: #765c17;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+.staff-page h1 {
+  font-family: var(--font-display);
+  font-size: clamp(40px, 5vw, 56px);
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+  margin: 0;
+}
+
+.staff-page__banner p:last-child,
+.staff-panel > p,
+.staff-note,
+.staff-footnote {
+  color: var(--ink-soft);
+  margin: 8px 0 0;
+}
+
+.staff-kpis {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.staff-kpis article,
+.staff-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 18px 20px;
+}
+
+.staff-kpis p,
+.staff-panel h2 {
+  margin: 0;
+}
+
+.staff-kpis p {
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.staff-kpis strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 32px;
+  letter-spacing: -0.04em;
+  margin: 8px 0;
+}
+
+.staff-kpis small,
+.staff-plans__label small,
+.staff-activity small {
+  color: var(--ink-soft);
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.staff-panel h2 {
+  font-size: 20px;
+}
+
+.staff-plans {
+  display: grid;
+  gap: 14px;
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+
+.staff-plans__label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.staff-plans__label strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.staff-plans__label small {
+  display: inline;
+}
+
+.staff-plans__track {
+  background: #efe6cf;
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+}
+
+.staff-plans__track span {
+  background: #8a6a2f;
+  display: block;
+  height: 100%;
+}
+
+.staff-split {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.staff-panel dl {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0 0;
+}
+
+.staff-panel dt {
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.staff-panel dd {
+  font-size: 22px;
+  font-weight: 750;
+  margin: 2px 0 0;
+}
+
+.staff-activity {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+

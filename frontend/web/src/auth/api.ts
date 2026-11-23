@@ -7,6 +7,7 @@ export type ViewerPayload = {
     id: string
     email: string
     emailVerified: boolean
+    isStaff: boolean
     profile: {
       id: string
       fullName: string

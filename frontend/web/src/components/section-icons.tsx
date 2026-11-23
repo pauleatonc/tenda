@@ -7,6 +7,7 @@ export type SectionIconName =
   | 'shipping'
   | 'balances'
   | 'more'
+  | 'platform'
   | 'bell'
   | 'search'
   | 'empty'
@@ -58,6 +59,13 @@ const marks: Record<SectionIconName, ReactNode> = {
       <rect x="13.5" y="3.5" width="7" height="7" rx="1.6" />
       <rect x="3.5" y="13.5" width="7" height="7" rx="1.6" />
       <rect x="13.5" y="13.5" width="7" height="7" rx="1.6" />
+    </>
+  ),
+  platform: (
+    <>
+      <path d="M4 10.5 12 4l8 6.5" />
+      <path d="M7 9.5V20h10V9.5" />
+      <path d="M4 20h16" />
     </>
   ),
   bell: (

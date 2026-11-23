@@ -23,6 +23,7 @@ import { PublicStatusPage } from './public/PublicStatusPage'
 import { BalancesPage } from './sales/BalancesPage'
 import { NewSalePage } from './sales/NewSalePage'
 import { BillingPlanPage } from './billing/BillingPlanPage'
+import { StaffOverviewPage } from './platform/StaffOverviewPage'
 import { ChoosePlanPage } from './billing/ChoosePlanPage'
 import { PaymentsSettingsPage } from './sales/PaymentsSettingsPage'
 import { ReconciliationsPage } from './sales/ReconciliationsPage'
@@ -93,6 +94,7 @@ function App() {
         <Route path="despachos" element={<ShippingListPage />} />
         <Route path="despachos/:id" element={<ShipmentDetailPage />} />
         <Route path="balances" element={<BalancesPage />} />
+        <Route path="plataforma" element={<StaffOverviewPage />} />
         <Route path="cuenta" element={<AccountLayout />}>
           <Route index element={<Navigate to="perfil" replace />} />
           <Route path="perfil" element={<ProfilePage />} />

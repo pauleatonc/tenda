@@ -37,6 +37,7 @@ function viewer(viewFinancials: boolean): ViewerPayload {
       id: 'user-1',
       email: 'ana@example.cl',
       emailVerified: true,
+      isStaff: false,
       profile: {
         id: 'profile-1',
         fullName: 'Ana',

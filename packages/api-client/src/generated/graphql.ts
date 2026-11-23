@@ -1090,6 +1090,7 @@ export type SchemaQuery = {
   shipment?: Maybe<SchemaShipmentType>;
   shipments: SchemaShipmentConnectionType;
   shippingDashboard: SchemaShippingDashboardType;
+  staffPlatformOverview: SchemaStaffPlatformOverviewType;
   stockMovements: SchemaStockMovementConnectionType;
   termsAndConditions?: Maybe<SchemaTermsAndConditionsType>;
   viewer?: Maybe<SchemaViewerType>;
@@ -1491,6 +1492,40 @@ export type SchemaShippingDashboardType = {
   dispatched: Scalars['Int']['output'];
   pending: Scalars['Int']['output'];
   total: Scalars['Int']['output'];
+};
+
+export type SchemaStaffPlanCountType = {
+  __typename?: 'StaffPlanCountType';
+  code: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  organisationCount: Scalars['Int']['output'];
+};
+
+export type SchemaStaffPlatformOverviewType = {
+  __typename?: 'StaffPlatformOverviewType';
+  activeProductCount: Scalars['Int']['output'];
+  archivedProductCount: Scalars['Int']['output'];
+  confirmedSalesAmount: Scalars['String']['output'];
+  confirmedSalesCount: Scalars['Int']['output'];
+  generatedAt: Scalars['DateTime']['output'];
+  grossMargin: Scalars['String']['output'];
+  inventoryAtCost: Scalars['String']['output'];
+  inventoryAtSalePrice: Scalars['String']['output'];
+  inventoryCostComplete: Scalars['Boolean']['output'];
+  inventoryReservedUnits: Scalars['Int']['output'];
+  inventoryUnits: Scalars['Int']['output'];
+  knownCogs: Scalars['String']['output'];
+  netSalesAmount: Scalars['String']['output'];
+  organisationCount: Scalars['Int']['output'];
+  organisationsLast30Days: Scalars['Int']['output'];
+  organisationsWithSales: Scalars['Int']['output'];
+  pendingSalesAmount: Scalars['String']['output'];
+  pendingSalesCount: Scalars['Int']['output'];
+  pendingShipmentCount: Scalars['Int']['output'];
+  plans: Array<SchemaStaffPlanCountType>;
+  productsMissingCost: Scalars['Int']['output'];
+  refundedAmount: Scalars['String']['output'];
+  salesCostComplete: Scalars['Boolean']['output'];
 };
 
 export type SchemaStartInventoryExport = {
