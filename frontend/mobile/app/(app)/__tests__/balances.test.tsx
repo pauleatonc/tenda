@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react-native'
+import { fireEvent, render, screen } from '@testing-library/react-native'
 import type { ReactElement } from 'react'
 
 import MoreScreen from '../(tabs)/mas'
@@ -88,8 +88,15 @@ describe('Balance mobile y permisos', () => {
 
     await renderScreen(<MoreScreen />)
 
-    expect(await screen.findByText('seller@example.com')).toBeOnTheScreen()
+    expect(await screen.findByText('Perfil empresa')).toBeOnTheScreen()
+    expect(screen.queryByText('Plan')).toBeNull()
+    expect(screen.queryByText('Integración de pago')).toBeNull()
+    expect(screen.queryByText('Cuentas bancarias')).toBeNull()
     expect(screen.queryByText('Balances')).toBeNull()
+
+    await fireEvent.press(screen.getByText('Perfil empresa'))
+
+    expect(await screen.findByText('seller@example.com')).toBeOnTheScreen()
   })
 
   it('advierte que el margen está incompleto y nunca trata costo null como cero', async () => {

@@ -263,18 +263,24 @@ def cancel_subscription(*, context: TenantContext) -> OrganisationSubscription:
         )
     if subscription.mp_preapproval_id:
         get_billing_provider().cancel_preapproval(subscription.mp_preapproval_id)
-    subscription.cancel_at_period_end = True
-    if not subscription.current_period_end:
-        subscription.current_period_end = timezone.now() + timedelta(days=31)
-    if subscription.status == OrganisationSubscription.Status.PENDING:
-        subscription.status = OrganisationSubscription.Status.CANCELED
-        subscription.plan = free_plan()
+    # Drop to Gratis now. Clearing the provider id stops a later webhook from
+    # restoring the paid plan that was just cancelled.
+    subscription.plan = free_plan()
+    subscription.status = OrganisationSubscription.Status.ACTIVE
+    subscription.cancel_at_period_end = False
+    subscription.current_period_end = None
+    subscription.past_due_since = None
+    subscription.mp_preapproval_id = ""
+    subscription.init_point = ""
     subscription.save(
         update_fields=(
+            "plan",
+            "status",
             "cancel_at_period_end",
             "current_period_end",
-            "status",
-            "plan",
+            "past_due_since",
+            "mp_preapproval_id",
+            "init_point",
             "updated_at",
         )
     )

@@ -192,7 +192,7 @@ export default function BalancesScreen() {
       <ScrollView contentContainerStyle={salesStyles.content}>
         <View style={styles.heading}>
           <Pressable accessibilityRole="button" onPress={() => router.back()}>
-            <Text style={styles.back}>‹ Más</Text>
+            <Text style={styles.back}>‹ Ventas</Text>
           </Pressable>
           <Text style={styles.eyebrow}>BAL-01</Text>
           <Text accessibilityRole="header" style={styles.title}>

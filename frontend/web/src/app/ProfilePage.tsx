@@ -8,8 +8,6 @@ import { PersonAvatar } from '../components/AuthenticatedImage'
 import { UploadField } from '../components/ui'
 import { graphqlRequest, TendaApiError } from '../lib/http'
 import { uploadPrivateFile } from '../inventory/api'
-import { BankDetailsSection } from './BankDetailsSection'
-import { MercadoPagoProfileCard } from './MercadoPagoProfileCard'
 
 export function ProfilePage() {
   const viewer = useOutletContext<ViewerPayload>()
@@ -93,8 +91,8 @@ export function ProfilePage() {
     <>
       <header className="page-heading">
         <div>
-          <p className="eyebrow">Cuenta y negocio</p>
-          <h1>Perfil y negocio</h1>
+          <p className="eyebrow">Cuenta</p>
+          <h1>Perfil empresa</h1>
           <p>Tus datos personales y la ficha pública de la tienda.</p>
         </div>
       </header>
@@ -234,22 +232,6 @@ export function ProfilePage() {
             ) : null}
           </form>
         </section>
-
-        {canManageStore ? <MercadoPagoProfileCard /> : null}
-
-        <BankDetailsSection
-          viewer={viewer}
-          canManage={canManageStore}
-          onSaved={(status) => {
-            setMessage(status)
-            setError('')
-            refreshViewer()
-          }}
-          onError={(status) => {
-            setMessage('')
-            setError(status)
-          }}
-        />
       </div>
     </>
   )

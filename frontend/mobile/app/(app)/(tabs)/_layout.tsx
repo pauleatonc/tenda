@@ -90,7 +90,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="inventario" options={{ title: 'Inventario' }} />
       <Tabs.Screen name="ventas" options={{ title: 'Ventas' }} />
       <Tabs.Screen name="despachos" options={{ title: 'Despachos' }} />
-      <Tabs.Screen name="mas" options={{ title: 'Más' }} />
+      <Tabs.Screen name="mas" options={{ title: 'Cuenta' }} />
     </Tabs>
   )
 }

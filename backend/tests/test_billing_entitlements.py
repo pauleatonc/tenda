@@ -142,6 +142,41 @@ def test_register_defers_plan_selection() -> None:
     assert subscription.status == OrganisationSubscription.Status.ACTIVE
 
 
+def test_cancel_subscription_returns_to_free_immediately() -> None:
+    from apps.billing.services import cancel_subscription
+
+    provider = reset_fake_billing_provider()
+    _user, context = identity("billing-cancel@example.com")
+    subscription = activate_plan(context, "growth")
+    provider.set_preapproval(
+        PreapprovalSnapshot(
+            provider_id=subscription.mp_preapproval_id,
+            status="authorized",
+            init_point="https://billing.invalid/growth",
+            external_reference="tenda-billing:1:growth",
+            preapproval_plan_id="seed-growth",
+            payer_email="billing-cancel@example.com",
+        )
+    )
+
+    cancel_subscription(context=context)
+
+    entitlements = get_organisation_entitlements(context.organisation)
+    assert entitlements.plan_code == "free"
+    assert entitlements.product_limit == 5
+    assert entitlements.ai_assisted_enabled is False
+    assert entitlements.cancel_at_period_end is False
+    subscription.refresh_from_db()
+    assert subscription.plan.code == "free"
+    assert subscription.status == OrganisationSubscription.Status.ACTIVE
+    assert subscription.mp_preapproval_id == ""
+    assert provider.get_preapproval("sub-growth").status == "cancelled"
+
+    with pytest.raises(DomainError) as again:
+        cancel_subscription(context=context)
+    assert again.value.code == "NO_ACTIVE_SUBSCRIPTION"
+
+
 def test_checkout_and_webhook_activate_subscription() -> None:
     provider = reset_fake_billing_provider()
     user, context = identity("billing-checkout@example.com")

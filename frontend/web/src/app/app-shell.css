@@ -84,12 +84,75 @@
 }
 
 .app-sidebar nav a:hover,
-.app-sidebar nav a.active {
+.app-sidebar nav a.active,
+.app-sidebar .nav-group > button:hover,
+.app-sidebar .nav-group > button.active {
   background: rgb(255 255 255 / 12%);
   color: #fff;
 }
 
-.app-sidebar nav a > span:first-child {
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-group > button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 11px;
+  color: rgb(255 255 255 / 73%);
+  cursor: pointer;
+  display: grid;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+  gap: 12px;
+  grid-template-columns: 25px 1fr;
+  min-height: 48px;
+  padding: 0 14px;
+  text-align: left;
+  width: 100%;
+}
+
+.nav-group__menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: 18px;
+}
+
+.app-sidebar .nav-group__menu a {
+  align-items: center;
+  display: flex;
+  gap: 0;
+  justify-content: flex-start;
+  line-height: 1.25;
+  min-height: 40px;
+  padding: 8px 12px;
+}
+
+.app-sidebar .nav-group__menu a > span:first-child {
+  display: block;
+  flex: 1;
+  justify-content: flex-start;
+  min-width: 0;
+  text-align: left;
+}
+
+.app-shell--collapsed .nav-group__menu,
+.app-shell--collapsed .nav-group > button > span:last-child {
+  display: none;
+}
+
+.app-shell--collapsed .nav-group > button {
+  grid-template-columns: 1fr;
+  padding: 0;
+}
+
+.app-sidebar nav a > span:first-child,
+.nav-group > button > span:first-child {
   align-items: center;
   display: flex;
   justify-content: center;
@@ -514,8 +577,50 @@
     min-height: 54px;
   }
 
-  .app-sidebar nav a > span:last-child {
+  .app-sidebar nav a > span:last-child,
+  .nav-group > button > span:last-child {
     display: block;
+  }
+
+  .nav-group > button {
+    font-size: 10px;
+    gap: 2px;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    min-height: 54px;
+    padding: 0;
+  }
+
+  .nav-group__menu {
+    background: #153d34;
+    border: 1px solid rgb(255 255 255 / 16%);
+    border-radius: 16px;
+    bottom: 78px;
+    box-shadow: 0 12px 32px rgb(0 0 0 / 24%);
+    left: 12px;
+    padding: 8px;
+    position: fixed;
+    right: 12px;
+    z-index: 20;
+  }
+
+  .app-shell--collapsed .nav-group__menu {
+    display: flex;
+  }
+
+  .app-shell--collapsed .nav-group > button > span:last-child {
+    display: block;
+  }
+
+  .app-sidebar .nav-group__menu a {
+    font-size: 15px;
+    justify-items: start;
+    min-height: 48px;
+    padding: 0 14px;
+  }
+
+  .app-shell--collapsed .app-sidebar .nav-group__menu a > span {
+    display: inline;
   }
 
   .app-sidebar nav a.nav-financial {
@@ -541,26 +646,197 @@
   }
 }
 
+.plan-current {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  display: grid;
+  gap: 18px;
+  margin-bottom: 28px;
+  padding: 24px;
+}
+
+.plan-current__top {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.plan-kicker {
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  margin: 0 0 6px;
+  text-transform: uppercase;
+}
+
+.plan-current h2 {
+  font-family: var(--font-display);
+  font-size: clamp(36px, 4vw, 48px);
+  letter-spacing: -0.045em;
+  line-height: 1;
+  margin: 0;
+}
+
+.plan-current__price {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 10px 0 0;
+}
+
+.plan-current__price span,
+.plan-card__price span {
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.plan-current__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.plan-current__facts li {
+  background: var(--paper);
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 650;
+  padding: 8px 12px;
+}
+
+.plan-usage {
+  display: grid;
+  gap: 8px;
+}
+
+.plan-usage__label {
+  display: flex;
+  font-size: 14px;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plan-usage__track {
+  background: #eceae3;
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+}
+
+.plan-usage__fill {
+  background: var(--green);
+  display: block;
+  height: 100%;
+}
+
+.plan-usage__fill--over {
+  background: var(--clay-strong);
+}
+
+.plan-usage p,
+.plan-current__free,
+.plan-card__note,
+.plan-change__intro p,
+.plan-footnote,
+.plan-danger p {
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.plan-danger {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding-top: 18px;
+}
+
+.plan-danger h3 {
+  font-size: 16px;
+  margin: 0 0 4px;
+}
+
+.plan-change {
+  display: grid;
+  gap: 16px;
+}
+
+.plan-change__intro h2 {
+  font-size: 22px;
+  margin: 0 0 6px;
+}
+
 .plan-grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  margin: 24px 0;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
 }
 
 .plan-card {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 18px;
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   gap: 10px;
+  height: 100%;
   padding: 22px;
+}
+
+.plan-card--current {
+  border-color: var(--green);
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+
+.plan-card__heading {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.plan-card h3,
+.plan-card p {
+  margin: 0;
 }
 
 .plan-card__price {
   font-size: 1.35rem;
   font-weight: 650;
+}
+
+.plan-card .button {
+  width: 100%;
+}
+
+.plan-card > :last-child {
+  margin-top: auto;
+}
+
+.plan-confirm {
+  display: grid;
+  gap: 8px;
   margin: 0;
+  padding-left: 18px;
+}
+
+.plan-footnote {
+  margin-top: 8px;
+}
+
+@media (max-width: 720px) {
+  .plan-danger {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 
 .button-row {

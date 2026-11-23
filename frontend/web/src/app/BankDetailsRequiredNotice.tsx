@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { BANK_DETAILS_REQUIRED_MESSAGE } from '@tenda/api-client'
 
 export function BankDetailsRequiredNotice({
-  to = '/app/configuracion',
+  to = '/app/cuenta/cuentas',
 }: {
   to?: string
 }) {

@@ -1,70 +1,91 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, router } from 'expo-router'
-import { useState } from 'react'
+import { router, useLocalSearchParams } from 'expo-router'
+import { useEffect, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
 import { AppScreen } from '../../../components/app-ui'
 import { colors } from '../../../components/auth-ui'
 import { getMobileViewer, mobileLogout } from '../../../lib/auth-api'
+import { BankAccountsSection } from '../mas/cuentas'
+import { PaymentsSection } from '../mas/pagos'
+import { ProfileSection } from '../mas/perfil'
+import { PlanSection } from '../mas/plan'
 
-export default function MoreScreen() {
+const SECTIONS = [
+  { id: 'perfil', label: 'Perfil empresa' },
+  { id: 'plan', label: 'Plan' },
+  { id: 'pagos', label: 'Integración de pago' },
+  { id: 'cuentas', label: 'Cuentas bancarias' },
+] as const
+
+type SectionId = (typeof SECTIONS)[number]['id']
+
+function sectionFromParam(value: string | string[] | undefined): SectionId | null {
+  const raw = Array.isArray(value) ? value[0] : value
+  return SECTIONS.some((section) => section.id === raw) ? (raw as SectionId) : null
+}
+
+export default function AccountScreen() {
   const queryClient = useQueryClient()
+  const params = useLocalSearchParams<{ seccion?: string | string[] }>()
+  const [section, setSection] = useState<SectionId | null>(sectionFromParam(params.seccion))
   const [loggingOut, setLoggingOut] = useState(false)
   const viewer = useQuery({
     queryKey: ['mobile-viewer'],
     queryFn: getMobileViewer,
     retry: false,
   })
-  const data = viewer.data
+  const canManage =
+    viewer.data?.membership.role === 'owner' &&
+    viewer.data.membership.permissions.manageSensitiveConfiguration
+  const sections = canManage ? SECTIONS : SECTIONS.filter((item) => item.id === 'perfil')
+
+  useEffect(() => {
+    const next = sectionFromParam(params.seccion)
+    if (next && !canManage && next !== 'perfil') {
+      setSection(null)
+      return
+    }
+    setSection(next)
+  }, [canManage, params.seccion])
+
+  function toggleSection(id: SectionId) {
+    const next = section === id ? null : id
+    setSection(next)
+    router.setParams({ seccion: next ?? '' })
+  }
 
   return (
-    <AppScreen title="Más" eyebrow="Cuenta y negocio">
+    <AppScreen title="Cuenta" eyebrow="Tu negocio">
       <View style={styles.list}>
-        <Link asChild href="/mas/perfil">
-          <Pressable accessibilityRole="button" style={styles.row}>
-            <View>
-              <Text style={styles.rowTitle}>Perfil y negocio</Text>
-              <Text style={styles.rowDetail}>{data?.viewer.email ?? 'Cargando…'}</Text>
+        {sections.map((item) => {
+          const expanded = section === item.id
+          return (
+            <View key={item.id} style={styles.item}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded }}
+                onPress={() => toggleSection(item.id)}
+                style={[styles.row, expanded && styles.rowExpanded]}
+              >
+                <Text style={[styles.rowLabel, expanded && styles.rowLabelExpanded]}>
+                  {item.label}
+                </Text>
+                <Text style={[styles.chevron, expanded && styles.rowLabelExpanded]}>
+                  {expanded ? '▾' : '›'}
+                </Text>
+              </Pressable>
+              {expanded ? (
+                <View style={styles.panel}>
+                  {item.id === 'perfil' ? <ProfileSection /> : null}
+                  {item.id === 'plan' ? <PlanSection /> : null}
+                  {item.id === 'pagos' ? <PaymentsSection /> : null}
+                  {item.id === 'cuentas' ? <BankAccountsSection /> : null}
+                </View>
+              ) : null}
             </View>
-            <Text style={styles.chevron}>›</Text>
-          </Pressable>
-        </Link>
-        {data?.membership.permissions.viewFinancials ? (
-          <Link asChild href="/(app)/balances">
-            <Pressable accessibilityRole="button" style={styles.row}>
-              <View>
-                <Text style={styles.rowTitle}>Balances</Text>
-                <Text style={styles.rowDetail}>Información comercial</Text>
-              </View>
-              <Text style={styles.chevron}>›</Text>
-            </Pressable>
-          </Link>
-        ) : null}
-        {data?.membership.role === 'owner' &&
-        data.membership.permissions.manageSensitiveConfiguration ? (
-          <>
-            <Link asChild href="/mas/plan">
-              <Pressable accessibilityRole="button" style={styles.row}>
-                <View>
-                  <Text style={styles.rowTitle}>Plan y facturación</Text>
-                  <Text style={styles.rowDetail}>
-                    Cupo de productos y creación asistida
-                  </Text>
-                </View>
-                <Text style={styles.chevron}>›</Text>
-              </Pressable>
-            </Link>
-            <Link asChild href="/mas/pagos">
-              <Pressable accessibilityRole="button" style={styles.row}>
-                <View>
-                  <Text style={styles.rowTitle}>Pagos</Text>
-                  <Text style={styles.rowDetail}>Conexión Mercado Pago</Text>
-                </View>
-                <Text style={styles.chevron}>›</Text>
-              </Pressable>
-            </Link>
-          </>
-        ) : null}
+          )
+        })}
       </View>
 
       <Pressable
@@ -91,31 +112,32 @@ export default function MoreScreen() {
 }
 
 const styles = StyleSheet.create({
-  list: {
-    backgroundColor: colors.surface,
+  list: { gap: 8 },
+  item: {
     borderColor: colors.line,
-    borderRadius: 18,
+    borderRadius: 16,
     borderWidth: 1,
     overflow: 'hidden',
   },
   row: {
     alignItems: 'center',
-    borderBottomColor: colors.line,
-    borderBottomWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    minHeight: 76,
-    paddingHorizontal: 18,
+    minHeight: 56,
+    paddingHorizontal: 16,
   },
-  rowTitle: { color: colors.ink, fontSize: 16, fontWeight: '700' },
-  rowDetail: { color: colors.inkSoft, fontSize: 12, marginTop: 4 },
-  chevron: { color: colors.inkMuted, fontSize: 28 },
+  rowExpanded: { backgroundColor: colors.green },
+  rowLabel: { color: colors.ink, fontSize: 16, fontWeight: '800' },
+  rowLabelExpanded: { color: '#fff' },
+  chevron: { color: colors.inkSoft, fontSize: 18, fontWeight: '700' },
+  panel: { padding: 12 },
   logout: {
     alignItems: 'center',
     borderColor: colors.line,
     borderRadius: 14,
     borderWidth: 1,
     justifyContent: 'center',
+    marginTop: 8,
     minHeight: 52,
   },
   logoutText: { color: colors.green, fontWeight: '800' },

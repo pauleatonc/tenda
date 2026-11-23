@@ -5,6 +5,7 @@ import {
   NavLink,
   Navigate,
   Outlet,
+  useLocation,
   useNavigate,
   useOutletContext,
 } from 'react-router-dom'
@@ -33,8 +34,81 @@ const navigation: NavItem[] = [
   { to: '/app/ventas', label: 'Ventas', icon: 'sales' },
   { to: '/app/despachos', label: 'Despachos', icon: 'shipping' },
   { to: '/app/balances', label: 'Balances', icon: 'balances', financial: true },
-  { to: '/app/mas', label: 'Más', icon: 'more' },
+  { to: '/app/cuenta', label: 'Cuenta', icon: 'more' },
 ]
+
+const accountSections = [
+  { to: '/app/cuenta/perfil', label: 'Perfil empresa', end: true },
+  { to: '/app/cuenta/plan', label: 'Plan', end: false },
+  { to: '/app/cuenta/pagos', label: 'Integración de pago', end: false },
+  { to: '/app/cuenta/cuentas', label: 'Cuentas bancarias', end: false },
+] as const
+
+function accountMenuFitsSidebar() {
+  return window.matchMedia?.('(min-width: 581px)').matches ?? true
+}
+
+function AccountNav({
+  collapsed,
+  canManage,
+  onExpand,
+}: {
+  collapsed: boolean
+  canManage: boolean
+  onExpand: () => void
+}) {
+  const location = useLocation()
+  const onAccount = location.pathname.startsWith('/app/cuenta')
+  const [open, setOpen] = useState(() => onAccount && accountMenuFitsSidebar())
+  const sections = canManage
+    ? accountSections
+    : accountSections.filter((section) => section.to.endsWith('/perfil'))
+
+  useEffect(() => {
+    if (onAccount && accountMenuFitsSidebar()) setOpen(true)
+  }, [onAccount])
+
+  return (
+    <div className={`nav-group${open ? ' is-open' : ''}`}>
+      <button
+        type="button"
+        className={onAccount ? 'active' : undefined}
+        aria-expanded={open}
+        aria-controls="account-sections"
+        title={collapsed ? 'Cuenta' : undefined}
+        onClick={() => {
+          if (collapsed) {
+            onExpand()
+            setOpen(true)
+            return
+          }
+          setOpen((current) => !current)
+        }}
+      >
+        <span className="nav-icon">
+          <SectionIcon name="more" />
+        </span>
+        <span>Cuenta</span>
+      </button>
+      {open ? (
+        <div className="nav-group__menu" id="account-sections">
+          {sections.map((section) => (
+            <NavLink
+              key={section.to}
+              to={section.to}
+              end={section.end}
+              onClick={() => {
+                if (!accountMenuFitsSidebar()) setOpen(false)
+              }}
+            >
+              <span>{section.label}</span>
+            </NavLink>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
 
 function ShellLoading() {
   return (
@@ -129,26 +203,38 @@ export function ApplicationShell() {
             </button>
           </div>
           <nav aria-label="Aplicación">
-            {visibleNavigation.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === '/app'}
-                title={collapsed ? item.label : undefined}
-                className={item.financial ? 'nav-financial' : undefined}
-              >
-                <span className="nav-icon">
-                  <SectionIcon name={item.icon} />
-                </span>
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
+            {visibleNavigation.map((item) =>
+              item.to === '/app/cuenta' ? (
+                <AccountNav
+                  key={item.to}
+                  collapsed={collapsed}
+                  canManage={
+                    data.membership.role === 'owner' ||
+                    data.membership.permissions.manageSensitiveConfiguration
+                  }
+                  onExpand={() => setCollapsed(false)}
+                />
+              ) : (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === '/app'}
+                  title={collapsed ? item.label : undefined}
+                  className={item.financial ? 'nav-financial' : undefined}
+                >
+                  <span className="nav-icon">
+                    <SectionIcon name={item.icon} />
+                  </span>
+                  <span>{item.label}</span>
+                </NavLink>
+              ),
+            )}
           </nav>
           <Link
             className="app-sidebar__account"
-            to="/app/configuracion"
-            aria-label="Perfil y negocio"
-            title="Perfil y negocio"
+            to="/app/cuenta/perfil"
+            aria-label="Tu cuenta"
+            title="Tu cuenta"
           >
             <PersonAvatar
               name={data.viewer.profile.fullName || data.viewer.email}
@@ -163,7 +249,7 @@ export function ApplicationShell() {
 
         <div className="app-workspace">
           <header className="app-header">
-            <Link className="app-header__store" to="/app/configuracion">
+            <Link className="app-header__store" to="/app/cuenta/perfil">
               <span className="store-logo" aria-hidden="true">
                 <span className="store-logo__fallback">{storeInitial}</span>
                 {data.organisation.logoUrl ? (
@@ -249,42 +335,3 @@ export function DashboardPage() {
   )
 }
 
-export function MorePage() {
-  const data = useViewerContext()
-  return (
-    <>
-      <header className="page-heading">
-        <div>
-          <p className="eyebrow">Cuenta y negocio</p>
-          <h1>Más</h1>
-          <p>Administra tu perfil, Tienda y preferencias.</p>
-        </div>
-      </header>
-      <div className="settings-list">
-        <Link to="/app/configuracion">
-          <span>Perfil y negocio</span>
-          <small>{data.viewer.email}</small>
-        </Link>
-        {data.membership.role === 'owner' ||
-        data.membership.permissions.manageSensitiveConfiguration ? (
-          <>
-            <Link to="/app/configuracion/plan">
-              <span>Plan y facturación</span>
-              <small>Cupo de productos y creación asistida</small>
-            </Link>
-            <Link to="/app/configuracion/pagos">
-              <span>Pagos</span>
-              <small>Conexión Mercado Pago</small>
-            </Link>
-          </>
-        ) : null}
-        {data.membership.permissions.viewFinancials ? (
-          <Link to="/app/balances">
-            <span>Balances</span>
-            <small>Solo información comercial</small>
-          </Link>
-        ) : null}
-      </div>
-    </>
-  )
-}

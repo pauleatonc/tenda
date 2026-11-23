@@ -12,7 +12,10 @@ export function BankDetailsRequired({ onPress }: { onPress?: () => void }) {
       <Text style={styles.copy}>{BANK_DETAILS_REQUIRED_MESSAGE}</Text>
       <PrimaryButton
         label="Agregar datos bancarios"
-        onPress={onPress ?? (() => router.push('/mas/perfil'))}
+        onPress={
+          onPress ??
+          (() => router.push({ pathname: '/mas', params: { seccion: 'cuentas' } }))
+        }
       />
     </View>
   )

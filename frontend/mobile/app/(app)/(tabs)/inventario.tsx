@@ -576,7 +576,7 @@ export default function InventoryScreen() {
           onPress={() => {
             if (!aiAllowed) {
               setCreateOpen(false)
-              router.push('/mas/plan')
+              router.push({ pathname: '/mas', params: { seccion: 'plan' } })
               return
             }
             openCreate('asistida')
@@ -588,7 +588,7 @@ export default function InventoryScreen() {
             variant="secondary"
             onPress={() => {
               setCreateOpen(false)
-              router.push('/mas/plan')
+              router.push({ pathname: '/mas', params: { seccion: 'plan' } })
             }}
           />
         ) : null}

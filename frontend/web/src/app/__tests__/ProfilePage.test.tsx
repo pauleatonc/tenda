@@ -6,7 +6,7 @@ import { MemoryRouter, Outlet, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { ViewerPayload } from '../../auth/api'
-import * as salesApi from '../../sales/api'
+import { BankAccountsPage } from '../BankAccountsPage'
 import { ProfilePage } from '../ProfilePage'
 
 const { graphqlRequest, uploadPrivateFile } = vi.hoisted(() => ({
@@ -21,15 +21,6 @@ vi.mock('../../lib/http', async () => {
 
 vi.mock('../../inventory/api', () => ({
   uploadPrivateFile: (...args: unknown[]) => uploadPrivateFile(...args),
-}))
-
-vi.mock('../../sales/api', () => ({
-  fetchPaymentConnection: vi.fn().mockResolvedValue({
-    sellerPaymentConnection: null,
-  }),
-  salesKeys: {
-    paymentConnection: () => ['sales', 'payment-connection'],
-  },
 }))
 
 function viewer(canManageStore: boolean): ViewerPayload {
@@ -71,17 +62,18 @@ function viewer(canManageStore: boolean): ViewerPayload {
   }
 }
 
-function renderPage(context: ViewerPayload) {
+function renderAt(context: ViewerPayload, path: string) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   function Shell({ children }: { children?: ReactNode }) {
     return <>{children ?? <Outlet context={context} />}</>
   }
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={['/app/configuracion']}>
+      <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route element={<Shell />}>
-            <Route path="/app/configuracion" element={<ProfilePage />} />
+            <Route path="/app/cuenta/perfil" element={<ProfilePage />} />
+            <Route path="/app/cuenta/cuentas" element={<BankAccountsPage />} />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -89,13 +81,14 @@ function renderPage(context: ViewerPayload) {
   )
 }
 
+function renderPage(context: ViewerPayload) {
+  return renderAt(context, '/app/cuenta/perfil')
+}
+
 describe('ProfilePage', () => {
   beforeEach(() => {
     graphqlRequest.mockReset()
     uploadPrivateFile.mockReset()
-    vi.mocked(salesApi.fetchPaymentConnection).mockResolvedValue({
-      sellerPaymentConnection: null,
-    } as never)
   })
 
   it('muestra datos de la persona y de la tienda', async () => {
@@ -104,27 +97,8 @@ describe('ProfilePage', () => {
     expect(screen.getByDisplayValue('Taller Ana')).toBeInTheDocument()
     expect(screen.getByText('titular')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Guardar tienda' })).toBeInTheDocument()
-    expect(
-      screen.getByRole('heading', { name: 'Datos para depósitos' }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'Guardar datos bancarios' }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('heading', { name: 'Pago con Mercado Pago' }),
-    ).toBeInTheDocument()
-    expect(await screen.findByText('No habilitado')).toBeInTheDocument()
-    expect(
-      screen.getByRole('link', { name: 'Configuración de pago con Mercado Pago' }),
-    ).toHaveAttribute('href', '/app/configuracion/pagos')
-  })
-
-  it('marca Mercado Pago como habilitado cuando la cuenta está conectada', async () => {
-    vi.mocked(salesApi.fetchPaymentConnection).mockResolvedValue({
-      sellerPaymentConnection: { status: 'connected' },
-    } as never)
-    renderPage(viewer(true))
-    expect(await screen.findByText('Habilitado')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Datos para depósitos' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Cuentas bancarias' })).toBeNull()
   })
 
   it('oculta la edición de tienda si no hay permiso', () => {
@@ -135,7 +109,7 @@ describe('ProfilePage', () => {
     expect(
       screen.getByText('Solo quien titula la tienda puede editar estos datos.'),
     ).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: 'Pago con Mercado Pago' })).toBeNull()
+    expect(screen.queryByRole('heading', { name: 'Datos para depósitos' })).toBeNull()
   })
 
   it('guarda el perfil', async () => {
@@ -155,14 +129,14 @@ describe('ProfilePage', () => {
     expect(graphqlRequest).toHaveBeenCalled()
   })
 
-  it('guarda los datos bancarios de la tienda', async () => {
+  it('guarda los datos bancarios en su pestaña', async () => {
     graphqlRequest.mockResolvedValue({
       replaceBankAccounts: {
         organisation: { id: 'org-1' },
         bankAccounts: [],
       },
     })
-    renderPage(viewer(true))
+    renderAt(viewer(true), '/app/cuenta/cuentas')
     await userEvent.selectOptions(screen.getByLabelText('Banco'), 'BancoEstado')
     await userEvent.selectOptions(
       screen.getByLabelText('Tipo de cuenta'),

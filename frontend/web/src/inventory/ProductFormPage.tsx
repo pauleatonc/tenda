@@ -590,7 +590,7 @@ export function ProductFormPage({
             <small>Referencia: {apiError.correlationId}</small>
           ) : null}
           {apiError.code === 'PRODUCT_LIMIT_REACHED' ? (
-            <Link className="button button--primary" to="/app/configuracion/plan">
+            <Link className="button button--primary" to="/app/cuenta/plan">
               Mejorar plan
             </Link>
           ) : null}

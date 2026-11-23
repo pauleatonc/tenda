@@ -24,7 +24,7 @@ import {
   paymentMethodLabels,
   salesStyles,
 } from '../../../components/sales-ui'
-import { MobileApiError } from '../../../lib/auth-api'
+import { MobileApiError, getMobileViewer } from '../../../lib/auth-api'
 import { fetchOrders, fetchSalesDashboard, salesKeys } from '../../../lib/sales-api'
 
 const PAGE_SIZE = 20
@@ -96,6 +96,11 @@ export default function SalesScreen() {
   )
   const variables = useMemo(() => ({ filter, first: PAGE_SIZE, after: null }), [filter])
 
+  const viewer = useQuery({
+    queryKey: ['mobile-viewer'],
+    queryFn: getMobileViewer,
+    retry: false,
+  })
   const dashboard = useQuery({
     queryKey: salesKeys.dashboard(),
     queryFn: fetchSalesDashboard,
@@ -169,6 +174,9 @@ export default function SalesScreen() {
             selected={hasFilters}
             onPress={() => setFiltersOpen(true)}
           />
+          {viewer.data?.membership.permissions.viewFinancials ? (
+            <InventoryChip label="Balances" onPress={() => router.push('/balances')} />
+          ) : null}
           {statuses.slice(0, 2).map((status) => (
             <InventoryChip
               key={status}

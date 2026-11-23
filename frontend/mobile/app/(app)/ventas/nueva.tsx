@@ -611,14 +611,14 @@ export default function NewSaleScreen() {
                         disabled: !mercadoPagoActive,
                         hint: mercadoPagoActive
                           ? undefined
-                          : 'Conecta la cuenta del negocio en Más, Pagos.',
+                          : 'Conecta la cuenta del negocio en Cuenta → Integración de pago.',
                       },
                     ]}
                   />
                   {!mercadoPagoActive ? (
                     <Text style={salesStyles.muted}>
                       Mercado Pago está desactivado hasta que el Owner conecte una cuenta
-                      activa en Más › Pagos.
+                      activa en Cuenta → Integración de pago.
                     </Text>
                   ) : null}
                   {depositBlocked ? <BankDetailsRequired /> : null}

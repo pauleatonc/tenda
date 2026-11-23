@@ -15,8 +15,8 @@ export default function AppLayout() {
         name="mas/perfil"
         options={{
           headerShown: true,
-          title: 'Perfil y negocio',
-          headerBackTitle: 'Más',
+          title: 'Cuenta',
+          headerBackTitle: 'Cuenta',
           headerShadowVisible: false,
           headerStyle: { backgroundColor: colors.paper },
           headerTintColor: colors.ink,

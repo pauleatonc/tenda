@@ -17,7 +17,7 @@ test.beforeAll(() => {
   prepareE2eOwner()
 })
 
-test('axe WCAG en landing, login, inventario y Más', async ({ page }) => {
+test('axe WCAG en landing, login, inventario y Cuenta', async ({ page }) => {
   await page.goto('/')
   await expect(
     page.getByRole('heading', { name: /Inventario, venta y despacho/ }),
@@ -41,13 +41,19 @@ test('axe WCAG en landing, login, inventario y Más', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Carga manual' })).toBeVisible()
   await expectNoSeriousAxeViolations(page)
 
-  await page.getByRole('link', { name: 'Más', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Más', exact: true })).toBeVisible()
-  // Sidebar also has aria-label "Perfil y negocio"; the Más list link includes the email.
+  await page.getByRole('button', { name: 'Cuenta', exact: true }).click()
+  await expect(page.getByRole('link', { name: 'Perfil empresa', exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Plan', exact: true })).toBeVisible()
   await expect(
-    page.getByRole('link', { name: 'Perfil y negocio', exact: true }),
+    page.getByRole('link', { name: 'Integración de pago', exact: true }),
   ).toBeVisible()
-  await expect(page.getByRole('link', { name: /^Plan y facturación/ })).toBeVisible()
+  await expect(
+    page.getByRole('link', { name: 'Cuentas bancarias', exact: true }),
+  ).toBeVisible()
+  await page.getByRole('link', { name: 'Perfil empresa', exact: true }).click()
+  await expect(
+    page.getByRole('heading', { name: 'Perfil empresa', exact: true }),
+  ).toBeVisible()
   await expect(page.getByText('Asistente con foto')).toHaveCount(0)
   await expectNoSeriousAxeViolations(page)
 })

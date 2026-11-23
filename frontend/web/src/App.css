@@ -558,6 +558,16 @@
   color: var(--ink);
 }
 
+.button--danger {
+  background: #fff;
+  border-color: #e7c7bf;
+  color: var(--clay-strong);
+}
+
+.button--danger:hover {
+  background: #fdf4f1;
+}
+
 .auth-page {
   background: var(--paper);
   display: grid;

@@ -14,7 +14,8 @@ Esto es **independiente** del OAuth de cobro a compradores (`SellerPaymentConnec
 
 - Bloqueo duro al crear productos o importar filas nuevas si no hay cupo.
 - Archivar un producto libera cupo.
-- Tras cancelación o `past_due` fuera de gracia (`BILLING_PAST_DUE_GRACE_DAYS`, default 3), las entitlements vuelven a Free sin borrar el catálogo.
+- Dar de baja un plan de pago cancela la suscripción en Mercado Pago y deja la organización en Gratis de inmediato. El catálogo no se borra.
+- Un `past_due` fuera de gracia (`BILLING_PAST_DUE_GRACE_DAYS`, default 3) también vuelve a Free sin borrar el catálogo.
 
 ## Backend
 

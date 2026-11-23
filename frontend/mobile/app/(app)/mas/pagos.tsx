@@ -1,17 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { router } from 'expo-router'
+import { Redirect } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
 import {
   Alert,
   AppState,
   Linking,
-  Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { MobileEmptyState, MobileStatusChip } from '../../../components/app-ui'
 import { PrimaryButton, StatusMessage, colors } from '../../../components/auth-ui'
@@ -34,7 +31,7 @@ const CONNECTION_LABELS: Record<string, string> = {
   error: 'Requiere atención',
 }
 
-export default function PaymentsScreen() {
+export function PaymentsSection() {
   const queryClient = useQueryClient()
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -135,24 +132,15 @@ export default function PaymentsScreen() {
   }
 
   if (viewer.isPending) {
-    return (
-      <SafeAreaView style={salesStyles.safeArea}>
-        <Text style={styles.loading}>Verificando acceso…</Text>
-      </SafeAreaView>
-    )
+    return <Text style={styles.loading}>Verificando acceso…</Text>
   }
 
   if (!canManage) {
     return (
-      <SafeAreaView style={salesStyles.safeArea}>
-        <View style={styles.state}>
-          <MobileEmptyState
-            title="Solo el Owner puede configurar pagos"
-            description="La conexión usa permisos sensibles del negocio."
-            action={<PrimaryButton label="Volver" onPress={() => router.back()} />}
-          />
-        </View>
-      </SafeAreaView>
+      <MobileEmptyState
+        title="Solo el Owner puede configurar pagos"
+        description="La conexión usa permisos sensibles del negocio."
+      />
     )
   }
 
@@ -160,21 +148,11 @@ export default function PaymentsScreen() {
   const commission = payment.data?.paymentCommissionConfiguration
 
   return (
-    <SafeAreaView style={salesStyles.safeArea}>
-      <ScrollView contentContainerStyle={salesStyles.content}>
-        <View style={styles.heading}>
-          <Pressable accessibilityRole="button" onPress={() => router.back()}>
-            <Text style={styles.back}>‹ Más</Text>
-          </Pressable>
-          <Text style={styles.eyebrow}>Configuración segura</Text>
-          <Text accessibilityRole="header" style={styles.title}>
-            Pagos
-          </Text>
-          <Text style={salesStyles.muted}>
-            Conecta la cuenta del negocio con OAuth. Tenda nunca solicita usuario,
-            contraseña ni claves de Mercado Pago.
-          </Text>
-        </View>
+    <View style={styles.section}>
+      <Text style={salesStyles.muted}>
+        Conecta la cuenta del negocio con OAuth. Tenda nunca solicita usuario, contraseña
+        ni claves de Mercado Pago.
+      </Text>
 
         {message ? <StatusMessage kind="success" message={message} /> : null}
         {error ? <StatusMessage message={error} /> : null}
@@ -288,23 +266,16 @@ export default function PaymentsScreen() {
             ) : null}
           </>
         )}
-      </ScrollView>
-    </SafeAreaView>
+    </View>
   )
 }
 
+export default function PaymentsRoute() {
+  return <Redirect href={{ pathname: '/mas', params: { seccion: 'pagos' } }} />
+}
+
 const styles = StyleSheet.create({
+  section: { gap: 12 },
   loading: { color: colors.inkSoft, padding: 24 },
   loadingInline: { color: colors.inkSoft, paddingVertical: 30, textAlign: 'center' },
-  state: { padding: 20 },
-  heading: { gap: 7 },
-  back: { color: colors.green, fontSize: 14, fontWeight: '800', paddingVertical: 7 },
-  eyebrow: {
-    color: colors.green,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
-  },
-  title: { color: colors.ink, fontSize: 29, fontWeight: '800', letterSpacing: -1 },
 })

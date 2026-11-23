@@ -428,7 +428,7 @@ export function GenerateSaleDialog({
                         <small>
                           {enabled
                             ? item.description
-                            : 'Conecta Mercado Pago en Configuración → Pagos'}
+                            : 'Conecta Mercado Pago en Cuenta → Integración de pago'}
                         </small>
                       </span>
                     </label>
@@ -438,7 +438,7 @@ export function GenerateSaleDialog({
               {!mercadoPagoActive ? (
                 <p className="field__hint">
                   Pago Online se habilita al{' '}
-                  <Link to="/app/configuracion/pagos">conectar Mercado Pago</Link>.
+                  <Link to="/app/cuenta/pagos">conectar Mercado Pago</Link>.
                 </p>
               ) : null}
               {method === 'deposit' && hasBankDetails && selectableAccounts.length > 1 ? (

@@ -94,11 +94,11 @@ describe('GenerateSaleDialog', () => {
       expect(screen.getByRole('radio', { name: /Pago Online/ })).toBeDisabled(),
     )
     expect(
-      screen.getByText('Conecta Mercado Pago en Configuración → Pagos'),
+      screen.getByText('Conecta Mercado Pago en Cuenta → Integración de pago'),
     ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'conectar Mercado Pago' })).toHaveAttribute(
       'href',
-      '/app/configuracion/pagos',
+      '/app/cuenta/pagos',
     )
     expect(mocked.createOrder).not.toHaveBeenCalled()
 
@@ -195,7 +195,7 @@ describe('GenerateSaleDialog', () => {
     ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Agregar datos bancarios' })).toHaveAttribute(
       'href',
-      '/app/configuracion',
+      '/app/cuenta/cuentas',
     )
     expect(screen.queryByRole('button', { name: 'Generar depósito' })).toBeNull()
     expect(mocked.createOrder).not.toHaveBeenCalled()

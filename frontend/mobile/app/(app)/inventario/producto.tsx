@@ -168,7 +168,7 @@ export default function ProductFormScreen() {
   useEffect(() => {
     if (!isAssisted || !billing.data) return
     if (!billing.data.aiAssistedEnabled) {
-      router.replace('/mas/plan')
+      router.replace({ pathname: '/mas', params: { seccion: 'plan' } })
     }
   }, [billing.data, isAssisted])
 

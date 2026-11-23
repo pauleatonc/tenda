@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useLocalSearchParams } from 'expo-router'
+import { Redirect, useLocalSearchParams } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native'
 
-import { AppScreen, MobileEmptyState, MobileStatusChip } from '../../../components/app-ui'
+import { MobileEmptyState, MobileStatusChip } from '../../../components/app-ui'
 import { PrimaryButton, StatusMessage, colors } from '../../../components/auth-ui'
 import { SectionCard } from '../../../components/inventory-ui'
 import { MobileApiError, getMobileViewer } from '../../../lib/auth-api'
@@ -17,9 +17,17 @@ import {
   startPlanCheckout,
 } from '../../../lib/billing-api'
 
+const statusLabels: Record<string, string> = {
+  active: 'Activo',
+  pending: 'Pago pendiente',
+  past_due: 'Pago atrasado',
+  paused: 'Pausado',
+  canceled: 'Cancelado',
+}
+
 const WEB_ORIGIN = process.env.EXPO_PUBLIC_WEB_ORIGIN ?? 'http://localhost:5173'
 
-export default function PlanScreen() {
+export function PlanSection() {
   const queryClient = useQueryClient()
   const params = useLocalSearchParams<{ checkout?: string }>()
   const checkoutParam = Array.isArray(params.checkout)
@@ -81,6 +89,30 @@ export default function PlanScreen() {
     },
   })
 
+  function confirmCancel() {
+    if (
+      cancel.isPending ||
+      !billing.data ||
+      billing.data.planCode === 'free' ||
+      billing.data.priceClp <= 0
+    ) {
+      return
+    }
+    const planName = billing.data.planName
+    Alert.alert(
+      'Dar de baja el plan',
+      `Dejas ${planName} y la tienda pasa al plan Gratis. Se detiene el cobro y el catálogo se conserva.`,
+      [
+        { text: `Conservar ${planName}`, style: 'cancel' },
+        {
+          text: 'Dar de baja',
+          style: 'destructive',
+          onPress: () => cancel.mutate(),
+        },
+      ],
+    )
+  }
+
   const resume = useMutation({
     mutationFn: resumeSubscription,
     onSuccess: (data) => {
@@ -94,19 +126,17 @@ export default function PlanScreen() {
 
   if (!canManage) {
     return (
-      <AppScreen title="Plan" eyebrow="Suscripción Tenda">
-        <MobileEmptyState
-          title="Sin permiso"
-          description="Solo el owner puede administrar el plan de la tienda."
-        />
-      </AppScreen>
+      <MobileEmptyState
+        title="Sin permiso"
+        description="Solo el owner puede administrar el plan de la tienda."
+      />
     )
   }
 
   const data = billing.data
 
   return (
-    <AppScreen title="Plan" eyebrow="Suscripción Tenda">
+    <View style={styles.section}>
       {error ? <StatusMessage message={error} /> : null}
       {billing.isLoading || !data ? (
         <Text style={styles.muted}>Cargando plan…</Text>
@@ -122,17 +152,17 @@ export default function PlanScreen() {
               {data.productLimit != null ? ` de ${data.productLimit}` : ''} productos.
             </Text>
             <MobileStatusChip
-              label={data.subscriptionStatus}
+              label={statusLabels[data.subscriptionStatus] ?? data.subscriptionStatus}
               tone={data.subscriptionStatus === 'active' ? 'success' : 'warning'}
             />
             {data.cancelAtPeriodEnd ? (
               <Text style={styles.muted}>Se cancela al final del período.</Text>
             ) : null}
-            {data.planCode !== 'free' && !data.cancelAtPeriodEnd ? (
+            {data.planCode !== 'free' && data.priceClp > 0 ? (
               <PrimaryButton
-                label={cancel.isPending ? 'Cancelando…' : 'Cancelar al final del período'}
+                label={cancel.isPending ? 'Dando de baja…' : 'Dar de baja plan'}
                 disabled={cancel.isPending}
-                onPress={() => cancel.mutate()}
+                onPress={confirmCancel}
               />
             ) : null}
             {(data.subscriptionStatus === 'paused' || data.cancelAtPeriodEnd) &&
@@ -204,11 +234,25 @@ export default function PlanScreen() {
           ))}
         </>
       )}
-    </AppScreen>
+    </View>
+  )
+}
+
+export default function PlanRoute() {
+  const params = useLocalSearchParams<{ checkout?: string }>()
+  const checkout = Array.isArray(params.checkout) ? params.checkout[0] : params.checkout
+  return (
+    <Redirect
+      href={{
+        pathname: '/mas',
+        params: checkout ? { seccion: 'plan', checkout } : { seccion: 'plan' },
+      }}
+    />
   )
 }
 
 const styles = StyleSheet.create({
+  section: { gap: 12 },
   line: {
     color: colors.ink,
     fontSize: 15,

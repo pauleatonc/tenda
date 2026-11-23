@@ -1,7 +1,9 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import './App.css'
 import { LoginPage, RecoveryPage, RegisterPage, VerificationPage } from './auth/AuthPages'
-import { ApplicationShell, DashboardPage, MorePage } from './app/AppShell'
+import { AccountLayout } from './app/AccountLayout'
+import { ApplicationShell, DashboardPage } from './app/AppShell'
+import { BankAccountsPage } from './app/BankAccountsPage'
 import { ProfilePage } from './app/ProfilePage'
 import './app/profile.css'
 import { LandingPage } from './landing/LandingPage'
@@ -32,13 +34,18 @@ import './inventory/inventory.css'
 import './sales/sales.css'
 import './shipping/shipping.css'
 
-function ConfigurationPage() {
+function RedirectKeepingSearch({ to }: { to: string }) {
+  const location = useLocation()
+  return <Navigate to={`${to}${location.search}`} replace />
+}
+
+function LegacyConfigurationRedirect() {
   const location = useLocation()
   const params = new URLSearchParams(location.search)
-  if (params.has('paymentConnection')) {
-    return <Navigate to={`/app/configuracion/pagos${location.search}`} replace />
-  }
-  return <ProfilePage />
+  const target = params.has('paymentConnection')
+    ? '/app/cuenta/pagos'
+    : '/app/cuenta/perfil'
+  return <Navigate to={`${target}${location.search}`} replace />
 }
 
 function App() {
@@ -86,10 +93,23 @@ function App() {
         <Route path="despachos" element={<ShippingListPage />} />
         <Route path="despachos/:id" element={<ShipmentDetailPage />} />
         <Route path="balances" element={<BalancesPage />} />
-        <Route path="mas" element={<MorePage />} />
-        <Route path="configuracion/pagos" element={<PaymentsSettingsPage />} />
-        <Route path="configuracion/plan" element={<BillingPlanPage />} />
-        <Route path="configuracion" element={<ConfigurationPage />} />
+        <Route path="cuenta" element={<AccountLayout />}>
+          <Route index element={<Navigate to="perfil" replace />} />
+          <Route path="perfil" element={<ProfilePage />} />
+          <Route path="plan" element={<BillingPlanPage />} />
+          <Route path="pagos" element={<PaymentsSettingsPage />} />
+          <Route path="cuentas" element={<BankAccountsPage />} />
+        </Route>
+        <Route path="mas" element={<Navigate to="/app/cuenta/perfil" replace />} />
+        <Route
+          path="configuracion/pagos"
+          element={<RedirectKeepingSearch to="/app/cuenta/pagos" />}
+        />
+        <Route
+          path="configuracion/plan"
+          element={<RedirectKeepingSearch to="/app/cuenta/plan" />}
+        />
+        <Route path="configuracion" element={<LegacyConfigurationRedirect />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

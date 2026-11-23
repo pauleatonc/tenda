@@ -614,7 +614,7 @@ export function NewSalePage() {
                         : method === 'cash'
                           ? 'Registra el pago manualmente cuando lo recibas.'
                           : disabled
-                            ? 'Conecta una cuenta activa en Configuración de pagos para habilitarlo.'
+                            ? 'Conecta una cuenta activa en Cuenta → Integración de pago para habilitarlo.'
                             : 'El comprador será redirigido al checkout seguro de Mercado Pago.'}
                     </small>
                   </span>
@@ -649,7 +649,7 @@ export function NewSalePage() {
           {!mercadoPagoActive ? (
             <p className="sales-notice">
               Mercado Pago está deshabilitado porque no hay una conexión activa.{' '}
-              <Link to="/app/configuracion/pagos">Configurar pagos</Link>
+              <Link to="/app/cuenta/pagos">Integración de pago</Link>
             </p>
           ) : null}
 

@@ -269,7 +269,7 @@ describe('Inventario mobile', () => {
     expect(screen.getByText('Pago Online')).toBeOnTheScreen()
     expect(screen.getByText('Efectivo')).toBeOnTheScreen()
     expect(
-      await screen.findByText('Conecta Mercado Pago en Más › Pagos.'),
+      await screen.findByText('Conecta Mercado Pago en Cuenta → Integración de pago.'),
     ).toBeOnTheScreen()
     expect(screen.queryByRole('button', { name: 'Generar enlace de pago' })).toBeNull()
     expect(mockedSales.createOrder).not.toHaveBeenCalled()

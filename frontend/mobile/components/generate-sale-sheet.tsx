@@ -369,7 +369,7 @@ export function GenerateSaleSheet({
                       <Text style={styles.muted}>
                         {enabled
                           ? item.description
-                          : 'Conecta Mercado Pago en Más › Pagos.'}
+                          : 'Conecta Mercado Pago en Cuenta → Integración de pago.'}
                       </Text>
                     </View>
                   )
@@ -382,7 +382,7 @@ export function GenerateSaleSheet({
                         accessibilityState={{ disabled: true }}
                         onPress={() => {
                           closeAll()
-                          router.push('/mas/pagos')
+                          router.push({ pathname: '/mas', params: { seccion: 'pagos' } })
                         }}
                       >
                         {card}

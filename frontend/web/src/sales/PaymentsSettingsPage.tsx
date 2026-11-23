@@ -73,7 +73,7 @@ export function PaymentsSettingsPage() {
         <header className="page-heading">
           <div>
             <p className="eyebrow">Permiso requerido</p>
-            <h1>Configuración de pagos</h1>
+            <h1>Integración de pago</h1>
           </div>
         </header>
         <EmptyState
@@ -95,7 +95,7 @@ export function PaymentsSettingsPage() {
       <header className="page-heading">
         <div>
           <p className="eyebrow">Configuración segura</p>
-          <h1>Pagos</h1>
+          <h1>Integración de pago</h1>
           <p>
             Conecta Mercado Pago mediante OAuth. Tenda nunca solicita ni almacena tus
             credenciales de acceso.
