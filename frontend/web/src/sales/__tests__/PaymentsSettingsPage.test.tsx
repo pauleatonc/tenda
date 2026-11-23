@@ -87,7 +87,7 @@ describe('PaymentsSettingsPage', () => {
       paymentCommissionConfiguration: {
         mode: 'disabled',
         rate: '0',
-        minimum: '0',
+        minimum: 0,
         zeroFeeEnabled: false,
       },
     })
