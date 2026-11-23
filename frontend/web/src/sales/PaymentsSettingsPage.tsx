@@ -160,6 +160,10 @@ export function PaymentsSettingsPage() {
               />
             </header>
 
+            <p>
+              Con esta integración puedes generar links de pago que cobran directo en tu
+              Mercado Pago.
+            </p>
             {account ? (
               <dl>
                 <div>
@@ -178,27 +182,8 @@ export function PaymentsSettingsPage() {
                   <dt>Última desconexión</dt>
                   <dd>{formatApiDate(account.disconnectedAt)}</dd>
                 </div>
-                <div>
-                  <dt>Permisos autorizados</dt>
-                  <dd>
-                    {account.scopes.length ? (
-                      <ul className="scope-list">
-                        {account.scopes.map((scope) => (
-                          <li key={scope}>{scope}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      'Sin permisos informados'
-                    )}
-                  </dd>
-                </div>
               </dl>
-            ) : (
-              <p>
-                Conectar habilita Mercado Pago en nuevas ventas. La autorización ocurre
-                completamente en el sitio del proveedor.
-              </p>
-            )}
+            ) : null}
 
             {Boolean(connect.error || disconnect.error) && (
               <div className="form-message form-message--error" role="alert">

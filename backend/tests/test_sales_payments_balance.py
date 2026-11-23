@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import io
+import json
+import logging
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 
@@ -53,6 +55,7 @@ from apps.sales.webhooks import process_payment_webhook_event, retry_reconciliat
 from apps.users.models import User
 from tenda.crypto import decrypt_credential, encrypt_credential
 from tenda.errors import DomainError
+from tenda.observability import RedactingJsonFormatter
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -812,3 +815,65 @@ def test_provider_approval_after_cancellation_creates_reconciliation_issue() -> 
         webhook_event=event,
         kind=ReconciliationIssue.Kind.PAID_WITHOUT_STOCK,
     ).exists()
+
+
+def test_rejected_preference_logs_provider_cause_without_secrets(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    public_token = "public-order-token"
+    provider_body = {
+        "message": "auto_return invalid. back_url.success must be defined",
+        "error": "invalid_auto_return",
+        "status": 400,
+        "cause": [{"code": 4000, "description": "back_url.success must be defined"}],
+        "echo": (
+            f"https://tenda-app.com/p/{public_token}/estado?retorno=mercadopago buyer@example.com"
+        ),
+    }
+
+    class Response:
+        status_code = 400
+        text = json.dumps(provider_body)
+
+        def json(self) -> dict[str, object]:
+            parsed: dict[str, object] = json.loads(self.text)
+            return parsed
+
+    def post(*_args: object, **_kwargs: object) -> Response:
+        return Response()
+
+    monkeypatch.setattr("apps.sales.payments.httpx.post", post)
+    preference = PaymentPreferenceInput(
+        external_reference="order:11111111-1111-1111-1111-111111111111",
+        title="Pedido T-1",
+        amount=Decimal("4500"),
+        currency="CLP",
+        payer_email="buyer@example.com",
+        success_url=f"https://tenda-app.com/p/{public_token}/estado?retorno=mercadopago&resultado=success",
+        pending_url=f"https://tenda-app.com/p/{public_token}/estado?retorno=mercadopago&resultado=pending",
+        failure_url=f"https://tenda-app.com/p/{public_token}/estado?retorno=mercadopago&resultado=failure",
+        notification_url="https://tenda-app.com/api/v1/webhooks/mercado-pago",
+        statement_descriptor="La super tienda",
+    )
+
+    with (
+        caplog.at_level(logging.WARNING, logger="apps.sales.payments"),
+        pytest.raises(DomainError) as caught,
+    ):
+        MercadoPagoProvider().create_preference(
+            preference,
+            idempotency_key="checkout-1",
+            access_token="APP_USR-seller-secret",
+        )
+
+    assert caught.value.code == "PAYMENT_PROVIDER_UNAVAILABLE"
+    formatted = RedactingJsonFormatter().format(caplog.records[-1])
+    assert "mercado_pago_preference_rejected" in formatted
+    assert "auto_return invalid" in formatted
+    assert "back_url.success must be defined" in formatted
+    assert "La super tienda" in formatted
+    assert '"unitPrice":"4500"' in formatted
+    assert public_token not in formatted
+    assert "buyer@example.com" not in formatted
+    assert "APP_USR-seller-secret" not in formatted

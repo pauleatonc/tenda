@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
+import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -14,6 +17,64 @@ import httpx
 from django.conf import settings
 
 from tenda.errors import DomainError
+
+logger = logging.getLogger(__name__)
+_PUBLIC_CAPABILITY = re.compile(r"(/(?:p|orders)/)[^/?\s\"\\]+")
+
+
+def _scrub_diagnostic(value: object) -> object:
+    """Drop public order tokens from provider diagnostics before they reach logs."""
+    if isinstance(value, dict):
+        return {str(key): _scrub_diagnostic(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_scrub_diagnostic(item) for item in value]
+    if isinstance(value, str):
+        return _PUBLIC_CAPABILITY.sub(r"\1[token]", value)
+    return value
+
+
+def _provider_response_detail(response: httpx.Response) -> object:
+    raw = response.text[:4000]
+    try:
+        parsed = json.loads(raw) if raw else {}
+    except ValueError:
+        parsed = raw
+    return _scrub_diagnostic(parsed)
+
+
+def _preference_request_summary(body: dict[str, Any]) -> dict[str, object]:
+    items = body.get("items", [])
+    lines = []
+    if isinstance(items, list):
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            lines.append(
+                {
+                    "title": str(item.get("title", ""))[:80],
+                    "quantity": item.get("quantity"),
+                    "currency": item.get("currency_id"),
+                    "unitPrice": item.get("unit_price"),
+                    "unitPriceType": type(item.get("unit_price")).__name__,
+                    "hasPicture": "picture_url" in item,
+                }
+            )
+    back_urls = body.get("back_urls", {})
+    shaped_urls = (
+        {key: _scrub_diagnostic(url) for key, url in back_urls.items()}
+        if isinstance(back_urls, dict)
+        else {}
+    )
+    return {
+        "externalReference": body.get("external_reference"),
+        "autoReturn": body.get("auto_return"),
+        "marketplaceFee": body.get("marketplace_fee"),
+        "statementDescriptor": body.get("statement_descriptor"),
+        "notificationUrl": _scrub_diagnostic(body.get("notification_url")),
+        "backUrls": shaped_urls,
+        "itemCount": len(lines),
+        "items": lines,
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -372,6 +433,24 @@ class MercadoPagoProvider:
         access_token: str | None = None,
         marketplace_fee: Decimal = Decimal("0"),
     ) -> PaymentPreference:
+        body: dict[str, Any] = {
+            "external_reference": value.external_reference,
+            "items": value.checkout_items(),
+            "payer": {"email": value.payer_email},
+            "back_urls": {
+                "success": value.success_url,
+                "pending": value.pending_url,
+                "failure": value.failure_url,
+            },
+            "auto_return": "approved",
+            "notification_url": value.notification_url,
+            "marketplace_fee": int(marketplace_fee),
+            **(
+                {"statement_descriptor": value.statement_descriptor}
+                if value.statement_descriptor
+                else {}
+            ),
+        }
         try:
             response = httpx.post(
                 f"{self.base_url}/checkout/preferences",
@@ -379,29 +458,49 @@ class MercadoPagoProvider:
                     "Authorization": f"Bearer {self._seller_token(access_token)}",
                     "X-Idempotency-Key": idempotency_key,
                 },
-                json={
-                    "external_reference": value.external_reference,
-                    "items": value.checkout_items(),
-                    "payer": {"email": value.payer_email},
-                    "back_urls": {
-                        "success": value.success_url,
-                        "pending": value.pending_url,
-                        "failure": value.failure_url,
-                    },
-                    "auto_return": "approved",
-                    "notification_url": value.notification_url,
-                    "marketplace_fee": int(marketplace_fee),
-                    **(
-                        {"statement_descriptor": value.statement_descriptor}
-                        if value.statement_descriptor
-                        else {}
-                    ),
-                },
+                json=body,
                 timeout=8,
             )
-            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            logger.warning(
+                "mercado_pago_preference_unreachable",
+                extra={"event": "mercado_pago_preference_unreachable", "error": type(exc).__name__},
+            )
+            raise DomainError(
+                "PAYMENT_PROVIDER_UNAVAILABLE",
+                "No pudimos iniciar el pago.",
+                status=503,
+                retryable=True,
+            ) from exc
+        if response.status_code >= 400:
+            logger.warning(
+                "mercado_pago_preference_rejected",
+                extra={
+                    "event": "mercado_pago_preference_rejected",
+                    "statusCode": response.status_code,
+                    "error": {
+                        "body": _provider_response_detail(response),
+                        "request": _preference_request_summary(body),
+                    },
+                },
+            )
+            raise DomainError(
+                "PAYMENT_PROVIDER_UNAVAILABLE",
+                "No pudimos iniciar el pago.",
+                status=503,
+                retryable=True,
+            )
+        try:
             payload = response.json()
-        except (httpx.HTTPError, ValueError) as exc:
+        except ValueError as exc:
+            logger.warning(
+                "mercado_pago_preference_unreadable",
+                extra={
+                    "event": "mercado_pago_preference_unreadable",
+                    "statusCode": response.status_code,
+                    "error": type(exc).__name__,
+                },
+            )
             raise DomainError(
                 "PAYMENT_PROVIDER_UNAVAILABLE",
                 "No pudimos iniciar el pago.",

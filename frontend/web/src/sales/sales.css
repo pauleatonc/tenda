@@ -969,21 +969,9 @@
   text-align: right;
 }
 
-.scope-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  justify-content: flex-end;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.scope-list li {
-  background: #eceae3;
-  border-radius: 999px;
-  font-size: 11px;
-  padding: 4px 8px;
+.payment-provider-card > p {
+  line-height: 1.5;
+  margin: 4px 0 20px;
 }
 
 .payment-provider-card__actions {
