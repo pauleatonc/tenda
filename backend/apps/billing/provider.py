@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from dataclasses import dataclass
 from typing import Any, Protocol
 from urllib import error, request
@@ -11,6 +12,34 @@ from urllib import error, request
 from django.conf import settings
 
 from tenda.errors import DomainError
+
+logger = logging.getLogger(__name__)
+
+
+def _provider_error_body(raw: str) -> object:
+    try:
+        parsed = json.loads(raw) if raw else {}
+    except ValueError:
+        return raw
+    return parsed
+
+
+def _billing_request_summary(payload: dict[str, Any] | None) -> dict[str, object]:
+    if not payload:
+        return {}
+    summary: dict[str, object] = {}
+    for key in ("preapproval_plan_id", "external_reference", "back_url", "status", "reason"):
+        if key in payload:
+            summary[key] = payload[key]
+    recurring = payload.get("auto_recurring")
+    if isinstance(recurring, dict):
+        summary["autoRecurring"] = {
+            "frequency": recurring.get("frequency"),
+            "frequencyType": recurring.get("frequency_type"),
+            "transactionAmount": recurring.get("transaction_amount"),
+            "currency": recurring.get("currency_id"),
+        }
+    return summary
 
 
 @dataclass(frozen=True, slots=True)
@@ -246,12 +275,25 @@ class MercadoPagoBillingProvider:
             with request.urlopen(req, timeout=30) as response:
                 raw = response.read().decode("utf-8")
         except error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")[:400]
+            detail = exc.read().decode("utf-8", errors="replace")[:4000]
+            logger.warning(
+                "billing_provider_rejected",
+                extra={
+                    "event": "billing_provider_rejected",
+                    "statusCode": exc.code,
+                    "error": {
+                        "method": method,
+                        "path": path,
+                        "body": _provider_error_body(detail),
+                        "request": _billing_request_summary(payload),
+                    },
+                },
+            )
             raise DomainError(
                 "BILLING_PROVIDER_ERROR",
                 "Mercado Pago rechazó la solicitud de facturación.",
                 status=502,
-                field_errors={"provider": [detail or str(exc.code)]},
+                field_errors={"provider": [detail[:400] or str(exc.code)]},
             ) from exc
         except error.URLError as exc:
             raise DomainError(

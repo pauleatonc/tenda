@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import json
+import logging
 from datetime import timedelta
+from email.message import Message
+from io import BytesIO
+from urllib import error
 
 import pytest
+from django.test import override_settings
 from django.utils import timezone
 
 from apps.billing.entitlements import (
@@ -12,6 +18,7 @@ from apps.billing.entitlements import (
 )
 from apps.billing.models import OrganisationSubscription, Plan
 from apps.billing.provider import (
+    MercadoPagoBillingProvider,
     PreapprovalSnapshot,
     get_billing_provider,
     reset_fake_billing_provider,
@@ -23,6 +30,7 @@ from apps.organisations.selectors import TenantContext, resolve_tenant_context
 from apps.organisations.services import create_organisation_for_owner
 from apps.users.models import User
 from tenda.errors import DomainError
+from tenda.observability import RedactingJsonFormatter
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -212,3 +220,48 @@ def test_checkout_and_webhook_activate_subscription() -> None:
     entitlements = get_organisation_entitlements(context.organisation)
     assert entitlements.plan_code == "starter"
     assert entitlements.ai_assisted_enabled is True
+
+
+def test_billing_rejection_logs_provider_body_without_secrets(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    raw = json.dumps(
+        {
+            "message": "preapproval_plan_id not found",
+            "error": "bad_request",
+            "status": 400,
+            "payer_email": "buyer@example.com",
+        }
+    ).encode()
+
+    def urlopen(req: object, timeout: int = 30) -> object:
+        del req, timeout
+        raise error.HTTPError(
+            "https://api.mercadopago.com/preapproval",
+            400,
+            "Bad Request",
+            Message(),
+            BytesIO(raw),
+        )
+
+    monkeypatch.setattr("apps.billing.provider.request.urlopen", urlopen)
+    with (
+        override_settings(MERCADO_PAGO_BILLING_ACCESS_TOKEN="APP_USR-billing-secret"),
+        caplog.at_level(logging.WARNING, logger="apps.billing.provider"),
+        pytest.raises(DomainError) as caught,
+    ):
+        MercadoPagoBillingProvider().create_preapproval(
+            preapproval_plan_id="seed-starter",
+            payer_email="buyer@example.com",
+            external_reference="tenda-billing:org:starter",
+            back_url="https://tenda-app.com/app/configuracion/plan",
+        )
+
+    assert caught.value.code == "BILLING_PROVIDER_ERROR"
+    formatted = RedactingJsonFormatter().format(caplog.records[-1])
+    assert "billing_provider_rejected" in formatted
+    assert "preapproval_plan_id not found" in formatted
+    assert "seed-starter" in formatted
+    assert "buyer@example.com" not in formatted
+    assert "APP_USR-billing-secret" not in formatted
