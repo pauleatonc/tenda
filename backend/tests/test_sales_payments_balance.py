@@ -873,7 +873,8 @@ def test_rejected_preference_logs_provider_cause_without_secrets(
     assert "auto_return invalid" in formatted
     assert "back_url.success must be defined" in formatted
     assert "La super tienda" in formatted
-    assert '"unitPrice":"4500"' in formatted
+    assert '"unitPrice":4500' in formatted
+    assert '"unitPriceType":"int"' in formatted
     assert public_token not in formatted
     assert "buyer@example.com" not in formatted
     assert "APP_USR-seller-secret" not in formatted

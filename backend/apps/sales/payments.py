@@ -113,7 +113,7 @@ class PaymentPreferenceInput:
                 "title": line.title,
                 "quantity": line.quantity,
                 "currency_id": self.currency,
-                "unit_price": str(line.unit_price),
+                "unit_price": int(line.unit_price),
             }
             if line.picture_url:
                 entry["picture_url"] = line.picture_url
