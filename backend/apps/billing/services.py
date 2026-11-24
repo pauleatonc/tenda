@@ -170,7 +170,9 @@ def start_plan_checkout(
     accepted_terms: bool = False,
 ) -> PlanCheckout:
     _require_billing_manager(context)
-    require_accepted_terms(accepted_terms=accepted_terms)
+    # The first plan is accepted during onboarding. A later change does not ask again.
+    if organisation_needs_plan_selection(context.organisation):
+        require_accepted_terms(accepted_terms=accepted_terms)
     code = plan_code.strip().lower()
     if code == Plan.Code.FREE:
         raise DomainError(

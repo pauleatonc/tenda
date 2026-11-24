@@ -71,7 +71,6 @@ export function BillingPlanPage() {
   const viewer = useOutletContext<ViewerPayload>()
   const [params] = useSearchParams()
   const queryClient = useQueryClient()
-  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)
   const [notice, setNotice] = useState('')
   const canManage =
@@ -100,13 +99,13 @@ export function BillingPlanPage() {
   const autoCheckoutStarted = useRef(false)
   const checkoutPlan = params.get('checkout')
   useEffect(() => {
-    if (autoCheckoutStarted.current || !canManage || !acceptedTerms) return
+    if (autoCheckoutStarted.current || !canManage) return
     if (!checkoutPlan || checkoutPlan === 'free') return
     autoCheckoutStarted.current = true
     checkout.mutate(checkoutPlan)
     // Intentionally run once when the return/signup query asks for checkout.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- checkout.mutate is stable enough for one-shot
-  }, [canManage, checkoutPlan, acceptedTerms])
+  }, [canManage, checkoutPlan])
 
   const cancel = useMutation({
     mutationFn: cancelSubscription,
@@ -209,21 +208,6 @@ export function BillingPlanPage() {
               </p>
             </div>
 
-            <label className="checkbox-field">
-              <input
-                type="checkbox"
-                checked={acceptedTerms}
-                onChange={(event) => setAcceptedTerms(event.target.checked)}
-              />
-              <span>
-                Acepto los{' '}
-                <Link to="/terminos" target="_blank" rel="noreferrer">
-                  términos y condiciones
-                </Link>{' '}
-                para suscribirme a un plan de pago.
-              </span>
-            </label>
-
             <div className="plan-grid">
               {data.plans.map((plan) => (
                 <PlanOption
@@ -232,7 +216,7 @@ export function BillingPlanPage() {
                   currentCode={data.planCode}
                   productCount={data.productCount}
                   pending={checkout.isPending && checkout.variables === plan.code}
-                  disabled={checkout.isPending || !acceptedTerms}
+                  disabled={checkout.isPending}
                   onChoose={() => checkout.mutate(plan.code)}
                 />
               ))}

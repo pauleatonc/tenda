@@ -148,6 +148,12 @@ def test_register_defers_plan_selection() -> None:
     subscription = OrganisationSubscription.objects.get(organisation=membership.organisation)
     assert subscription.plan.code == "free"
     assert subscription.status == OrganisationSubscription.Status.ACTIVE
+    checkout = start_plan_checkout(
+        context=context,
+        plan_code="starter",
+        accepted_terms=False,
+    )
+    assert checkout.plan_code == "starter"
 
 
 def test_cancel_subscription_returns_to_free_immediately() -> None:
