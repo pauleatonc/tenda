@@ -5,7 +5,7 @@ import logging
 from datetime import timedelta
 from email.message import Message
 from io import BytesIO
-from urllib import error
+from urllib import error, request
 
 import pytest
 from django.test import override_settings
@@ -252,7 +252,8 @@ def test_billing_rejection_logs_provider_body_without_secrets(
         pytest.raises(DomainError) as caught,
     ):
         MercadoPagoBillingProvider().create_preapproval(
-            preapproval_plan_id="seed-starter",
+            reason="Tenda Starter",
+            amount_clp=4990,
             payer_email="buyer@example.com",
             external_reference="tenda-billing:org:starter",
             back_url="https://tenda-app.com/app/configuracion/plan",
@@ -262,6 +263,61 @@ def test_billing_rejection_logs_provider_body_without_secrets(
     formatted = RedactingJsonFormatter().format(caplog.records[-1])
     assert "billing_provider_rejected" in formatted
     assert "preapproval_plan_id not found" in formatted
-    assert "seed-starter" in formatted
+    assert "Tenda Starter" in formatted
+    assert "4990" in formatted
     assert "buyer@example.com" not in formatted
     assert "APP_USR-billing-secret" not in formatted
+
+
+def test_pending_checkout_lets_mercado_pago_collect_the_card(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    class Response:
+        def __enter__(self) -> Response:
+            return self
+
+        def __exit__(self, *args: object) -> bool:
+            return False
+
+        def read(self) -> bytes:
+            return json.dumps(
+                {
+                    "id": "pre-1",
+                    "status": "pending",
+                    "init_point": "https://www.mercadopago.cl/subscriptions/checkout?preapproval_id=pre-1",
+                    "external_reference": "tenda-billing:org:starter",
+                }
+            ).encode()
+
+    def urlopen(req: request.Request, timeout: int = 30) -> Response:
+        del timeout
+        payload = req.data
+        assert isinstance(payload, bytes)
+        captured["body"] = json.loads(payload.decode())
+        return Response()
+
+    monkeypatch.setattr("apps.billing.provider.request.urlopen", urlopen)
+    with override_settings(MERCADO_PAGO_BILLING_ACCESS_TOKEN="APP_USR-billing-secret"):
+        snapshot = MercadoPagoBillingProvider().create_preapproval(
+            reason="Tenda Starter",
+            amount_clp=4990,
+            payer_email="buyer@example.com",
+            external_reference="tenda-billing:org:starter",
+            back_url="https://tenda-app.com/app/configuracion/plan",
+        )
+
+    body = captured["body"]
+    assert isinstance(body, dict)
+    assert "preapproval_plan_id" not in body
+    assert "card_token_id" not in body
+    assert body["status"] == "pending"
+    assert body["auto_recurring"] == {
+        "frequency": 1,
+        "frequency_type": "months",
+        "transaction_amount": 4990,
+        "currency_id": "CLP",
+    }
+    assert snapshot.init_point.startswith("https://www.mercadopago.cl/")
+    assert snapshot.provider_id == "pre-1"

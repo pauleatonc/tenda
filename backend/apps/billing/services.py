@@ -200,7 +200,8 @@ def start_plan_checkout(
         or f"{getattr(settings, 'WEB_ORIGIN', 'http://localhost:5173')}/app/configuracion/plan"
     )
     snapshot = provider.create_preapproval(
-        preapproval_plan_id=plan.mp_preapproval_plan_id,
+        reason=f"Tenda {plan.name}",
+        amount_clp=plan.price_clp,
         payer_email=email,
         external_reference=_external_reference(context.organisation, plan),
         back_url=back_url,

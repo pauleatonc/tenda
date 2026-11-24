@@ -81,7 +81,8 @@ class BillingProvider(Protocol):
     def create_preapproval(
         self,
         *,
-        preapproval_plan_id: str,
+        reason: str,
+        amount_clp: int,
         payer_email: str,
         external_reference: str,
         back_url: str,
@@ -133,21 +134,22 @@ class FakeBillingProvider:
     def create_preapproval(
         self,
         *,
-        preapproval_plan_id: str,
+        reason: str,
+        amount_clp: int,
         payer_email: str,
         external_reference: str,
         back_url: str,
     ) -> PreapprovalSnapshot:
-        del back_url
+        del back_url, reason
         digest = hashlib.sha256(
-            f"{preapproval_plan_id}:{external_reference}:{payer_email}".encode()
+            f"{amount_clp}:{external_reference}:{payer_email}".encode()
         ).hexdigest()[:16]
         snapshot = PreapprovalSnapshot(
             provider_id=f"fake-sub-{digest}",
             status="pending",
             init_point=f"https://billing.invalid/checkout/{digest}",
             external_reference=external_reference,
-            preapproval_plan_id=preapproval_plan_id,
+            preapproval_plan_id="",
             payer_email=payer_email,
         )
         self.preapprovals[snapshot.provider_id] = snapshot
@@ -353,22 +355,33 @@ class MercadoPagoBillingProvider:
     def create_preapproval(
         self,
         *,
-        preapproval_plan_id: str,
+        reason: str,
+        amount_clp: int,
         payer_email: str,
         external_reference: str,
         back_url: str,
     ) -> PreapprovalSnapshot:
+        # Sending preapproval_plan_id makes Mercado Pago require card_token_id.
+        # A pending subscription with the amount returns init_point instead.
         data = self._request(
             "POST",
             "/preapproval",
             payload={
-                "preapproval_plan_id": preapproval_plan_id,
+                "reason": reason,
                 "payer_email": payer_email,
                 "external_reference": external_reference,
+                "auto_recurring": {
+                    "frequency": 1,
+                    "frequency_type": "months",
+                    "transaction_amount": amount_clp,
+                    "currency_id": "CLP",
+                },
                 "back_url": back_url,
                 "status": "pending",
             },
-            idempotency_key=hashlib.sha256(external_reference.encode()).hexdigest()[:32],
+            idempotency_key=hashlib.sha256(
+                f"checkout:{external_reference}:{amount_clp}".encode()
+            ).hexdigest()[:32],
         )
         return self._map_preapproval(data)
 
