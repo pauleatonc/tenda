@@ -1497,8 +1497,10 @@ export type SchemaShippingDashboardType = {
 export type SchemaStaffPlanCountType = {
   __typename?: 'StaffPlanCountType';
   code: Scalars['String']['output'];
+  monthlyRevenue: Scalars['Int']['output'];
   name: Scalars['String']['output'];
   organisationCount: Scalars['Int']['output'];
+  priceClp: Scalars['Int']['output'];
 };
 
 export type SchemaStaffPlatformOverviewType = {
@@ -1507,6 +1509,7 @@ export type SchemaStaffPlatformOverviewType = {
   archivedProductCount: Scalars['Int']['output'];
   confirmedSalesAmount: Scalars['String']['output'];
   confirmedSalesCount: Scalars['Int']['output'];
+  estimatedMonthlyRevenue: Scalars['Int']['output'];
   generatedAt: Scalars['DateTime']['output'];
   grossMargin: Scalars['String']['output'];
   inventoryAtCost: Scalars['String']['output'];

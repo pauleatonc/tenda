@@ -68,6 +68,7 @@ type StaffPlatformOverviewType {
   organisationsLast30Days: Int!
   organisationsWithSales: Int!
   plans: [StaffPlanCountType!]!
+  estimatedMonthlyRevenue: Int!
   activeProductCount: Int!
   archivedProductCount: Int!
   productsMissingCost: Int!
@@ -99,6 +100,8 @@ type StaffPlanCountType {
   code: String!
   name: String!
   organisationCount: Int!
+  priceClp: Int!
+  monthlyRevenue: Int!
 }
 
 type TermsAndConditionsType {

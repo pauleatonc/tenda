@@ -7,6 +7,8 @@ export type StaffPlanCount = {
   code: string
   name: string
   organisationCount: number
+  priceClp: number
+  monthlyRevenue: number
 }
 
 export type StaffPlatformOverview = {
@@ -15,6 +17,7 @@ export type StaffPlatformOverview = {
   organisationsLast30Days: number
   organisationsWithSales: number
   plans: StaffPlanCount[]
+  estimatedMonthlyRevenue: number
   activeProductCount: number
   archivedProductCount: number
   productsMissingCost: number
@@ -42,7 +45,8 @@ const StaffPlatformOverviewDocument = parse(`
       organisationCount
       organisationsLast30Days
       organisationsWithSales
-      plans { code name organisationCount }
+      plans { code name organisationCount priceClp monthlyRevenue }
+      estimatedMonthlyRevenue
       activeProductCount
       archivedProductCount
       productsMissingCost

@@ -15,6 +15,8 @@ class StaffPlanCountType(graphene.ObjectType):  # type: ignore[misc]
     code = graphene.String(required=True)
     name = graphene.String(required=True)
     organisation_count = graphene.Int(required=True)
+    price_clp = graphene.Int(required=True)
+    monthly_revenue = graphene.Int(required=True)
 
 
 class StaffPlatformOverviewType(graphene.ObjectType):  # type: ignore[misc]
@@ -23,6 +25,7 @@ class StaffPlatformOverviewType(graphene.ObjectType):  # type: ignore[misc]
     organisations_last_30_days = graphene.Int(required=True)
     organisations_with_sales = graphene.Int(required=True)
     plans = graphene.List(graphene.NonNull(StaffPlanCountType), required=True)
+    estimated_monthly_revenue = graphene.Int(required=True)
     active_product_count = graphene.Int(required=True)
     archived_product_count = graphene.Int(required=True)
     products_missing_cost = graphene.Int(required=True)

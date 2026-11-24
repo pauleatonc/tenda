@@ -67,11 +67,16 @@ def test_staff_overview_counts_plans_products_and_sales() -> None:
 
     overview = staff_platform_overview()
 
-    by_code = {plan.code: plan.organisation_count for plan in overview.plans}
+    by_code = {plan.code: plan for plan in overview.plans}
     assert overview.organisation_count == 2
-    assert by_code["free"] == 1
-    assert by_code["starter"] == 1
-    assert by_code["growth"] == 0
+    assert by_code["free"].organisation_count == 1
+    assert by_code["free"].monthly_revenue == 0
+    assert by_code["starter"].organisation_count == 1
+    assert by_code["starter"].price_clp == 4990
+    assert by_code["starter"].monthly_revenue == 4990
+    assert by_code["growth"].organisation_count == 0
+    assert by_code["growth"].monthly_revenue == 0
+    assert overview.estimated_monthly_revenue == 4990
     assert overview.active_product_count == 1
     assert overview.inventory_units == 4
     assert overview.inventory_at_cost == 4000

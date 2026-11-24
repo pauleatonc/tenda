@@ -22,6 +22,8 @@ class PlanPopulation:
     code: str
     name: str
     organisation_count: int
+    price_clp: int
+    monthly_revenue: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +33,7 @@ class StaffPlatformOverview:
     organisations_last_30_days: int
     organisations_with_sales: int
     plans: list[PlanPopulation]
+    estimated_monthly_revenue: int
     active_product_count: int
     archived_product_count: int
     products_missing_cost: int
@@ -184,9 +187,12 @@ def staff_platform_overview() -> StaffPlatformOverview:
                 code=plan.code,
                 name=plan.name,
                 organisation_count=counts.get(plan.code, 0),
+                price_clp=plan.price_clp,
+                monthly_revenue=counts.get(plan.code, 0) * plan.price_clp,
             )
             for plan in plans
         ],
+        estimated_monthly_revenue=sum(counts.get(plan.code, 0) * plan.price_clp for plan in plans),
         active_product_count=active_products.count(),
         archived_product_count=Product.objects.filter(
             catalog_status=Product.CatalogStatus.ARCHIVED

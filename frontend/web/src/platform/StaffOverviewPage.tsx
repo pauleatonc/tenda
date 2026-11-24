@@ -47,6 +47,36 @@ export function StaffOverviewPage() {
   )
 }
 
+function storeLabel(count: number): string {
+  return count === 1 ? '1 tienda' : `${count} tiendas`
+}
+
+function PlanRevenue({ data }: { data: StaffPlatformOverview }) {
+  return (
+    <div className="staff-revenue">
+      <h3>Ingreso mensual estimado</h3>
+      <p>Precio vigente de cada plan por las tiendas que lo tienen ahora.</p>
+      <dl>
+        {data.plans.map((plan) => (
+          <div key={plan.code}>
+            <dt>
+              {plan.name}
+              <small>
+                {storeLabel(plan.organisationCount)} × {formatClp(plan.priceClp)}
+              </small>
+            </dt>
+            <dd>{formatClp(plan.monthlyRevenue)}</dd>
+          </div>
+        ))}
+        <div className="staff-revenue__total">
+          <dt>Total</dt>
+          <dd>{formatClp(data.estimatedMonthlyRevenue)}</dd>
+        </div>
+      </dl>
+    </div>
+  )
+}
+
 function StaffFigures({ data }: { data: StaffPlatformOverview }) {
   const totalStores = Math.max(data.organisationCount, 1)
 
@@ -110,6 +140,7 @@ function StaffFigures({ data }: { data: StaffPlatformOverview }) {
             )
           })}
         </ul>
+        <PlanRevenue data={data} />
       </section>
 
       <div className="staff-split">

@@ -117,6 +117,56 @@
   height: 100%;
 }
 
+.staff-revenue {
+  border-top: 1px solid var(--line);
+  margin-top: 18px;
+  padding-top: 16px;
+}
+
+.staff-revenue h3 {
+  font-size: 16px;
+  margin: 0;
+}
+
+.staff-revenue p {
+  color: var(--ink-soft);
+  margin: 6px 0 0;
+}
+
+.staff-revenue dl {
+  margin-top: 12px;
+}
+
+.staff-revenue dl > div {
+  align-items: baseline;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.staff-revenue dd {
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.staff-revenue dt small {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.staff-revenue__total {
+  border-top: 1px solid var(--line);
+  margin-top: 4px;
+  padding-top: 12px;
+}
+
+.staff-revenue__total dd {
+  font-family: var(--font-display);
+  font-size: 28px;
+  letter-spacing: -0.04em;
+}
+
 .staff-split {
   display: grid;
   gap: 14px;

@@ -18,9 +18,22 @@ const overview: StaffPlatformOverview = {
   organisationsLast30Days: 1,
   organisationsWithSales: 1,
   plans: [
-    { code: 'free', name: 'Gratis', organisationCount: 1 },
-    { code: 'pro', name: 'Pro', organisationCount: 1 },
+    {
+      code: 'free',
+      name: 'Gratis',
+      organisationCount: 1,
+      priceClp: 0,
+      monthlyRevenue: 0,
+    },
+    {
+      code: 'pro',
+      name: 'Pro',
+      organisationCount: 1,
+      priceClp: 14990,
+      monthlyRevenue: 14990,
+    },
   ],
+  estimatedMonthlyRevenue: 14990,
   activeProductCount: 8,
   archivedProductCount: 2,
   productsMissingCost: 1,
@@ -113,8 +126,15 @@ describe('StaffOverviewPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Plataforma' })).toBeInTheDocument()
     expect(await screen.findByText('Tiendas por plan')).toBeInTheDocument()
-    expect(screen.getByText('Gratis')).toBeInTheDocument()
-    expect(screen.getByText('Pro')).toBeInTheDocument()
+    expect(screen.getAllByText('Gratis')).toHaveLength(2)
+    expect(screen.getAllByText('Pro')).toHaveLength(2)
+    const revenue = screen.getByRole('heading', {
+      name: 'Ingreso mensual estimado',
+    }).parentElement
+    expect(revenue).toHaveTextContent('1 tienda × $0')
+    expect(revenue).toHaveTextContent('1 tienda × $14.990')
+    expect(revenue).toHaveTextContent('Total')
+    expect(revenue).toHaveTextContent('$14.990')
     expect(screen.getByText('8')).toBeInTheDocument()
     expect(
       screen.getByText(/El margen usa solo líneas con costo registrado/),
