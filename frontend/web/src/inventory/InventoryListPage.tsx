@@ -206,6 +206,7 @@ function buildColumns(
     id: 'actions',
     header: 'Acciones',
     enableHiding: false,
+    meta: { cellClassName: 'cell-actions-sticky' },
     cell: ({ row }) => {
       const sellable = canGenerateSale(row.original)
       return (

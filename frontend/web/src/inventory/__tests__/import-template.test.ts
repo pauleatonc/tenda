@@ -39,6 +39,21 @@ describe('planilla de importación', () => {
     })
   })
 
+  it('incluye descripción de marketing en la planilla canónica', () => {
+    const columns = importColumnsForFields([])
+    expect(columns.map((column) => column.destination)).toContain('marketingDescription')
+    expect(
+      mappingFromImportHeaders(
+        ['Nombre', 'Descripción de marketing', 'Descripción'],
+        columns,
+      ),
+    ).toEqual({
+      name: 'Nombre',
+      marketingDescription: 'Descripción de marketing',
+      description: 'Descripción',
+    })
+  })
+
   it('explica INVALID_IMPORT_FILE sin mostrar el código técnico', () => {
     expect(humanImportFailure('INVALID_IMPORT_FILE')).toBe(
       'No se pudo reconocer el formato de la planilla. Por favor descargue el formato indicado e intente de nuevo.',

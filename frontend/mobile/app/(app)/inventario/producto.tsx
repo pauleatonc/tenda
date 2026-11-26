@@ -99,6 +99,7 @@ function identityFromProduct(product: ProductCard): ProductIdentityDraft {
     name: product.name,
     brand: product.brand,
     description: product.description,
+    marketingDescription: product.marketingDescription,
     catalogStatus: product.catalogStatus,
     purchasePrice: product.purchasePrice,
     salePrice: product.salePrice,
@@ -122,6 +123,7 @@ export default function ProductFormScreen() {
   const [name, setName] = useState('')
   const [brand, setBrand] = useState('')
   const [description, setDescription] = useState('')
+  const [marketingDescription, setMarketingDescription] = useState('')
   const [catalogStatus, setCatalogStatus] = useState('active')
   const [initialQuantity, setInitialQuantity] = useState('')
   const [purchasePrice, setPurchasePrice] = useState('')
@@ -198,6 +200,7 @@ export default function ProductFormScreen() {
     setName(detail.name)
     setBrand(detail.brand)
     setDescription(detail.description)
+    setMarketingDescription(detail.marketingDescription)
     setCatalogStatus(detail.catalogStatus)
     setPurchasePrice(detail.purchasePrice ?? '')
     setSalePrice(detail.salePrice ?? '')
@@ -230,6 +233,7 @@ export default function ProductFormScreen() {
       name,
       brand,
       description,
+      marketingDescription,
       catalogStatus,
       purchasePrice: parsePrice(purchasePrice).value,
       salePrice: parsePrice(salePrice).value,
@@ -243,6 +247,7 @@ export default function ProductFormScreen() {
     setName(row.name)
     setBrand(row.brand)
     setDescription(row.description)
+    setMarketingDescription(row.marketingDescription)
     setCatalogStatus(row.catalogStatus)
     setPurchasePrice(row.purchasePrice ?? '')
     setSalePrice(row.salePrice ?? '')
@@ -268,6 +273,7 @@ export default function ProductFormScreen() {
           name: name.trim(),
           brand: brand.trim(),
           description: description.trim(),
+          marketingDescription: marketingDescription.trim(),
           catalogStatus,
           purchasePrice: purchase.value,
           salePrice: sale.value,
@@ -280,6 +286,7 @@ export default function ProductFormScreen() {
         name: name.trim(),
         brand: brand.trim(),
         description: description.trim(),
+        marketingDescription: marketingDescription.trim(),
         catalogStatus,
         purchasePrice: purchase.value,
         salePrice: sale.value,
@@ -459,6 +466,7 @@ export default function ProductFormScreen() {
     setName(candidate.name)
     setBrand('')
     setDescription('')
+    setMarketingDescription('')
     setSalePrice(candidate.salePrice != null ? String(candidate.salePrice) : '')
     setPurchasePrice(
       candidate.purchasePrice != null ? String(candidate.purchasePrice) : '',
@@ -478,6 +486,7 @@ export default function ProductFormScreen() {
     setName(option.name)
     setBrand(option.brand)
     setDescription(option.description)
+    setMarketingDescription(option.marketingDescription)
     setAttributes((current) => {
       const next = { ...current }
       for (const [key, value] of Object.entries(option.extraAttributes)) {
@@ -803,6 +812,9 @@ export default function ProductFormScreen() {
                           {option.brand || 'Sin marca'}
                         </Text>
                         <Text style={styles.muted}>{option.description}</Text>
+                        {option.marketingDescription ? (
+                          <Text style={styles.muted}>{option.marketingDescription}</Text>
+                        ) : null}
                         {Object.entries(option.extraAttributes).map(([key, value]) => (
                           <Text key={key} style={styles.muted}>
                             {fields.find((field) => field.key === key)?.label ?? key}:{' '}
@@ -861,7 +873,19 @@ export default function ProductFormScreen() {
                     setDirty(true)
                   }}
                   error={errors.description}
-                  help="Hasta 500 caracteres."
+                  help="Descripción corta para inventario. Hasta 500 caracteres."
+                />
+                <SheetField
+                  label="Descripción de marketing"
+                  value={marketingDescription}
+                  maxLength={2500}
+                  multiline
+                  onChangeText={(value) => {
+                    setMarketingDescription(value)
+                    setDirty(true)
+                  }}
+                  error={errors.marketingDescription}
+                  help="Copy comercial o publicitario. Hasta 2500 caracteres."
                 />
 
                 {!isEdit ? (

@@ -327,19 +327,23 @@ def test_brand_and_description_are_saved_and_limited() -> None:
         name="Cartera negra",
         brand="  Prada  ",
         description="  Cuero negro.  ",
+        marketing_description="  Cartera de cuero negro con estilo clásico.  ",
         idempotency_key="brand-create-1",
     )
     assert created.product.brand == "Prada"
     assert created.product.description == "Cuero negro."
+    assert created.product.marketing_description == ("Cartera de cuero negro con estilo clásico.")
 
     updated = update_product(
         context=context,
         product_id=created.product.public_id,
         brand="",
         description="Sin logo visible",
+        marketing_description="Copy comercial corto.",
     )
     assert updated.brand == ""
     assert updated.description == "Sin logo visible"
+    assert updated.marketing_description == "Copy comercial corto."
 
     with pytest.raises(DomainError) as long_brand:
         update_product(
@@ -356,3 +360,11 @@ def test_brand_and_description_are_saved_and_limited() -> None:
             description="x" * 501,
         )
     assert "description" in long_description.value.field_errors
+
+    with pytest.raises(DomainError) as long_marketing:
+        update_product(
+            context=context,
+            product_id=created.product.public_id,
+            marketing_description="x" * 2501,
+        )
+    assert "marketingDescription" in long_marketing.value.field_errors

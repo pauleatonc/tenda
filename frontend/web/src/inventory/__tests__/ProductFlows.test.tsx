@@ -36,6 +36,7 @@ const product: ProductRow = {
   name: 'Velas de soya',
   brand: '',
   description: '',
+  marketingDescription: '',
   catalogStatus: 'active',
   purchasePrice: '2000',
   salePrice: '5000',
@@ -375,18 +376,22 @@ describe('ProductFormPage', () => {
           name: 'Cartera negra de cuero',
           brand: 'Prada',
           description: 'Cartera negra de cuero con asas cortas.',
+          marketingDescription:
+            'Esta cartera de cuero negro destaca por su silueta clásica.\n\nCaracterísticas:\n- Marca Prada.\n- Cuero negro.',
           extraAttributes: { aroma: 'Cuero' },
         },
         {
           name: 'Cartera de cuero',
           brand: '',
           description: 'Cartera de cuero negro, sin logo visible.',
+          marketingDescription: 'Cartera de cuero negro con diseño limpio.',
           extraAttributes: {},
         },
         {
           name: 'Bolso negro',
           brand: '',
           description: 'Bolso negro con cierre superior.',
+          marketingDescription: 'Bolso negro para uso diario.',
           extraAttributes: {},
         },
       ],
@@ -424,6 +429,9 @@ describe('ProductFormPage', () => {
     expect(screen.getByLabelText('Marca')).toHaveValue('Prada')
     expect(screen.getByLabelText('Descripción')).toHaveValue(
       'Cartera negra de cuero con asas cortas.',
+    )
+    expect(screen.getByLabelText('Descripción de marketing')).toHaveValue(
+      'Esta cartera de cuero negro destaca por su silueta clásica.\n\nCaracterísticas:\n- Marca Prada.\n- Cuero negro.',
     )
     expect(screen.getByLabelText('Precio de venta')).toHaveValue('')
   })

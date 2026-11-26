@@ -131,6 +131,7 @@ class Product(models.Model):
     name = models.CharField(max_length=160)
     brand = models.CharField(max_length=80, blank=True, default="")
     description = models.TextField(blank=True, default="")
+    marketing_description = models.TextField(blank=True, default="")
     catalog_status = models.CharField(
         max_length=12,
         choices=CatalogStatus.choices,

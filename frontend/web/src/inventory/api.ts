@@ -75,6 +75,7 @@ export type ProductDescriptionOption = {
   name: string
   brand: string
   description: string
+  marketingDescription: string
   extraAttributes: Record<string, unknown>
 }
 

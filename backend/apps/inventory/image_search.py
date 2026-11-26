@@ -43,6 +43,7 @@ MAX_HITS_PER_HOST = 3
 MAX_NAME_LENGTH = 160
 MAX_BRAND_LENGTH = 80
 MAX_COPY_DESCRIPTION_LENGTH = 500
+MAX_MARKETING_DESCRIPTION_LENGTH = 2500
 COPY_OPTION_COUNT = 3
 SEARCH_TIMEOUT_SECONDS = 8.0
 VISION_TIMEOUT_SECONDS = 18.0
@@ -151,6 +152,7 @@ class ProductDescriptionOption:
     name: str
     brand: str
     description: str
+    marketing_description: str
     extra_attributes: dict[str, Any]
 
     def as_payload(self) -> dict[str, Any]:
@@ -158,6 +160,7 @@ class ProductDescriptionOption:
             "name": self.name,
             "brand": self.brand,
             "description": self.description,
+            "marketingDescription": self.marketing_description,
             "extraAttributes": self.extra_attributes,
         }
 
@@ -691,14 +694,30 @@ def _copy_prompt(schema: Sequence[CustomFieldDefinition]) -> str:
     return (
         "Miras la foto de un producto para un inventario en Chile. "
         "Responde SOLO JSON: "
-        '{"options":[{"name":"","brand":"","description":"","extraAttributes":{}}]} '
+        '{"options":[{"name":"","brand":"","description":"",'
+        '"marketingDescription":"","extraAttributes":{}}]} '
         "Devuelve exactamente 3 opciones distintas.\n"
-        "name máximo 160 caracteres. description máximo 500 y solo lo visible.\n"
-        "brand máximo 80. Escríbela solo si el nombre se lee en el logo o en un texto de la foto. "
-        "Si no se lee, brand es cadena vacía en esa opción. "
-        "No infieras la marca por el estilo, por un producto parecido "
-        "ni por el nombre de una tienda. "
-        "No copies una columna propia al campo brand.\n"
+        "name máximo 160 caracteres: título de catálogo claro y comercial.\n"
+        "brand máximo 80. Rellénala si el logo o el texto se leen en la foto, "
+        "o si puedes inferir la marca con alta confianza (modelo, estilo, "
+        "insignia o detalles característicos). Si no estás seguro, brand es "
+        "cadena vacía. No copies una columna propia al campo brand.\n"
+        "description máximo 500: ficha corta de inventario, objetiva y "
+        "descriptiva. 1 o 2 oraciones solo con hechos físicos visibles o "
+        "claramente inferibles: tipo de producto, color, material, textura, "
+        "forma, tamaño relativo, cierres, asas, compartimentos, logos o "
+        "accesorios. "
+        "Prohibido tono de marketing: no uses frases como «único», "
+        "«práctico», «ideal para», «perfecto para», beneficios, usos "
+        "sugeridos, emoción ni llamadas a la acción. "
+        "Ese tono va solo en marketingDescription.\n"
+        "marketingDescription máximo 2500: copy de venta en español de Chile. "
+        "Incluye 1 o 2 párrafos persuasivos (uso, estilo, beneficios) y luego "
+        "una lista de características concretas visibles o razonablemente "
+        "inferidas (material, color, compartimentos, asas, logos, accesorios). "
+        "Puedes usar viñetas; emojis opcionales, no obligatorios. "
+        "Varía el tono entre las 3 opciones (más emocional, más práctica, "
+        "más breve).\n"
         "No incluyas precio de compra, precio de venta, moneda, estado, cantidad "
         "ni columnas que no sean texto corto.\n"
         f"{columns}"
@@ -755,12 +774,24 @@ def _clean_copy_options(
                     item.get("description"),
                     MAX_COPY_DESCRIPTION_LENGTH,
                 ),
+                marketing_description=_bounded_marketing_text(
+                    item.get("marketingDescription") or item.get("marketing_description")
+                ),
                 extra_attributes=extras,
             )
         )
         if len(options) == COPY_OPTION_COUNT:
             break
     return options
+
+
+def _bounded_marketing_text(value: Any) -> str:
+    if not isinstance(value, str):
+        return ""
+    # Preserve intentional line breaks for marketing paragraphs/bullets.
+    cleaned = "\n".join(line.rstrip() for line in value.strip().splitlines())
+    cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+    return cleaned[:MAX_MARKETING_DESCRIPTION_LENGTH]
 
 
 def _options_from_payload(payload: Mapping[str, Any]) -> list[ProductDescriptionOption]:
@@ -782,6 +813,9 @@ def _options_from_payload(payload: Mapping[str, Any]) -> list[ProductDescription
                 description=_bounded_copy_text(
                     item.get("description"),
                     MAX_COPY_DESCRIPTION_LENGTH,
+                ),
+                marketing_description=_bounded_marketing_text(
+                    item.get("marketingDescription") or item.get("marketing_description")
                 ),
                 extra_attributes=dict(extras) if isinstance(extras, Mapping) else {},
             )
@@ -852,6 +886,17 @@ class FakeImageSearchProvider:
                     "name": "Cartera negra de cuero",
                     "brand": "Prada",
                     "description": "Cartera negra de cuero con asas cortas.",
+                    "marketingDescription": (
+                        "Esta cartera de cuero negro destaca por su silueta "
+                        "clásica y un acabado sobrio, ideal para el día a día.\n\n"
+                        "Es liviana y versátil: funciona para el trabajo, una "
+                        "salida o un viaje corto.\n\n"
+                        "Características:\n"
+                        "- Marca Prada.\n"
+                        "- Cuero negro.\n"
+                        "- Asas cortas.\n"
+                        "- Formato compacto y fácil de combinar."
+                    ),
                     "extraAttributes": {
                         **extras,
                         "peso": "1.5",
@@ -862,12 +907,29 @@ class FakeImageSearchProvider:
                     "name": "Cartera de cuero",
                     "brand": "",
                     "description": "Cartera de cuero negro, sin logo visible.",
+                    "marketingDescription": (
+                        "Cartera de cuero negro con diseño limpio y práctico. "
+                        "Una pieza sobria para acompañar outfits casuales o "
+                        "formales.\n\n"
+                        "Características:\n"
+                        "- Cuero negro.\n"
+                        "- Silueta compacta.\n"
+                        "- Cierre superior."
+                    ),
                     "extraAttributes": extras,
                 },
                 {
                     "name": "Bolso negro",
                     "brand": "",
                     "description": "Bolso negro con cierre superior.",
+                    "marketingDescription": (
+                        "Bolso negro con cierre superior, pensado para uso "
+                        "diario. Su formato simple lo hace fácil de combinar.\n\n"
+                        "Características:\n"
+                        "- Color negro.\n"
+                        "- Cierre superior.\n"
+                        "- Estilo casual."
+                    ),
                     "extraAttributes": {},
                 },
             ],

@@ -87,6 +87,7 @@ function identityFromProduct(product: ProductRow): ProductIdentityDraft {
     name: product.name,
     brand: product.brand,
     description: product.description,
+    marketingDescription: product.marketingDescription,
     catalogStatus: product.catalogStatus,
     purchasePrice: product.purchasePrice,
     salePrice: product.salePrice,
@@ -111,6 +112,7 @@ export function ProductFormPage({
   const [name, setName] = useState('')
   const [brand, setBrand] = useState('')
   const [description, setDescription] = useState('')
+  const [marketingDescription, setMarketingDescription] = useState('')
   const [catalogStatus, setCatalogStatus] = useState('active')
   const [purchasePrice, setPurchasePrice] = useState('')
   const [salePrice, setSalePrice] = useState('')
@@ -175,6 +177,7 @@ export function ProductFormPage({
     setName(detail.name)
     setBrand(detail.brand)
     setDescription(detail.description)
+    setMarketingDescription(detail.marketingDescription)
     setCatalogStatus(detail.catalogStatus)
     setPurchasePrice(detail.purchasePrice ?? '')
     setSalePrice(detail.salePrice ?? '')
@@ -213,6 +216,7 @@ export function ProductFormPage({
       name,
       brand,
       description,
+      marketingDescription,
       catalogStatus,
       purchasePrice: parsePrice(purchasePrice).value,
       salePrice: parsePrice(salePrice).value,
@@ -226,6 +230,7 @@ export function ProductFormPage({
     setName(row.name)
     setBrand(row.brand)
     setDescription(row.description)
+    setMarketingDescription(row.marketingDescription)
     setCatalogStatus(row.catalogStatus)
     setPurchasePrice(row.purchasePrice ?? '')
     setSalePrice(row.salePrice ?? '')
@@ -251,6 +256,7 @@ export function ProductFormPage({
           name: name.trim(),
           brand: brand.trim(),
           description: description.trim(),
+          marketingDescription: marketingDescription.trim(),
           catalogStatus,
           purchasePrice: purchase.value,
           salePrice: sale.value,
@@ -263,6 +269,7 @@ export function ProductFormPage({
         name: name.trim(),
         brand: brand.trim(),
         description: description.trim(),
+        marketingDescription: marketingDescription.trim(),
         catalogStatus,
         purchasePrice: purchase.value,
         salePrice: sale.value,
@@ -446,6 +453,7 @@ export function ProductFormPage({
     setName(candidate.name)
     setBrand('')
     setDescription('')
+    setMarketingDescription('')
     setSalePrice(candidate.salePrice != null ? String(candidate.salePrice) : '')
     setPurchasePrice(
       candidate.purchasePrice != null ? String(candidate.purchasePrice) : '',
@@ -465,6 +473,7 @@ export function ProductFormPage({
     setName(option.name)
     setBrand(option.brand)
     setDescription(option.description)
+    setMarketingDescription(option.marketingDescription)
     setAttributes((current) => {
       const next = { ...current }
       for (const [key, value] of Object.entries(option.extraAttributes)) {
@@ -776,7 +785,7 @@ export function ProductFormPage({
           {assistedPhase === 'describing' ? (
             <p aria-live="polite">Redactando descripciones…</p>
           ) : (
-            <ul className="product-candidates__list">
+            <ul className="product-candidates__list product-candidates__list--copy">
               {copyOptions.map((option) => (
                 <li key={option.name}>
                   <button type="button" onClick={() => applyDescription(option)}>
@@ -784,9 +793,14 @@ export function ProductFormPage({
                     <span className="product-candidates__price">
                       {option.brand || 'Sin marca'}
                     </span>
-                    <small className="product-candidates__source">
+                    <small className="product-candidates__copy-short">
                       {option.description}
                     </small>
+                    {option.marketingDescription ? (
+                      <small className="product-candidates__copy-marketing">
+                        {option.marketingDescription}
+                      </small>
+                    ) : null}
                     {Object.entries(option.extraAttributes).map(([key, value]) => (
                       <small key={key} className="product-candidates__source">
                         {fields.find((field) => field.key === key)?.label ?? key}:{' '}
@@ -885,7 +899,31 @@ export function ProductFormPage({
               {errors.description ? (
                 <small className="field__error">{errors.description}</small>
               ) : (
-                <small className="field__hint">Hasta 500 caracteres.</small>
+                <small className="field__hint">
+                  Descripción corta para inventario. Hasta 500 caracteres.
+                </small>
+              )}
+            </div>
+
+            <div className="field">
+              <label htmlFor="marketingDescription">Descripción de marketing</label>
+              <textarea
+                id="marketingDescription"
+                value={marketingDescription}
+                maxLength={2500}
+                rows={8}
+                aria-invalid={Boolean(errors.marketingDescription)}
+                onChange={(event) => {
+                  setMarketingDescription(event.target.value)
+                  setDirty(true)
+                }}
+              />
+              {errors.marketingDescription ? (
+                <small className="field__error">{errors.marketingDescription}</small>
+              ) : (
+                <small className="field__hint">
+                  Copy comercial o publicitario. Hasta 2500 caracteres.
+                </small>
               )}
             </div>
 

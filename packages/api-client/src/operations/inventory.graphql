@@ -3,6 +3,7 @@ fragment ProductRow on ProductType {
   name
   brand
   description
+  marketingDescription
   catalogStatus
   purchasePrice
   salePrice
@@ -268,6 +269,7 @@ mutation SuggestProductDescriptionsFromImage(
       name
       brand
       description
+      marketingDescription
       extraAttributes
     }
   }

@@ -8,6 +8,11 @@ const CORE_IMPORT_COLUMNS: ImportColumn[] = [
   { destination: 'name', header: 'Nombre', required: true },
   { destination: 'brand', header: 'Marca', required: false },
   { destination: 'description', header: 'Descripción', required: false },
+  {
+    destination: 'marketingDescription',
+    header: 'Descripción de marketing',
+    required: false,
+  },
   { destination: 'initialQuantity', header: 'Cantidad inicial', required: false },
   { destination: 'catalogStatus', header: 'Estado de catálogo', required: false },
   { destination: 'purchasePrice', header: 'Precio de compra', required: false },
@@ -40,6 +45,15 @@ const HEADER_ALIASES: Record<string, string[]> = {
   name: ['nombre', 'producto', 'name'],
   brand: ['marca', 'brand'],
   description: ['descripción', 'descripcion', 'description'],
+  marketingDescription: [
+    'descripción de marketing',
+    'descripcion de marketing',
+    'descripción marketing',
+    'descripcion marketing',
+    'descripción publicitaria',
+    'descripcion publicitaria',
+    'marketing description',
+  ],
   initialQuantity: [
     'cantidad',
     'cantidad inicial',

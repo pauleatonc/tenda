@@ -29,6 +29,7 @@ function makeProduct(overrides: Partial<ProductRow> = {}): ProductRow {
     name: 'Velas de soya',
     brand: '',
     description: '',
+    marketingDescription: '',
     catalogStatus: 'active',
     purchasePrice: '2000',
     salePrice: '5000',

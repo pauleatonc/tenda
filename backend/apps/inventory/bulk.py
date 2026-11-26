@@ -41,6 +41,7 @@ from .services import (
     MAX_MOVEMENT_QUANTITY,
     clean_brand,
     clean_description,
+    clean_marketing_description,
     clean_reference_price,
     create_product,
 )
@@ -55,6 +56,7 @@ CORE_DESTINATIONS = frozenset(
         "name",
         "brand",
         "description",
+        "marketingDescription",
         "initialQuantity",
         "catalogStatus",
         "purchasePrice",
@@ -84,6 +86,7 @@ IMPORT_CORE_COLUMNS: tuple[ImportColumn, ...] = (
     ImportColumn("name", "Nombre", True),
     ImportColumn("brand", "Marca"),
     ImportColumn("description", "Descripción"),
+    ImportColumn("marketingDescription", "Descripción de marketing"),
     ImportColumn("initialQuantity", "Cantidad inicial"),
     ImportColumn("catalogStatus", "Estado de catálogo"),
     ImportColumn("purchasePrice", "Precio de compra"),
@@ -417,6 +420,9 @@ def normalise_import_row(
         "name": name,
         "brand": clean_brand(str(_row_value(row, mapping, "brand"))),
         "description": clean_description(str(_row_value(row, mapping, "description"))),
+        "marketing_description": clean_marketing_description(
+            str(_row_value(row, mapping, "marketingDescription"))
+        ),
         "catalog_status": catalog_status,
         "purchase_price": clean_reference_price(
             _row_value(row, mapping, "purchasePrice"),
@@ -1001,6 +1007,7 @@ def _export_rows(context: TenantContext, job: InventoryExport) -> tuple[list[str
         "Nombre",
         "Marca",
         "Descripción",
+        "Descripción de marketing",
         "Estado",
         "Stock total",
         "Reservado",
@@ -1017,6 +1024,7 @@ def _export_rows(context: TenantContext, job: InventoryExport) -> tuple[list[str
                 product.name,
                 product.brand,
                 product.description,
+                product.marketing_description,
                 product.catalog_status,
                 int(getattr(product, "on_hand", 0)),
                 int(getattr(product, "reserved", 0)),

@@ -2,6 +2,7 @@ export type ProductIdentityDraft = {
   name: string
   brand: string
   description: string
+  marketingDescription: string
   catalogStatus: string
   purchasePrice: string | null
   salePrice: string | null
@@ -23,6 +24,7 @@ function normalizeIdentityDraft(draft: ProductIdentityDraft): ProductIdentityDra
     name: draft.name.trim().toLocaleLowerCase('es-CL'),
     brand: draft.brand.trim().toLocaleLowerCase('es-CL'),
     description: draft.description.trim().toLocaleLowerCase('es-CL'),
+    marketingDescription: draft.marketingDescription.trim().toLocaleLowerCase('es-CL'),
     catalogStatus: draft.catalogStatus,
     purchasePrice: draft.purchasePrice,
     salePrice: draft.salePrice,

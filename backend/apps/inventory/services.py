@@ -547,6 +547,16 @@ def clean_description(value: str) -> str:
     return description
 
 
+def clean_marketing_description(value: str) -> str:
+    marketing_description = value.strip()
+    if len(marketing_description) > 2500:
+        raise validation_error(
+            "marketingDescription",
+            "Usa una descripción de marketing de hasta 2500 caracteres.",
+        )
+    return marketing_description
+
+
 def _clean_catalog_status(value: str) -> str:
     if value in {Product.CatalogStatus.ACTIVE, Product.CatalogStatus.INACTIVE}:
         return value
@@ -654,6 +664,7 @@ def _create_product(
     name: str,
     brand: str,
     description: str,
+    marketing_description: str,
     catalog_status: str,
     purchase_price: Decimal | None,
     sale_price: Decimal | None,
@@ -670,6 +681,7 @@ def _create_product(
                 name=name,
                 brand=brand,
                 description=description,
+                marketing_description=marketing_description,
                 catalog_status=catalog_status,
                 purchase_price=purchase_price,
                 sale_price=sale_price,
@@ -711,6 +723,7 @@ def create_product(
     name: str,
     brand: str = "",
     description: str = "",
+    marketing_description: str = "",
     catalog_status: str = Product.CatalogStatus.ACTIVE,
     purchase_price: Any = None,
     sale_price: Any = None,
@@ -729,6 +742,7 @@ def create_product(
     clean_name_value = _clean_name(name)
     clean_brand_value = clean_brand(brand)
     clean_description_value = clean_description(description)
+    clean_marketing_description_value = clean_marketing_description(marketing_description)
     status_value = _clean_catalog_status(catalog_status)
     purchase = clean_reference_price(purchase_price, field="purchasePrice")
     sale = clean_reference_price(sale_price, field="salePrice")
@@ -745,6 +759,7 @@ def create_product(
             name=clean_name_value,
             brand=clean_brand_value,
             description=clean_description_value,
+            marketing_description=clean_marketing_description_value,
             catalog_status=status_value,
             purchase_price=purchase,
             sale_price=sale,
@@ -768,6 +783,7 @@ def create_product(
             name=clean_name_value,
             brand=clean_brand_value,
             description=clean_description_value,
+            marketing_description=clean_marketing_description_value,
             catalog_status=status_value,
             purchase_price=purchase,
             sale_price=sale,
@@ -786,6 +802,7 @@ def create_product(
             "name": clean_name_value.casefold(),
             "brand": clean_brand_value.casefold(),
             "description": clean_description_value,
+            "marketingDescription": clean_marketing_description_value,
             "catalogStatus": status_value,
             "purchasePrice": str(purchase) if purchase is not None else None,
             "salePrice": str(sale) if sale is not None else None,
@@ -828,6 +845,7 @@ def update_product(
     name: str | None = None,
     brand: str | None = None,
     description: str | None = None,
+    marketing_description: str | None = None,
     catalog_status: str | None = None,
     purchase_price: Any = UNSET,
     sale_price: Any = UNSET,
@@ -854,6 +872,9 @@ def update_product(
     if description is not None:
         product.description = clean_description(description)
         changes.append("description")
+    if marketing_description is not None:
+        product.marketing_description = clean_marketing_description(marketing_description)
+        changes.append("marketing_description")
     if catalog_status is not None:
         product.catalog_status = _clean_catalog_status(catalog_status)
         changes.append("catalog_status")

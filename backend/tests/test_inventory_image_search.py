@@ -1186,6 +1186,8 @@ def test_fake_describe_copy_keeps_short_text_and_blank_brand() -> None:
     assert options[0].extra_attributes == {fields["marca"].key: "Cuero negro"}
     assert "talla" not in options[0].extra_attributes
     assert options[1].description.startswith("Cartera de cuero")
+    assert "Características:" in options[0].marketing_description
+    assert options[0].marketing_description.count("\n") >= 2
 
 
 def test_clean_copy_options_drops_prices_and_non_text_columns() -> None:
@@ -1197,6 +1199,7 @@ def test_clean_copy_options_drops_prices_and_non_text_columns() -> None:
                 "name": " " + ("Cartera " * 40),
                 "brand": "x" * 90,
                 "description": "y" * 520,
+                "marketingDescription": "z" * 2600,
                 "salePrice": 12990,
                 "purchasePrice": 4000,
                 "catalogStatus": "inactive",
@@ -1215,6 +1218,7 @@ def test_clean_copy_options_drops_prices_and_non_text_columns() -> None:
     assert len(cleaned[0].name) == 160
     assert len(cleaned[0].brand) == 80
     assert len(cleaned[0].description) == 500
+    assert len(cleaned[0].marketing_description) == 2500
     assert cleaned[0].extra_attributes == {fields["marca"].key: "Cuero"}
 
 
@@ -1235,7 +1239,7 @@ def test_graphql_describes_a_photo_without_web_search(monkeypatch: pytest.Monkey
                 mutation Describe($input: SuggestProductDescriptionsFromImageInput!) {
                   suggestProductDescriptionsFromImage(input: $input) {
                     replayed
-                    options { name brand description extraAttributes }
+                    options { name brand description marketingDescription extraAttributes }
                   }
                 }
                 """,
@@ -1254,6 +1258,7 @@ def test_graphql_describes_a_photo_without_web_search(monkeypatch: pytest.Monkey
     options = payload["data"]["suggestProductDescriptionsFromImage"]["options"]
     assert len(options) == 3
     assert options[1]["brand"] == ""
+    assert "Características:" in options[0]["marketingDescription"]
     extras = options[0]["extraAttributes"]
     if isinstance(extras, str):
         extras = json.loads(extras)

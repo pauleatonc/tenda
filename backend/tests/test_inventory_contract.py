@@ -329,10 +329,11 @@ def test_inventory_import_template_includes_core_and_dynamic_columns() -> None:
     assert template["contentType"].endswith("spreadsheetml.sheet")
     assert template["contentBase64"]
     headers = [column["header"] for column in template["columns"]]
-    assert headers[:7] == [
+    assert headers[:8] == [
         "Nombre",
         "Marca",
         "Descripción",
+        "Descripción de marketing",
         "Cantidad inicial",
         "Estado de catálogo",
         "Precio de compra",

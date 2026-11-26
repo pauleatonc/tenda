@@ -4,6 +4,7 @@ const base = {
   name: 'Polera',
   brand: '',
   description: '',
+  marketingDescription: '',
   catalogStatus: 'active',
   purchasePrice: '2000',
   salePrice: '5000',

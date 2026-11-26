@@ -104,6 +104,11 @@
   padding: 0;
 }
 
+.product-candidates__list--copy {
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
 .product-candidates__list button {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -117,6 +122,13 @@
   padding: 14px 0px;
   text-align: left;
   width: 100%;
+}
+
+.product-candidates__list--copy button {
+  align-content: start;
+  gap: 10px;
+  min-height: 280px;
+  padding: 18px 0 20px;
 }
 
 .product-candidates__list img,
@@ -157,6 +169,25 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.product-candidates__copy-short,
+.product-candidates__copy-marketing {
+  color: var(--ink-soft);
+  display: block;
+  line-height: 1.45;
+  margin: 0 16px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.product-candidates__copy-short {
+  color: var(--ink);
+}
+
+.product-candidates__copy-marketing {
+  max-height: 22rem;
+  overflow: auto;
 }
 
 .photo-queue {
@@ -415,6 +446,22 @@
 .data-table td.cell-text-column {
   max-width: 200px;
   white-space: normal;
+}
+
+/* Keep Acciones visible while the rest of the table scrolls horizontally. */
+.inventory-page .data-table th.cell-actions-sticky,
+.inventory-page .data-table td.cell-actions-sticky {
+  background: var(--surface);
+  box-shadow: -10px 0 14px -12px rgba(15, 23, 42, 0.35);
+  max-width: none;
+  position: sticky;
+  right: 0;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+.inventory-page .data-table th.cell-actions-sticky {
+  z-index: 3;
 }
 
 .stock-chips {

@@ -255,6 +255,7 @@ class ProductType(graphene.ObjectType):  # type: ignore[misc]
     name = graphene.String(required=True)
     brand = graphene.String(required=True)
     description = graphene.String(required=True)
+    marketing_description = graphene.String(required=True)
     catalog_status = graphene.String(required=True)
     purchase_price = graphene.String()
     sale_price = graphene.String()
@@ -781,6 +782,7 @@ class ProductDescriptionOptionType(graphene.ObjectType):  # type: ignore[misc]
     name = graphene.String(required=True)
     brand = graphene.String(required=True)
     description = graphene.String(required=True)
+    marketing_description = graphene.String(required=True)
     extra_attributes = graphene.JSONString(required=True)
 
     @staticmethod
@@ -827,6 +829,7 @@ class CreateProductInput(graphene.InputObjectType):  # type: ignore[misc]
     name = graphene.String(required=True)
     brand = graphene.String()
     description = graphene.String()
+    marketing_description = graphene.String()
     catalog_status = graphene.String()
     purchase_price = graphene.String()
     sale_price = graphene.String()
@@ -858,6 +861,7 @@ class CreateProduct(graphene.Mutation):  # type: ignore[misc]
                 name=str(input.get("name", "")),
                 brand=str(input.get("brand") or ""),
                 description=str(input.get("description") or ""),
+                marketing_description=str(input.get("marketing_description") or ""),
                 catalog_status=str(input.get("catalog_status") or Product.CatalogStatus.ACTIVE),
                 purchase_price=input.get("purchase_price"),
                 sale_price=input.get("sale_price"),
@@ -883,6 +887,7 @@ class UpdateProductInput(graphene.InputObjectType):  # type: ignore[misc]
     name = graphene.String()
     brand = graphene.String()
     description = graphene.String()
+    marketing_description = graphene.String()
     catalog_status = graphene.String()
     purchase_price = graphene.String()
     sale_price = graphene.String()
@@ -920,6 +925,7 @@ class UpdateProduct(graphene.Mutation):  # type: ignore[misc]
                 name=input.get("name"),
                 brand=input.get("brand"),
                 description=input.get("description"),
+                marketing_description=input.get("marketing_description"),
                 catalog_status=input.get("catalog_status"),
                 purchase_price=purchase,
                 sale_price=sale,

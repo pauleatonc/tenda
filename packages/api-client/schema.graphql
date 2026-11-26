@@ -613,6 +613,7 @@ type ProductType {
   name: String!
   brand: String!
   description: String!
+  marketingDescription: String!
   catalogStatus: String!
   purchasePrice: String
   salePrice: String
@@ -1149,6 +1150,7 @@ type ProductDescriptionOptionType {
   name: String!
   brand: String!
   description: String!
+  marketingDescription: String!
   extraAttributes: JSONString!
 }
 
@@ -1167,6 +1169,7 @@ input CreateProductInput {
   name: String!
   brand: String
   description: String
+  marketingDescription: String
   catalogStatus: String
   purchasePrice: String
   salePrice: String
@@ -1186,6 +1189,7 @@ input UpdateProductInput {
   name: String
   brand: String
   description: String
+  marketingDescription: String
   catalogStatus: String
   purchasePrice: String
   salePrice: String

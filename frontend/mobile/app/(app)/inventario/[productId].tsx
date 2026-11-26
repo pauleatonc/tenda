@@ -155,6 +155,9 @@ export default function ProductDetailScreen() {
           {product.description ? (
             <Text style={styles.muted}>{product.description}</Text>
           ) : null}
+          {product.marketingDescription ? (
+            <Text style={styles.muted}>{product.marketingDescription}</Text>
+          ) : null}
           <View style={styles.chips}>
             {product.stock.available > 0 ? (
               <InventoryChip
